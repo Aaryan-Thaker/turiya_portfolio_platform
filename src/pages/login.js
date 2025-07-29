@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 
 export default function Login() {
   const router = useRouter();
@@ -121,7 +122,7 @@ export default function Login() {
         </form>
 
         <div className="auth-links">
-          Don't have an account? <a href="/register">Sign Up</a>
+          Don't have an account? <Link href="/register">Sign Up</Link>
         </div>
       </div>
     </>

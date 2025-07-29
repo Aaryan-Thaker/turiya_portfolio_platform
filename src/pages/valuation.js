@@ -121,7 +121,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
       <footer style={styles.footer}>
         <p>
           This website is a non-commercial project and is intended for educational and informational purposes only.
-          Financial data is retrieved via the Yahoo Finance API (yFinance) and is provided "as is" without any representations or warranties.
+          Financial data is retrieved via the Yahoo Finance API (yFinance) and is provided &quot;as is&quot; without any representations or warranties.
         </p>
       </footer>
     </div>

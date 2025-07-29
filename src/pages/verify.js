@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 export default function VerifyPage({ success, error }) {
   return (
@@ -7,12 +8,12 @@ export default function VerifyPage({ success, error }) {
         {success ? (
           <>
             <h2 style={styles.successMessage}>{success}</h2>
-            <a href="/login" style={styles.loginLink}>Login Now</a>
+            <Link href="/login" style={styles.loginLink}>Login Now</Link>
           </>
         ) : error ? (
           <>
             <h2 style={styles.errorMessage}>{error}</h2>
-            <a href="/register" style={styles.loginLink}>Register Again</a>
+            <Link href="/register" style={styles.loginLink}>Register Again</Link>
           </>
         ) : (
           <h2>Processing...</h2>

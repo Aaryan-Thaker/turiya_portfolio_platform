@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Nav from './Nav';  // Adjust path if needed
 
+
 export default function PortfolioPage({
   currentUser,
   marketData,

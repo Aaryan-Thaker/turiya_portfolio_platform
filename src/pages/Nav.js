@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 export default function Nav({ user }) {
   async function handleLogout() {
@@ -22,9 +23,9 @@ export default function Nav({ user }) {
       <div style={styles.navTitle}>Portfolio Tracker</div>
       {user && user.isAuthenticated ? (
         <>
-          <a href="/" style={styles.navLink}>Portfolio</a>
-          <a href="/valuation" style={styles.navLink}>Valuation</a>
-          <a href="/transactions" style={styles.navLink}>Transactions</a>
+          <Link href="/" style={styles.navLink}>Portfolio</Link>
+          <Link href="/valuation" style={styles.navLink}>Valuation</Link>
+          <Link href="/transactions" style={styles.navLink}>Transactions</Link>
           <span
             role="button"
             tabIndex={0}
@@ -37,7 +38,7 @@ export default function Nav({ user }) {
           </span>
         </>
       ) : (
-        <a href="/login" style={styles.navLink}>Login</a>
+        <Link href="/login" style={styles.navLink}>Login</Link>
       )}
     </nav>
   );

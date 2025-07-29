@@ -216,7 +216,7 @@ export default function TransactionsPage({
       </div>
 
       <footer className="footer">
-        <p>This site is for educational use only. Financial data is provided as-is and not to be construed as financial advice.</p>
+        <p>This site is for educational use only. Financial data is provided &quot;as is&quot; and not to be construed as financial advice.</p>
       </footer>
 
       <style jsx>{`
