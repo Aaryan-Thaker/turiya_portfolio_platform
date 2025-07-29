@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Nav from './Nav';  // Adjust path if needed
+import Image from 'next/image';
 
 
 export default function PortfolioPage({
@@ -144,7 +145,7 @@ export default function PortfolioPage({
     imgData?.[key] && activeGraph === key && (
       <div style={{ textAlign: 'center', marginBottom: 30 }}>
         <h3>{title}</h3>
-        <img
+        <Image
           src={`data:image/png;base64,${imgData[key]}`}
           alt={title}
           style={{ maxWidth: '100%' }}
