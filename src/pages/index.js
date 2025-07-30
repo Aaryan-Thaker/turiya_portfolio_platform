@@ -277,8 +277,20 @@ const portfolioSummaryStyle = {
 };
 
 export async function getServerSideProps(context) {
-  const backendUrl = process.env.BACKEND_URL || '/api/portfolio';
+  // Determine protocol (http for dev, https for prod)
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
 
+  // Get the host from incoming request headers (e.g. localhost:3000 or your domain)
+  const host = context.req.headers.host;
+
+  // Build full backend URL:
+  // If BACKEND_URL env var is set, use it directly,
+  // otherwise fallback to current host + /api/portfolio
+  const backendUrl = process.env.BACKEND_URL
+    ? process.env.BACKEND_URL
+    : `${protocol}://${host}/api/portfolio`;
+
+  // Fetch from backend API
   const res = await fetch(backendUrl, {
     method: 'GET',
     credentials: 'include',
@@ -326,3 +338,4 @@ export async function getServerSideProps(context) {
     },
   };
 }
+
