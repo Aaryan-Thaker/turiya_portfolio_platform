@@ -277,7 +277,7 @@ const portfolioSummaryStyle = {
 };
 
 export async function getServerSideProps(context) {
-  const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000/api/portfolio';
+  const backendUrl = process.env.BACKEND_URL || '/api/portfolio';
 
   const res = await fetch(backendUrl, {
     method: 'GET',

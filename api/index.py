@@ -22,7 +22,7 @@ import pandas as pd
 
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
+CORS(app, supports_credentials=True, origins=["turiyaportfolioplatform-9v5cm5rvi-aaryans-projects-56d3a379.vercel.app"])
 app.secret_key = "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDCe1IMBxPm037d\nT43H/Kti/S0ZPvf0o6W7kEwk3Ma/9NpK86HHZ8QFVvzyUtvBqWgV3SyKyAzoYfou\nyIb7UIX2XB0Yl86NsiV15lPSKgWRCA8Ejh29M7dz8Yxha9qFAfwgEtCpPvyCkBSn\nd2CuEB/Hk7MFjMJkYblSNY9j87dYoWlkJv6Y3k29eyFP4eI/Ivzj0sX8A3fpn4P5\nLltlRrzG6yvaY+m/Rd9G9p9+dumVwwgvZm/CVIN3ZU1zQV168Wv4jyzT87grsuOU\nfox5RDM63HBs06EaKq1fZh3wBLruoCOYe4xUMIXY63OkujTaJQRzSZ1cOSo5iUZ1\neaIyOeQjAgMBAAECggEABLO3lZvcMtH9OLuSKXol6KRHYVtg4lTMjn7cIG4IDh8M\n4hAG4svS9PAX+IHhV0rRvemViJtymHG5+0SU4uGdA4pRl8Uf1NQwTKvvbd7fOJTx\nzAHlnSvxbQezha12YI3eOyZJTjY8I6n5Hd1ohHzWT9x10RYIoyWrtd2epGOBlM5z\ncQlARXnk3iz/0n/GqMzNJ8mn7R1S1l1t35y9jTmthiq2FzYa+anFU29bnRuE8FD3\nagFf1y0fX9QGAhbbNPeXh8bn/8qfwxB7wfWpB7NlfLZ3gLTZIV7BRXe3jJztpj15\n6iWPp6fZfDKTYeIbEK+8k/GcDluOod9Mj9WUxfKUpQKBgQDqJ7WQT/lH0eL6vioB\nNQfh25KWyvCH/NU/T9LhZdJkiNweqQ9nbc9kqRNitT3JV6tSlmc2nBESQnxErtq1\nFc4R1b9ryKMDq4iowtC/5WxvQUpYddaBZ7i5pivd2eYuVuF5aFNZHguIRpQ97v0b\n35w2Mr5XnLhoc5E2lKIQgXnS3QKBgQDUoBkBRbemBSShw02LJ8Jp3JPr2ylnDH6e\nABlzYRVihuL7wZN9RCy56sNSCZXbXJAedT6U6QlFRNdJ3BeaxXajq1gmt690VC35\neaOfR+tI2DcEToAZR6tI6ced+7UBNzB2YvkixxFWbMRVi33FubKwagk2Z5fcxB9A\nkZI9gqWi/wKBgQDOPYOSRJ6QP7HooK5mucrjiH6pCr6pSGybgzd/CCw0GMeoyej\nlfjh9Hn6qyBswydHauomE3iF2MGTzV8duML0uowL54CNrvyDiHRNUUodBCjzmXcC\nK9Vsz4w7r70qe6PFR7qB+BC4S1Iu6t1NO7tfkXpNuOBEP+ZbaLcGSsR+kQKBgCn6\njdVFeXOqskfJsmaV6/lQllfLhkoVGm6BYIT6FunD7c58smzZ5+aw5e0tfUu4469P\nwJJPzAfEBqlLbdGdyMWZj6bdPyO9dvI5RMeuwFI6depAwWO8VaHongOf7WWXCtdk\nxQFLwi2I/d5R0vwVpKTV2onGPCJXCkCKPRAt2hvrAoGBAJ8Rdy6+UUXd7YxJn8/I\nYOG47DL0mk/el0zq60JSFCXjgMrcvHdRpb8ExE+BH9EdgtDljMPQQNfIKKRpKECu\nN5XJk4iDxI+AAVGYj4Q7PgDoQhsBQ3ztYcOXxD07gOHijmqPM4i82bWzNIRNoDxK\njA8UwfdSVK+fLFZ8FHNr/ub0"
 
 # Email configuration
@@ -323,7 +323,7 @@ def compute_holdings_from_transactions(transactions):
 
     return holdings
 
-@app.route('/api/login', methods=['POST'])
+@app.route('/login', methods=['POST'])
 def login():
     users = load_users()
     data = request.json
@@ -350,7 +350,7 @@ def unauthorized():
     return jsonify({'success': False, 'error': 'Unauthorized'}), 401
 
 
-@app.route('/api/register', methods=['POST'])
+@app.route('/register', methods=['POST'])
 def register():
     users = load_users()
     data = request.json
@@ -389,7 +389,7 @@ def register():
         return jsonify({'success': False, 'error': 'Failed to send verification email'}), 500
 
 
-@app.route('/api/verify/<token>')
+@app.route('/verify/<token>')
 def verify_email(token):
     users = load_users()
     for username, user_data in users.items():
@@ -431,13 +431,13 @@ def save_user_data(data):
             'avg_cost[]': data.getlist('avg_cost[]') if hasattr(data, 'getlist') else data.get('avg_cost[]', [])
         }, f)
 
-@app.route('/api/logout', methods=['POST'])
+@app.route('/logout', methods=['POST'])
 @login_required
 def logout():
     logout_user()
     return jsonify({'success': True, 'message': 'Logged out successfully'}), 200
 
-@app.route('/api/portfolio', methods=['GET'])
+@app.route('/portfolio', methods=['GET'])
 @login_required
 def portfolio_tracker_api():
     tx_file = os.path.join('user_data', current_user.id, 'transactions.json')
@@ -576,7 +576,7 @@ def portfolio_tracker_api():
         }
     })
 
-@app.route('/api/transactions', methods=['GET', 'POST'])
+@app.route('/transactions', methods=['GET', 'POST'])
 @login_required
 def transactions_api():
     user_file = f'user_data/{current_user.id}/transactions.json'
@@ -659,7 +659,7 @@ def transactions_api():
     })
 
 
-@app.route('/api/valuation', methods=['GET'])
+@app.route('/valuation', methods=['GET'])
 @login_required
 def valuation_dashboard_api():
     try:
@@ -751,7 +751,7 @@ def valuation_dashboard_api():
     except Exception as e:
         return jsonify({'success': False, 'error': f"Error loading valuation data: {str(e)}"}), 500
 
-@app.route('/api/clear_transactions', methods=['POST'])
+@app.route('/clear_transactions', methods=['POST'])
 @login_required
 def clear_transactions_api():
     user_file = f'user_data/{current_user.id}/transactions.json'
@@ -768,5 +768,5 @@ def clear_transactions_api():
             'error': f"Error clearing transactions: {str(e)}"
         }), 500
 
-if __name__ == '__main__':
-    app.run(debug=True, port=8000)
+def handler(environ, start_response):
+    return app(environ, start_response)

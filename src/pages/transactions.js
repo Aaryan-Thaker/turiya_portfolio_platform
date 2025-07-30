@@ -247,9 +247,8 @@ export default function TransactionsPage({
 }
 
 export async function getServerSideProps(context) {
-  const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
-  const res = await fetch(`${backendBase}/api/transactions`, {
+  const res = await fetch(`/api/transactions`, {
     credentials: 'include',
     headers: {
       cookie: context.req.headers.cookie || '',
