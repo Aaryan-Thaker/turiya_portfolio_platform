@@ -280,7 +280,7 @@ export async function getServerSideProps(context) {
   const host = context.req.headers.host;
 
   // Always fetch via local Next.js API route which rewrites to backend
-  const backendUrl = `http://${host}/api/portfolio`;
+  const backendUrl = `/api/portfolio`;
 
   const res = await fetch(backendUrl, {
     method: 'GET',

@@ -4,7 +4,7 @@ import Link from 'next/link';
 export default function Nav({ user }) {
   async function handleLogout() {
     try {
-      const res = await fetch(`http://${host}/api/logout`, {
+      const res = await fetch(`/api/logout`, {
         method: 'POST',
         credentials: 'include',
       });
