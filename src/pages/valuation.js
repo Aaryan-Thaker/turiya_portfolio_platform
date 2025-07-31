@@ -169,7 +169,7 @@ const styles = {
 };
 
 export async function getServerSideProps(context) {
-  const backendUrl = process.env.BACKEND_URL || '/api/valuation';
+  const backendUrl = process.env.BACKEND_URL || 'http://${host}/api/valuation';
 
   const res = await fetch(backendUrl, {
     credentials: 'include',
