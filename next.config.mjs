@@ -5,7 +5,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'https://your-flask-backend.onrender.com/:path*'
+        destination: 'https://portoflio-backend-snowy.vercel.app/'
       }
     ];
   }
