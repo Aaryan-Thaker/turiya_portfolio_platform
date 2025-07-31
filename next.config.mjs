@@ -4,7 +4,7 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/api/:path*',
+        source: '/api/:path*',
         destination: 'https://portoflio-backend-snowy.vercel.app/api/:path*'
       }
     ];

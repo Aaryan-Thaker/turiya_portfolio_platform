@@ -40,7 +40,7 @@ export default function TransactionsPage({
     }
 
     try {
-      const res = await fetch(`${backendBase}/api/transactions`, {
+      const res = await fetch(`/api/transactions`, {
         credentials: 'include',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
