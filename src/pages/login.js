@@ -24,6 +24,7 @@ export default function Login() {
       });
 
       const data = await res.json();
+      console.log("Login response:", data);
 
       if (res.ok && data.success) {
         // Login success, redirect to homepage
