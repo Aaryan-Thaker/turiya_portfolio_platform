@@ -248,7 +248,7 @@ export default function TransactionsPage({
 
 export async function getServerSideProps(context) {
 
-  const res = await fetch(`/api/transactions`, {
+  const res = await fetch(`/api/api/transactions`, {
     credentials: 'include',
     headers: {
       cookie: context.req.headers.cookie || '',

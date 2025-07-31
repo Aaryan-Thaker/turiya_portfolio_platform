@@ -4,8 +4,8 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/:path*',
-        destination: 'https://portoflio-backend-snowy.vercel.app/'
+        source: '/api/api/:path*',
+        destination: 'https://portoflio-backend-snowy.vercel.app/api/:path*'
       }
     ];
   }

@@ -20,7 +20,7 @@ export default function Register() {
       return;
     }
 
-    const res = await fetch('/api/register', {
+    const res = await fetch('/api/api/register', {
       method: 'POST',
       credentials: 'include',
       headers: {
