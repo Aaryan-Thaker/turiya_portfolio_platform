@@ -8,24 +8,32 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError('');
 
-    // Basic validation
-    if (!email.trim()) {
-      setError('Email is required');
-      return;
-    }
-    if (!password) {
-      setError('Password is required');
-      return;
-    }
+    try {
+      const res = await fetch(`/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // for session cookies
+        body: JSON.stringify({
+  email: email.trim().toLowerCase(), 
+  password
+}),
+      });
 
-    // Simulate successful login after 1 second
-    setTimeout(() => {
-      router.push('/');
-    }, 1000);
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        // Login success, redirect to homepage
+        router.push('/');
+      } else {
+        setError(data.error || 'Login failed');
+      }
+    } catch (err) {
+      setError('Server error: ' + err.message);
+    }
   }
 
   return (
