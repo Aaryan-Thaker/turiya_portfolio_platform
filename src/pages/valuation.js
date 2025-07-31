@@ -169,7 +169,13 @@ const styles = {
 };
 
 export async function getServerSideProps(context) {
-  const backendUrl = process.env.BACKEND_URL || '/api/valuation';
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const host = context.req.headers.host;
+
+  // Construct full URL depending on environment
+  const backendUrl = process.env.BACKEND_URL
+    ? `${process.env.BACKEND_URL}/valuation`
+    : `${protocol}://${host}/api/valuation`;
 
   const res = await fetch(backendUrl, {
     credentials: 'include',

@@ -247,8 +247,15 @@ export default function TransactionsPage({
 }
 
 export async function getServerSideProps(context) {
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const host = context.req.headers.host;
 
-  const res = await fetch(`/api/api/transactions`, {
+  // Uses the rewrite proxy to /api in dev or uses backend URL in prod
+  const backendUrl = process.env.BACKEND_URL
+    ? `${process.env.BACKEND_URL}/transactions`
+    : `${protocol}://${host}/api/transactions`;
+
+  const res = await fetch(backendUrl, {
     credentials: 'include',
     headers: {
       cookie: context.req.headers.cookie || '',
@@ -282,3 +289,4 @@ export async function getServerSideProps(context) {
     },
   };
 }
+

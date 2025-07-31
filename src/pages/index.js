@@ -277,10 +277,9 @@ const portfolioSummaryStyle = {
 };
 
 export async function getServerSideProps(context) {
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = context.req.headers.host;
-
-  // Always fetch via local Next.js API route which rewrites to backend
-  const backendUrl = `/api/portfolio`;
+  const backendUrl = `${protocol}://${host}/api/portfolio`;
 
   const res = await fetch(backendUrl, {
     method: 'GET',
