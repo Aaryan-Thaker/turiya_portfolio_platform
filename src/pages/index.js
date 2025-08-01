@@ -213,6 +213,15 @@ export async function getServerSideProps(context) {
     },
   });
 
+  if (res.status === 401) {
+    return {
+      redirect: {
+        destination: '/login',
+        permanent: false,
+      },
+    };
+  }
+
   const data = await res.json();
 
   const currentUser = {
