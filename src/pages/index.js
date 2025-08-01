@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Nav from './Nav';  
-import { StockPie, SectorPie, GainBar, TreemapChart } from './Charts';  
+import { StockPie, SectorPie, GainBar, TreemapChart } from '../components/Charts';  
 
 export default function PortfolioPage({
   currentUser,
