@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import Nav from './Nav';  // Adjust path if needed
-
-
+import Nav from './Nav';  
+import { StockPie, SectorPie, GainBar, TreemapChart } from './Charts';  
 
 export default function PortfolioPage({
   currentUser,
@@ -11,7 +10,6 @@ export default function PortfolioPage({
   totalGain,
   totalGainPct,
   portfolioTableData,
-  imgData,
   errorMessage,
 }) {
   const [activeGraph, setActiveGraph] = useState('stockPie');
@@ -29,58 +27,20 @@ export default function PortfolioPage({
     );
   }
 
-  // Helper to format numbers as currency (2 decimals)
-  const formatCurrency = (num) => {
-    if (typeof num !== 'number') return 'N/A';
-    return num.toFixed(2);
-  };
-
-  // Helper to format numbers as integers (quantities)
-  const formatQuantity = (num) => {
-    if (typeof num !== 'number') return 'N/A';
-    return Math.round(num);
-  };
-
-  // Helper to format percentages (2 decimals + %)
-  const formatPercent = (num) => {
-    if (typeof num !== 'number') return 'N/A';
-    return num.toFixed(2) + '%';
-  };
-
-  // Helper to format date strings (YYYY-MM-DD)
-  const formatDate = (dateStr) => {
-    if (!dateStr) return 'N/A';
-    const d = new Date(dateStr);
-    if (isNaN(d)) return 'N/A';
-    return d.toISOString().slice(0, 10);
-  };
+  const formatCurrency = (num) => (typeof num === 'number' ? num.toFixed(2) : 'N/A');
+  const formatQuantity = (num) => (typeof num === 'number' ? Math.round(num) : 'N/A');
+  const formatPercent = (num) => (typeof num === 'number' ? num.toFixed(2) + '%' : 'N/A');
 
   const renderTable = () => (
     <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
       <thead>
         <tr>
           {[
-            'Ticker',
-            'Name',
-            'Quantity',
-            'Currency',
-            'Avg Cost/Share',
-            'CMP',
-            'Current Value',
-            'Total Cost',
-            'Gain/Loss',
-            'Gain/Loss %',
-            'AllocationPercent',
-            'Investment Date',
-            'Exchange',
-            '52w High',
-            '52w Low',
-            'Unrealized Gains',
-            'Sector',
+            'Ticker', 'Name', 'Quantity', 'Currency', 'Avg Cost/Share', 'CMP', 'Current Value',
+            'Total Cost', 'Gain/Loss', 'Gain/Loss %', 'AllocationPercent', 'Investment Date',
+            'Exchange', '52w High', '52w Low', 'Unrealized Gains', 'Sector',
           ].map((header) => (
-            <th key={header} style={{ border: '1px solid #ddd', padding: 8 }}>
-              {header}
-            </th>
+            <th key={header} style={{ border: '1px solid #ddd', padding: 8 }}>{header}</th>
           ))}
         </tr>
       </thead>
@@ -88,70 +48,25 @@ export default function PortfolioPage({
         {portfolioTableData?.map((row, idx) => (
           <tr key={idx}>
             {[
-              'Ticker',
-              'Name',
-              'Quantity',
-              'Currency',
-              'Avg Cost/Share',
-              'CMP',
-              'Current Value',
-              'Total Cost',
-              'Gain/Loss',
-              'Gain/Loss %',
-              'AllocationPercent',
-              'Investment Date',
-              'Exchange',
-              '52w High',
-              '52w Low',
-              'Unrealized Gains',
-              'Sector',
+              'Ticker', 'Name', 'Quantity', 'Currency', 'Avg Cost/Share', 'CMP', 'Current Value',
+              'Total Cost', 'Gain/Loss', 'Gain/Loss %', 'AllocationPercent', 'Investment Date',
+              'Exchange', '52w High', '52w Low', 'Unrealized Gains', 'Sector',
             ].map((key, jdx) => {
               let displayValue = row[key];
 
               if (typeof displayValue === 'number') {
-                if (key === 'Quantity') {
-                  displayValue = formatQuantity(displayValue);
-                } else if (key === 'Gain/Loss %' || key === 'AllocationPercent') {
-                  displayValue = formatPercent(displayValue);
-                } else if (
-                  [
-                    'Avg Cost/Share',
-                    'CMP',
-                    'Current Value',
-                    'Total Cost',
-                    'Gain/Loss',
-                    'Unrealized Gains',
-                    '52w High',
-                    '52w Low',
-                  ].includes(key)
-                ) {
-                  displayValue = formatCurrency(displayValue);
-                }
+                if (key === 'Quantity') displayValue = formatQuantity(displayValue);
+                else if (key === 'Gain/Loss %' || key === 'AllocationPercent') displayValue = formatPercent(displayValue);
+                else displayValue = formatCurrency(displayValue);
               }
 
-              return (
-                <td key={jdx} style={{ border: '1px solid #ddd', padding: 8 }}>
-                  {displayValue}
-                </td>
-              );
+              return <td key={jdx} style={{ border: '1px solid #ddd', padding: 8 }}>{displayValue}</td>;
             })}
           </tr>
         ))}
       </tbody>
     </table>
   );
-
-  const renderChart = (key, title) =>
-    imgData?.[key] && activeGraph === key && (
-      <div style={{ textAlign: 'center', marginBottom: 30 }}>
-        <h3>{title}</h3>
-        <img
-          src={`data:image/png;base64,${imgData[key]}`}
-          alt={title}
-          style={{ maxWidth: '100%' }}
-        />
-      </div>
-    );
 
   return (
     <div
@@ -163,15 +78,12 @@ export default function PortfolioPage({
         fontSize: 13,
       }}
     >
-      {/* Use Nav component with user */}
       <Nav user={currentUser} />
-
       <h1>Portfolio Overview</h1>
 
       <div style={marketSummaryStyle}>
         {['nasdaq', 'sp500', 'dow'].map((index) => {
           const data = marketData?.[index];
-
           if (!data || data.price === undefined) {
             return (
               <div key={index} style={marketIndicatorStyle}>
@@ -185,9 +97,7 @@ export default function PortfolioPage({
           return (
             <div key={index} style={marketIndicatorStyle}>
               <div style={{ fontWeight: 'bold' }}>{index.toUpperCase()}</div>
-              <div style={{ fontWeight: 'bold', fontSize: 16 }}>
-                {typeof data.price === 'number' ? data.price.toFixed(2) : 'N/A'}
-              </div>
+              <div style={{ fontWeight: 'bold', fontSize: 16 }}>{data.price.toFixed(2)}</div>
               <div style={{ fontSize: 14, color: positive ? '#006400' : '#8B0000' }}>
                 {data.change.toFixed(2)} ({formatPercent(data.change_pct * 100)})
               </div>
@@ -209,7 +119,12 @@ export default function PortfolioPage({
       {renderTable()}
 
       <div style={{ marginBottom: 20 }}>
-        {['stockPie', 'sectorPie', 'gainBar', 'treemap'].map((key) => (
+        {[
+          { key: 'stockPie', label: 'Stock Pie' },
+          { key: 'sectorPie', label: 'Sector Pie' },
+          { key: 'gainBar', label: 'Gain/Loss Bar' },
+          { key: 'treemap', label: 'Treemap' },
+        ].map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setActiveGraph(key)}
@@ -222,15 +137,17 @@ export default function PortfolioPage({
               borderRadius: 4,
             }}
           >
-            {key}
+            {label}
           </button>
         ))}
       </div>
 
-      {renderChart('stockPie', 'Stock Allocation')}
-      {renderChart('sectorPie', 'Sector Allocation')}
-      {renderChart('gainBar', 'Gain/Loss Chart')}
-      {renderChart('treemap', 'Treemap')}
+      <div style={{ marginBottom: 40 }}>
+        {activeGraph === 'stockPie' && <StockPie data={portfolioTableData} />}
+        {activeGraph === 'sectorPie' && <SectorPie data={portfolioTableData} />}
+        {activeGraph === 'gainBar' && <GainBar data={portfolioTableData} />}
+        {activeGraph === 'treemap' && <TreemapChart data={portfolioTableData} />}
+      </div>
     </div>
   );
 }
@@ -276,6 +193,7 @@ const portfolioSummaryStyle = {
   fontSize: 15,
 };
 
+// Server-side data fetching from Flask backend
 export async function getServerSideProps(context) {
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = context.req.headers.host;
@@ -288,15 +206,6 @@ export async function getServerSideProps(context) {
       cookie: context.req.headers.cookie || '',
     },
   });
-
-  if (res.status === 401) {
-    return {
-      redirect: {
-        destination: '/login',
-        permanent: false,
-      },
-    };
-  }
 
   const data = await res.json();
 
@@ -323,10 +232,6 @@ export async function getServerSideProps(context) {
       totalGain: data.totalGain,
       totalGainPct: data.totalGainPercent,
       portfolioTableData: data.portfolioTableData || [],
-      imgData: data.charts || {},
-      showResults: true,
     },
   };
 }
-
-
