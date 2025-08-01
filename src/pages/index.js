@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Nav from './Nav';  
-import { StockPie, SectorPie, GainBar, TreemapChart } from '../components/Charts';  
+import dynamic from 'next/dynamic';
+
+const StockPie = dynamic(() => import('../components/Charts').then(mod => mod.StockPie), { ssr: false });
+const SectorPie = dynamic(() => import('../components/Charts').then(mod => mod.SectorPie), { ssr: false });
+const GainBar = dynamic(() => import('../components/Charts').then(mod => mod.GainBar), { ssr: false });
+const TreemapChart = dynamic(() => import('../components/Charts').then(mod => mod.TreemapChart), { ssr: false });
+
 
 export default function PortfolioPage({
   currentUser,
