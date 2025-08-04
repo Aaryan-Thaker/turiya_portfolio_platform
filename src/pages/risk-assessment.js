@@ -838,10 +838,63 @@ export default function RiskAssessment({ currentUser }) {
 }
 
 export async function getServerSideProps(context) {
-  // Your existing auth logic
+  const { req, res } = context;
+  let currentUser = null;
+
+  try {
+    // 1. Check for auth token in cookies
+    const token = req.cookies.token || '';
+
+    // 2. Verify token with Flask backend
+    const response = await fetch(`${process.env.BACKEND_API_URL}/api/verify-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      credentials: 'include'
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      currentUser = {
+        id: data.user.id,
+        email: data.user.email,
+        name: data.user.name,
+        verified: data.user.verified,
+        riskAssessmentCompleted: data.user.riskAssessmentCompleted
+      };
+    } else {
+      // Clear invalid token
+      res.setHeader('Set-Cookie', 'token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
+    }
+  } catch (error) {
+    console.error('Authentication check failed:', error);
+  }
+
+  // 3. Redirect unauthenticated users
+  if (!currentUser) {
+    return {
+      redirect: {
+        destination: '/login',
+        permanent: false
+      }
+    };
+  }
+
+  // 4. Redirect if risk assessment not completed
+  if (!currentUser.riskAssessmentCompleted && context.resolvedUrl !== '/risk-assessment') {
+    return {
+      redirect: {
+        destination: '/risk-assessment',
+        permanent: false
+      }
+    };
+  }
+
   return {
     props: {
-      currentUser: { /* user data */ }
+      currentUser
     }
   };
 }
