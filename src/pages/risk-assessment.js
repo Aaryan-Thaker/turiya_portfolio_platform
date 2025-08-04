@@ -91,26 +91,59 @@ export default function RiskAssessment({ currentUser }) {
   }, [formData]);
 
   const calculateScore = () => {
-    let score = 0;
-    
-    // Question 1: Purpose of Investing
-    const purposeScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
-    if (formData.purposeOfInvesting in purposeScores) {
-      score += purposeScores[formData.purposeOfInvesting];
-    }
-    
-    // Question 2: Life Stage
-    const lifeStageScores = { a: 50, b: 40, c: 30, d: 50, e: 20, f: 10 };
-    if (formData.lifeStage in lifeStageScores) {
-      score += lifeStageScores[formData.lifeStage];
-    }
-    
-    // Continue for all 8 questions...
-    // (Add scoring logic for remaining questions here)
-    
-    setTotalScore(score);
-    determineRiskProfile(score);
-  };
+  let score = 0;
+  
+  // Question 1: Purpose of Investing
+  const purposeScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
+  if (formData.purposeOfInvesting in purposeScores) {
+    score += purposeScores[formData.purposeOfInvesting];
+  }
+  
+  // Question 2: Life Stage
+  const lifeStageScores = { a: 50, b: 40, c: 30, d: 50, e: 20, f: 10 };
+  if (formData.lifeStage in lifeStageScores) {
+    score += lifeStageScores[formData.lifeStage];
+  }
+  
+  // Question 3: Expected Returns
+  const returnsScores = { a: 10, b: 20, c: 30, d: 40, e: 50 };
+  if (formData.expectedReturns in returnsScores) {
+    score += returnsScores[formData.expectedReturns];
+  }
+  
+  // Question 4: Derivative Products
+  const derivativesScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
+  if (formData.derivativeProducts in derivativesScores) {
+    score += derivativesScores[formData.derivativeProducts];
+  }
+  
+  // Question 5: Investment Horizon
+  const horizonScores = { a: 10, b: 20, c: 30, d: 40, e: 50 };
+  if (formData.investmentHorizon in horizonScores) {
+    score += horizonScores[formData.investmentHorizon];
+  }
+  
+  // Question 6: Market Downturn Reaction
+  const downturnScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
+  if (formData.marketDownturnReaction in downturnScores) {
+    score += downturnScores[formData.marketDownturnReaction];
+  }
+  
+  // Question 7: Income Stability
+  const incomeScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
+  if (formData.incomeStability in incomeScores) {
+    score += incomeScores[formData.incomeStability];
+  }
+  
+  // Question 8: Emergency Savings
+  const savingsScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
+  if (formData.emergencySavings in savingsScores) {
+    score += savingsScores[formData.emergencySavings];
+  }
+  
+  setTotalScore(score);
+  determineRiskProfile(score);
+};
 
   const determineRiskProfile = (score) => {
     for (const [key, range] of Object.entries(RISK_PROFILES)) {
@@ -123,44 +156,66 @@ export default function RiskAssessment({ currentUser }) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Validate required fields
-    if (!formData.applicantName || !formData.applicantAddress || !formData.applicantSignature) {
-      setError('Please complete all required fields including signatures');
-      return;
+  e.preventDefault();
+
+  // Validate required fields
+  if (!formData.applicantName || !formData.applicantAddress) {
+    setError('Please complete all required fields including signatures');
+    return;
+  }
+
+  setIsSubmitting(true);
+  setError('');
+
+  try {
+    // Transform data to match backend format
+    const requestBody = {
+      answers: {
+        q1: formData.purposeOfInvesting,  // Map to question IDs in your Flask backend
+        q2: formData.lifeStage,
+        q3: formData.expectedReturns,
+        q4: formData.derivativeProducts,
+        q5: formData.investmentHorizon,
+        q6: formData.marketDownturnReaction,
+        q7: formData.incomeStability,
+        q8: formData.emergencySavings,
+      },
+      client_details: {
+        name: formData.applicantName,
+        address: formData.applicantAddress,
+        advisor_name: formData.advisorName,
+        advisor_designation: formData.advisorDesignation,
+        assessment_date: formData.assessmentDate,
+        assessment_place: formData.assessmentPlace,
+      },
+      signature: formData.applicantSignature,
+      total_score: totalScore,
+      risk_bracket: riskProfile,
+      interested_investments: formData.interestedInvestments,
+    };
+
+    const response = await fetch('https://your-flask-server.com/api/risk/submit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,  // Include auth token if needed
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Submission failed');
     }
 
-    setIsSubmitting(true);
-    setError('');
-    
-    try {
-      const response = await fetch('/api/risk/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          totalScore,
-          riskProfile
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Submission failed');
-      }
-
-      // Mark as completed in localStorage
-      localStorage.setItem('riskAssessmentCompleted', 'true');
-      router.push('/portfolio');
-    } catch (err) {
-      setError(err.message || 'Network error during submission');
-    } finally {
-      setIsSubmitting(false);
-    }
+    localStorage.setItem('riskAssessmentCompleted', 'true');
+    router.push('/portfolio');
+  } catch (err) {
+    setError(err.message || 'Failed to submit assessment');
+  } finally {
+    setIsSubmitting(false);
+  }
   };
 
   const handleInputChange = (e) => {
@@ -340,7 +395,7 @@ export default function RiskAssessment({ currentUser }) {
           
           {/* Question 1 */}
           <div className="question-group">
-            <h3>1) Which of the following best describes your purpose for investing? <span className="required">*</span></h3>
+            <h3>1. Which of the following best describes your purpose for investing? <span className="required">*</span></h3>
             <div className="options-group">
               {PURPOSE_OPTIONS.map((option) => (
                 <label key={option.value}>
@@ -360,7 +415,7 @@ export default function RiskAssessment({ currentUser }) {
           
           {/* Question 2 */}
           <div className="question-group">
-            <h3>2) Which best describes your current life stage? <span className="required">*</span></h3>
+            <h3>2. Which best describes your current life stage? <span className="required">*</span></h3>
             <div className="options-group">
               {LIFE_STAGE_OPTIONS.map((option) => (
                 <label key={option.value}>
@@ -378,8 +433,161 @@ export default function RiskAssessment({ currentUser }) {
             </div>
           </div>
           
-          {/* Continue with similar structure for Questions 3-8 */}
-          {/* ... */}
+          {/* Question 3 - Expected Returns */}
+          <div className="question-group">
+            <h3>3. What returns do you expect from investments? <span className="required">*</span></h3>
+            <div className="options-group">
+              {[
+                { value: 'a', label: 'Current inflation rate' },
+                { value: 'b', label: 'Inflation + 2-4%' },
+                { value: 'c', label: 'Inflation + 5-7%' },
+                { value: 'd', label: 'Inflation + 8-12%' },
+                { value: 'e', label: 'Greater than inflation + 12%' }
+              ].map((option) => (
+                <label key={option.value}>
+                  <input
+                    type="radio"
+                    name="expectedReturns"
+                    value={option.value}
+                    checked={formData.expectedReturns === option.value}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Question 4 - Derivative Products */}
+          <div className="question-group">
+            <h3>4. Would you consider using derivative products? <span className="required">*</span></h3>
+            <div className="options-group">
+              {[
+                { value: 'a', label: 'Yes, understand and trade for profit' },
+                { value: 'b', label: 'Yes, as defensive strategy and income' },
+                { value: 'c', label: 'Yes, as defensive strategy only' },
+                { value: 'd', label: 'Not familiar, would learn first' },
+                { value: 'e', label: 'No, too risky' }
+              ].map((option) => (
+                <label key={option.value}>
+                  <input
+                    type="radio"
+                    name="derivativeProducts"
+                    value={option.value}
+                    checked={formData.derivativeProducts === option.value}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Question 5 - Investment Horizon */}
+          <div className="question-group">
+            <h3>5. How long would you expect to invest before redeeming? <span className="required">*</span></h3>
+            <div className="options-group">
+              {[
+                { value: 'a', label: 'Less than 1 year' },
+                { value: 'b', label: '1-3 years' },
+                { value: 'c', label: '3-5 years' },
+                { value: 'd', label: '5-7 years' },
+                { value: 'e', label: 'Longer than 7 years' }
+              ].map((option) => (
+                <label key={option.value}>
+                  <input
+                    type="radio"
+                    name="investmentHorizon"
+                    value={option.value}
+                    checked={formData.investmentHorizon === option.value}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Question 6 - Market Downturn Reaction */}
+          <div className="question-group">
+            <h3>6. If your portfolio decreased by 20%, you would: <span className="required">*</span></h3>
+            <div className="options-group">
+              {[
+                { value: 'a', label: 'Invest more expecting growth' },
+                { value: 'b', label: 'Leave investments expecting improvement' },
+                { value: 'c', label: 'Wait to see if improves' },
+                { value: 'd', label: 'Cut losses, move to defensive assets' },
+                { value: 'e', label: 'Sell all investments' }
+              ].map((option) => (
+                <label key={option.value}>
+                  <input
+                    type="radio"
+                    name="marketDownturnReaction"
+                    value={option.value}
+                    checked={formData.marketDownturnReaction === option.value}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Question 7 - Income Stability */}
+          <div className="question-group">
+            <h3>7. How stable is your current and future income? <span className="required">*</span></h3>
+            <div className="options-group">
+              {[
+                { value: 'a', label: 'Very stable' },
+                { value: 'b', label: 'Stable' },
+                { value: 'c', label: 'Somewhat stable' },
+                { value: 'd', label: 'Unstable' },
+                { value: 'e', label: 'Very unstable' }
+              ].map((option) => (
+                <label key={option.value}>
+                  <input
+                    type="radio"
+                    name="incomeStability"
+                    value={option.value}
+                    checked={formData.incomeStability === option.value}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Question 8 - Emergency Savings */}
+          <div className="question-group">
+            <h3>8. Do you have separate savings for major expenses? <span className="required">*</span></h3>
+            <div className="options-group">
+              {[
+                { value: 'a', label: 'No upcoming expenses except retirement' },
+                { value: 'b', label: 'Yes, separate savings' },
+                { value: 'c', label: 'Small savings for partial expenses' },
+                { value: 'd', label: 'No savings, use credit card' },
+                { value: 'e', label: 'No separate savings' }
+              ].map((option) => (
+                <label key={option.value}>
+                  <input
+                    type="radio"
+                    name="emergencySavings"
+                    value={option.value}
+                    checked={formData.emergencySavings === option.value}
+                    onChange={handleInputChange}
+                    required
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </div>
           
           {/* Score Display */}
           <div className="score-display">
@@ -393,7 +601,7 @@ export default function RiskAssessment({ currentUser }) {
           <h2>Signatures</h2>
           
           <div className="signature-group">
-            <h3>Applicant Signature <span className="required">*</span></h3>
+            <h3>Applicant Signature <span ></span></h3>
             <SignaturePad 
               options={{ penColor: '#000' }}
               onEnd={(sig) => setFormData({...formData, applicantSignature: sig.toDataURL()})}
