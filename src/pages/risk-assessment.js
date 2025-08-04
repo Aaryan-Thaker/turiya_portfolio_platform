@@ -194,7 +194,7 @@ export default function RiskAssessment({ currentUser }) {
       interested_investments: formData.interestedInvestments,
     };
 
-    const response = await fetch('https://your-flask-server.com/api/risk/submit', {
+    const response = await fetch('portoflio-backend-m7p679gn6-aaryans-projects-56d3a379.vercel.app/api/risk/submit', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
