@@ -156,67 +156,73 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    // Validate required fields
-    if (!formData.applicantName || !formData.applicantAddress) {
-      setError('Please complete all required fields including signatures');
-      return;
+  // Validate required fields
+  if (!formData.applicantName || !formData.applicantAddress) {
+    setError('Please complete all required fields including signatures');
+    return;
+  }
+
+  setIsSubmitting(true);
+  setError('');
+
+  try {
+    // Transform data to match backend format
+    const requestBody = {
+      answers: {
+        q1: formData.purposeOfInvesting,
+        q2: formData.lifeStage,
+        q3: formData.expectedReturns,
+        q4: formData.derivativeProducts,
+        q5: formData.investmentHorizon,
+        q6: formData.marketDownturnReaction,
+        q7: formData.incomeStability,
+        q8: formData.emergencySavings,
+      },
+      client_details: {
+        name: formData.applicantName,
+        address: formData.applicantAddress,
+        advisor_name: formData.advisorName,
+        advisor_designation: formData.advisorDesignation,
+        assessment_date: formData.assessmentDate,
+        assessment_place: formData.assessmentPlace,
+      },
+      signature: formData.applicantSignature, // Make sure this isn't null
+      total_score: totalScore,
+      risk_bracket: riskProfile,
+      interested_investments: formData.interestedInvestments,
+    };
+
+    // Use relative path for Vercel deployment
+    const response = await fetch('/api/risk/submit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include', // Important for cookies
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Submission failed');
     }
 
-    setIsSubmitting(true);
-    setError('');
-
-    try {
-      // Transform data to match backend format
-      const requestBody = {
-        answers: {
-          q1: formData.purposeOfInvesting,
-          q2: formData.lifeStage,
-          q3: formData.expectedReturns,
-          q4: formData.derivativeProducts,
-          q5: formData.investmentHorizon,
-          q6: formData.marketDownturnReaction,
-          q7: formData.incomeStability,
-          q8: formData.emergencySavings,
-        },
-        client_details: {
-          name: formData.applicantName,
-          address: formData.applicantAddress,
-          advisor_name: formData.advisorName,
-          advisor_designation: formData.advisorDesignation,
-          assessment_date: formData.assessmentDate,
-          assessment_place: formData.assessmentPlace,
-        },
-        signature: formData.applicantSignature,
-        total_score: totalScore,
-        risk_bracket: riskProfile,
-        interested_investments: formData.interestedInvestments,
-      };
-
-      const response = await fetch('/api/risk/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(requestBody),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Submission failed');
-      }
-
-      localStorage.setItem('riskAssessmentCompleted', 'true');
-      router.push('/portfolio');
-    } catch (err) {
-      setError(err.message || 'Failed to submit assessment');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    const data = await response.json();
+    
+    // Store completion status
+    localStorage.setItem('riskAssessmentCompleted', 'true');
+    router.push('/portfolio');
+    
+  } catch (err) {
+    console.error('Submission error:', err);
+    setError(err.message || 'Failed to submit assessment. Please try again.');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
