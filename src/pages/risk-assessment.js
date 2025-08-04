@@ -45,7 +45,7 @@ const LIFE_STAGE_OPTIONS = [
   { value: 'f', label: 'Other' }
 ];
 
-export default function RiskAssessment({ currentUser }) {
+export default function RiskAssessment({ currentUser, errorMessage }) {
   const router = useRouter();
   const [formData, setFormData] = useState({
     // Client Information
@@ -91,59 +91,59 @@ export default function RiskAssessment({ currentUser }) {
   }, [formData]);
 
   const calculateScore = () => {
-  let score = 0;
-  
-  // Question 1: Purpose of Investing
-  const purposeScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
-  if (formData.purposeOfInvesting in purposeScores) {
-    score += purposeScores[formData.purposeOfInvesting];
-  }
-  
-  // Question 2: Life Stage
-  const lifeStageScores = { a: 50, b: 40, c: 30, d: 50, e: 20, f: 10 };
-  if (formData.lifeStage in lifeStageScores) {
-    score += lifeStageScores[formData.lifeStage];
-  }
-  
-  // Question 3: Expected Returns
-  const returnsScores = { a: 10, b: 20, c: 30, d: 40, e: 50 };
-  if (formData.expectedReturns in returnsScores) {
-    score += returnsScores[formData.expectedReturns];
-  }
-  
-  // Question 4: Derivative Products
-  const derivativesScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
-  if (formData.derivativeProducts in derivativesScores) {
-    score += derivativesScores[formData.derivativeProducts];
-  }
-  
-  // Question 5: Investment Horizon
-  const horizonScores = { a: 10, b: 20, c: 30, d: 40, e: 50 };
-  if (formData.investmentHorizon in horizonScores) {
-    score += horizonScores[formData.investmentHorizon];
-  }
-  
-  // Question 6: Market Downturn Reaction
-  const downturnScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
-  if (formData.marketDownturnReaction in downturnScores) {
-    score += downturnScores[formData.marketDownturnReaction];
-  }
-  
-  // Question 7: Income Stability
-  const incomeScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
-  if (formData.incomeStability in incomeScores) {
-    score += incomeScores[formData.incomeStability];
-  }
-  
-  // Question 8: Emergency Savings
-  const savingsScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
-  if (formData.emergencySavings in savingsScores) {
-    score += savingsScores[formData.emergencySavings];
-  }
-  
-  setTotalScore(score);
-  determineRiskProfile(score);
-};
+    let score = 0;
+    
+    // Question 1: Purpose of Investing
+    const purposeScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
+    if (formData.purposeOfInvesting in purposeScores) {
+      score += purposeScores[formData.purposeOfInvesting];
+    }
+    
+    // Question 2: Life Stage
+    const lifeStageScores = { a: 50, b: 40, c: 30, d: 50, e: 20, f: 10 };
+    if (formData.lifeStage in lifeStageScores) {
+      score += lifeStageScores[formData.lifeStage];
+    }
+    
+    // Question 3: Expected Returns
+    const returnsScores = { a: 10, b: 20, c: 30, d: 40, e: 50 };
+    if (formData.expectedReturns in returnsScores) {
+      score += returnsScores[formData.expectedReturns];
+    }
+    
+    // Question 4: Derivative Products
+    const derivativesScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
+    if (formData.derivativeProducts in derivativesScores) {
+      score += derivativesScores[formData.derivativeProducts];
+    }
+    
+    // Question 5: Investment Horizon
+    const horizonScores = { a: 10, b: 20, c: 30, d: 40, e: 50 };
+    if (formData.investmentHorizon in horizonScores) {
+      score += horizonScores[formData.investmentHorizon];
+    }
+    
+    // Question 6: Market Downturn Reaction
+    const downturnScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
+    if (formData.marketDownturnReaction in downturnScores) {
+      score += downturnScores[formData.marketDownturnReaction];
+    }
+    
+    // Question 7: Income Stability
+    const incomeScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
+    if (formData.incomeStability in incomeScores) {
+      score += incomeScores[formData.incomeStability];
+    }
+    
+    // Question 8: Emergency Savings
+    const savingsScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
+    if (formData.emergencySavings in savingsScores) {
+      score += savingsScores[formData.emergencySavings];
+    }
+    
+    setTotalScore(score);
+    determineRiskProfile(score);
+  };
 
   const determineRiskProfile = (score) => {
     for (const [key, range] of Object.entries(RISK_PROFILES)) {
@@ -156,66 +156,66 @@ export default function RiskAssessment({ currentUser }) {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // Validate required fields
-  if (!formData.applicantName || !formData.applicantAddress) {
-    setError('Please complete all required fields including signatures');
-    return;
-  }
-
-  setIsSubmitting(true);
-  setError('');
-
-  try {
-    // Transform data to match backend format
-    const requestBody = {
-      answers: {
-        q1: formData.purposeOfInvesting,  // Map to question IDs in your Flask backend
-        q2: formData.lifeStage,
-        q3: formData.expectedReturns,
-        q4: formData.derivativeProducts,
-        q5: formData.investmentHorizon,
-        q6: formData.marketDownturnReaction,
-        q7: formData.incomeStability,
-        q8: formData.emergencySavings,
-      },
-      client_details: {
-        name: formData.applicantName,
-        address: formData.applicantAddress,
-        advisor_name: formData.advisorName,
-        advisor_designation: formData.advisorDesignation,
-        assessment_date: formData.assessmentDate,
-        assessment_place: formData.assessmentPlace,
-      },
-      signature: formData.applicantSignature,
-      total_score: totalScore,
-      risk_bracket: riskProfile,
-      interested_investments: formData.interestedInvestments,
-    };
-
-    const response = await fetch('portoflio-backend-m7p679gn6-aaryans-projects-56d3a379.vercel.app/api/risk/submit', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,  // Include auth token if needed
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Submission failed');
+    // Validate required fields
+    if (!formData.applicantName || !formData.applicantAddress) {
+      setError('Please complete all required fields including signatures');
+      return;
     }
 
-    localStorage.setItem('riskAssessmentCompleted', 'true');
-    router.push('/portfolio');
-  } catch (err) {
-    setError(err.message || 'Failed to submit assessment');
-  } finally {
-    setIsSubmitting(false);
-  }
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      // Transform data to match backend format
+      const requestBody = {
+        answers: {
+          q1: formData.purposeOfInvesting,
+          q2: formData.lifeStage,
+          q3: formData.expectedReturns,
+          q4: formData.derivativeProducts,
+          q5: formData.investmentHorizon,
+          q6: formData.marketDownturnReaction,
+          q7: formData.incomeStability,
+          q8: formData.emergencySavings,
+        },
+        client_details: {
+          name: formData.applicantName,
+          address: formData.applicantAddress,
+          advisor_name: formData.advisorName,
+          advisor_designation: formData.advisorDesignation,
+          assessment_date: formData.assessmentDate,
+          assessment_place: formData.assessmentPlace,
+        },
+        signature: formData.applicantSignature,
+        total_score: totalScore,
+        risk_bracket: riskProfile,
+        interested_investments: formData.interestedInvestments,
+      };
+
+      const response = await fetch('/api/risk/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Submission failed');
+      }
+
+      localStorage.setItem('riskAssessmentCompleted', 'true');
+      router.push('/portfolio');
+    } catch (err) {
+      setError(err.message || 'Failed to submit assessment');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -243,6 +243,14 @@ export default function RiskAssessment({ currentUser }) {
     }));
   };
 
+  if (errorMessage) {
+    return (
+      <div style={{ padding: '20px', color: 'red' }}>
+        <h1>Error</h1>
+        <p>{errorMessage}</p>
+      </div>
+    );
+  }
   return (
     <div className="risk-assessment-container">
       <Nav user={currentUser} />
@@ -838,63 +846,46 @@ export default function RiskAssessment({ currentUser }) {
 }
 
 export async function getServerSideProps(context) {
-  const { req, res } = context;
-  let currentUser = null;
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const host = context.req.headers.host;
+  const backendUrl = `${protocol}://${host}/api/portfolio`;
 
-  try {
-    // 1. Check for auth token in cookies
-    const token = req.cookies.token || '';
+  const res = await fetch(backendUrl, {
+    method: 'GET',
+    credentials: 'include',
+    headers: {
+      cookie: context.req.headers.cookie || '',
+    },
+  });
 
-    // 2. Verify token with Flask backend
-    const response = await fetch(`${process.env.BACKEND_API_URL}/api/verify-token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      credentials: 'include'
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      currentUser = {
-        id: data.user.id,
-        email: data.user.email,
-        name: data.user.name,
-        verified: data.user.verified,
-        riskAssessmentCompleted: data.user.riskAssessmentCompleted
-      };
-    } else {
-      // Clear invalid token
-      res.setHeader('Set-Cookie', 'token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
-    }
-  } catch (error) {
-    console.error('Authentication check failed:', error);
-  }
-
-  // 3. Redirect unauthenticated users
-  if (!currentUser) {
+  if (res.status === 401) {
     return {
       redirect: {
         destination: '/login',
-        permanent: false
-      }
+        permanent: false,
+      },
     };
   }
 
-  // 4. Redirect if risk assessment not completed
-  if (!currentUser.riskAssessmentCompleted && context.resolvedUrl !== '/risk-assessment') {
+  const data = await res.json();
+
+  const currentUser = {
+    id: data?.current_user?.id || 'guest',
+    isAuthenticated: data?.current_user?.is_authenticated || false,
+  };
+
+  if (!res.ok || !data.success) {
     return {
-      redirect: {
-        destination: '/risk-assessment',
-        permanent: false
-      }
+      props: {
+        currentUser,
+        errorMessage: data.error || 'Error loading page.',
+      },
     };
   }
 
   return {
     props: {
-      currentUser
-    }
+      currentUser,
+    },
   };
 }
