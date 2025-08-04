@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import dynamic from 'next/dynamic';
-import Nav from '../components/Nav';
+import Nav from './Nav';
 
 // Dynamic imports for signature pads
 const SignaturePad = dynamic(
