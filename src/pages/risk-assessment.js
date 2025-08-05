@@ -875,7 +875,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 export async function getServerSideProps(context) {
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = context.req.headers.host;
-  const backendUrl = `${protocol}://${host}/api/portfolio`;
+  const backendUrl = `${protocol}://${host}/api/`;
 
   try {
     const res = await fetch(backendUrl, {
