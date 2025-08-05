@@ -27,8 +27,10 @@ export default function Login() {
       console.log("Login response:", data);
 
       if (res.ok && data.success) {
+        localStorage.setItem('token', data.token);
         // Login success, redirect to homepage
         router.push('/');
+        
       } else {
         setError(data.error || 'Login failed');
       }
