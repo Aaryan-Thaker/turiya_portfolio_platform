@@ -155,7 +155,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
     setRiskProfile('Undetermined');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
   e.preventDefault();
 
   // Validate required fields
@@ -167,52 +167,37 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   setIsSubmitting(true);
   setError('');
 
-  // 1. Create hidden iframe for response handling
-  const iframe = document.createElement('iframe');
-  iframe.name = 'form-response';
-  iframe.style.display = 'none';
+  try {
+    const response = await fetch(
+      `${process.env.NODE_ENV === 'production' 
+        ? 'https://portoflio-backend-snowy.vercel.app' 
+        : 'http://localhost:5000'}/api/risk/submit`,
+      {
+        method: 'POST',
+        credentials: 'include', // Send cookies
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          totalScore,
+          riskProfile
+        })
+      }
+    );
 
-  // 2. Create form that submits to your Flask backend
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = `${process.env.NODE_ENV === 'production' 
-    ? 'https://portoflio-backend-snowy.vercel.app' 
-    : 'http://localhost:5000'}/api/risk/submit`;
-  form.target = 'form-response';
-  form.style.display = 'none';
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Submission failed');
+    }
 
-  // Helper to add hidden inputs
-  const addHiddenInput = (name, value) => {
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = name;
-    input.value = typeof value === 'object' ? JSON.stringify(value) : value;
-    form.appendChild(input);
-  };
-
-  // Add all form fields (keep your existing fields)
-  addHiddenInput('applicantName', formData.applicantName);
-  addHiddenInput('applicantAddress', formData.applicantAddress);
-  // ... [PASTE ALL YOUR OTHER addHiddenInput() CALLS HERE] ...
-  addHiddenInput('totalScore', totalScore);
-  addHiddenInput('riskProfile', riskProfile);
-
-  // Handle form response
-  iframe.onload = () => {
-    // Simple success handling - just redirect home
     localStorage.setItem('riskAssessmentCompleted', 'true');
     router.push('/');
-    
-    // Cleanup
-    document.body.removeChild(iframe);
-    document.body.removeChild(form);
+  } catch (error) {
+    setError(error.message || 'Failed to submit assessment');
+  } finally {
     setIsSubmitting(false);
-  };
-
-  // Add to DOM and submit
-  document.body.appendChild(iframe);
-  document.body.appendChild(form);
-  form.submit();
+  }
 };
 
   const handleInputChange = (e) => {
