@@ -194,14 +194,20 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
         interested_investments: formData.interestedInvestments,
       };
 
-      const response = await fetch('/api/risk/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(requestBody),
-      });
+      const BACKEND_URL =
+      process.env.NODE_ENV === 'production'
+        ? 'portoflio-backend-afvc3ycd6-aaryans-projects-56d3a379.vercel.app'
+        : '';
+
+    const res = await fetch(`${BACKEND_URL}/api/risk/submit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+
 
       if (!response.ok) {
         const errorData = await response.json();

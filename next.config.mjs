@@ -5,7 +5,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'https://portoflio-backend-q0j1my1ok-aaryans-projects-56d3a379.vercel.app/api/:path*'
+        destination: 'https://portoflio-backend-afvc3ycd6-aaryans-projects-56d3a379.vercel.app/api/:path*'
       }
     ];
   }
