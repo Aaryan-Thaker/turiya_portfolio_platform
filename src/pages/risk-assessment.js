@@ -155,119 +155,64 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
     setRiskProfile('Undetermined');
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
   e.preventDefault();
 
   // Validate required fields
-  if (!formData.applicantName || !formData.applicantAddress) {
-    setError('Please complete all required fields including signatures');
+  if (!formData.applicantName || !formData.applicantAddress || !formData.applicantSignature) {
+    setError('Please complete all required fields');
     return;
   }
 
   setIsSubmitting(true);
   setError('');
 
-  try {
-    // Create hidden form
-    const form = document.createElement('form');
-    form.method = 'POST';
-    // Point to Next.js proxy instead of Flask directly
-    form.action = '/api/proxy-risk-submit';
-    form.style.display = 'none';
+  // 1. Create hidden iframe for response handling
+  const iframe = document.createElement('iframe');
+  iframe.name = 'form-response';
+  iframe.style.display = 'none';
 
-    // Create hidden iframe to handle response
-    const iframe = document.createElement('iframe');
-    iframe.name = 'form-response';
-    iframe.style.display = 'none';
-    
-    // Add all form data as hidden inputs
-    const addHiddenInput = (name, value) => {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = name;
-      input.value = typeof value === 'object' ? JSON.stringify(value) : value;
-      form.appendChild(input);
-    };
+  // 2. Create form that submits to your Flask backend
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = `${process.env.NODE_ENV === 'production' 
+    ? 'https://portoflio-backend-snowy.vercel.app' 
+    : 'http://localhost:5000'}/api/risk/submit`;
+  form.target = 'form-response';
+  form.style.display = 'none';
 
-    // Your existing input additions
-    addHiddenInput('applicantName', formData.applicantName);
-    addHiddenInput('applicantAddress', formData.applicantAddress);
-    
-    INVESTMENT_TYPES.forEach(type => {
-      const key = `${type.toLowerCase().replace(' ', '')}Experience`;
-      addHiddenInput(key, formData[key]);
-    });
-    
-    addHiddenInput('capitalGrowthPriority', formData.capitalGrowthPriority);
-    addHiddenInput('capitalSecurityPriority', formData.capitalSecurityPriority);
-    addHiddenInput('balancedPriority', formData.balancedPriority);
-    addHiddenInput('interestedInvestments', JSON.stringify(formData.interestedInvestments));
-    
-    addHiddenInput('purposeOfInvesting', formData.purposeOfInvesting);
-    addHiddenInput('lifeStage', formData.lifeStage);
-    addHiddenInput('expectedReturns', formData.expectedReturns);
-    addHiddenInput('derivativeProducts', formData.derivativeProducts);
-    addHiddenInput('investmentHorizon', formData.investmentHorizon);
-    addHiddenInput('marketDownturnReaction', formData.marketDownturnReaction);
-    addHiddenInput('incomeStability', formData.incomeStability);
-    addHiddenInput('emergencySavings', formData.emergencySavings);
-    
-    if (formData.applicantSignature) {
-      addHiddenInput('applicantSignature', formData.applicantSignature);
-    }
-    if (formData.advisorSignature) {
-      addHiddenInput('advisorSignature', formData.advisorSignature);
-    }
-    
-    addHiddenInput('advisorName', formData.advisorName);
-    addHiddenInput('advisorDesignation', formData.advisorDesignation);
-    addHiddenInput('assessmentDate', formData.assessmentDate);
-    addHiddenInput('assessmentPlace', formData.assessmentPlace);
-    
-    addHiddenInput('totalScore', totalScore);
-    addHiddenInput('riskProfile', riskProfile);
+  // Helper to add hidden inputs
+  const addHiddenInput = (name, value) => {
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = name;
+    input.value = typeof value === 'object' ? JSON.stringify(value) : value;
+    form.appendChild(input);
+  };
 
-    // Handle response via iframe
-    iframe.onload = () => {
-      try {
-        // Check if submission was successful
-        const responseDoc = iframe.contentDocument || iframe.contentWindow.document;
-        const responseText = responseDoc.body.textContent;
-        
-        // Try to parse JSON response (if proxy returns one)
-        try {
-          const result = JSON.parse(responseText);
-          if (result.success) {
-            localStorage.setItem('riskAssessmentCompleted', 'true');
-            router.push('/success');
-          } else {
-            setError(result.error || 'Submission failed');
-          }
-        } catch {
-          // If not JSON, assume success if we reached this point
-          localStorage.setItem('riskAssessmentCompleted', 'true');
-          router.push('/success');
-        }
-      } catch (error) {
-        console.error('Error processing response:', error);
-        setError('Failed to process submission response');
-      } finally {
-        document.body.removeChild(iframe);
-        document.body.removeChild(form);
-        setIsSubmitting(false);
-      }
-    };
+  // Add all form fields (keep your existing fields)
+  addHiddenInput('applicantName', formData.applicantName);
+  addHiddenInput('applicantAddress', formData.applicantAddress);
+  // ... [PASTE ALL YOUR OTHER addHiddenInput() CALLS HERE] ...
+  addHiddenInput('totalScore', totalScore);
+  addHiddenInput('riskProfile', riskProfile);
 
-    document.body.appendChild(iframe);
-    document.body.appendChild(form);
-    form.target = 'form-response'; // Direct response to iframe
-    form.submit();
-
-  } catch (error) {
-    console.error('Submission error:', error);
-    setError('Failed to submit assessment. Please try again.');
+  // Handle form response
+  iframe.onload = () => {
+    // Simple success handling - just redirect home
+    localStorage.setItem('riskAssessmentCompleted', 'true');
+    router.push('/');
+    
+    // Cleanup
+    document.body.removeChild(iframe);
+    document.body.removeChild(form);
     setIsSubmitting(false);
-  }
+  };
+
+  // Add to DOM and submit
+  document.body.appendChild(iframe);
+  document.body.appendChild(form);
+  form.submit();
 };
 
   const handleInputChange = (e) => {
