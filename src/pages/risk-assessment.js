@@ -168,15 +168,18 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   setError('');
 
   try {
+    // Get JWT token from localStorage
+    const token = localStorage.getItem('jwtToken');
+
     const response = await fetch(
       `${process.env.NODE_ENV === 'production' 
         ? 'https://portoflio-backend-snowy.vercel.app' 
         : 'http://localhost:5000'}/api/risk/submit`,
       {
         method: 'POST',
-        credentials: 'include', // Send cookies
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,  // Add the token here
         },
         body: JSON.stringify({
           ...formData,
@@ -199,6 +202,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
     setIsSubmitting(false);
   }
 };
+
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
