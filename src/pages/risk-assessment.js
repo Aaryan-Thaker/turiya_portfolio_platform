@@ -852,7 +852,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 export async function getServerSideProps(context) {
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = context.req.headers.host;
-  const backendUrl = `${protocol}://${host}/api/current-user`;
+  const backendUrl = `${protocol}://${host}/api/portfolio`; // Same endpoint as index.js
 
   try {
     const res = await fetch(backendUrl, {
@@ -883,7 +883,7 @@ export async function getServerSideProps(context) {
       return {
         props: {
           currentUser,
-          errorMessage: data.error || 'Error loading page.',
+          errorMessage: data.error || 'Error loading user data.',
         },
       };
     }
@@ -893,6 +893,7 @@ export async function getServerSideProps(context) {
         currentUser,
       },
     };
+
   } catch (error) {
     console.error('Error in getServerSideProps:', error);
     return {
@@ -901,7 +902,7 @@ export async function getServerSideProps(context) {
           id: 'guest',
           isAuthenticated: false,
         },
-        errorMessage: 'Failed to load user data',
+        errorMessage: 'Failed to load user data. Please try again later.',
       },
     };
   }
