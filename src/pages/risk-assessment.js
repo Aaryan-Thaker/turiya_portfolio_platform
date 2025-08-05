@@ -169,7 +169,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 
   try {
     // Get JWT token from localStorage
-    const token = localStorage.getItem('jwtToken');
+    const token = localStorage.getItem('token');
 
     const response = await fetch(
       `${process.env.NODE_ENV === 'production' 
