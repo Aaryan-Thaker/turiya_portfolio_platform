@@ -156,73 +156,70 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // Validate required fields
-  if (!formData.applicantName || !formData.applicantAddress) {
-    setError('Please complete all required fields including signatures');
-    return;
-  }
-
-  setIsSubmitting(true);
-  setError('');
-
-  try {
-    // Transform data to match backend format
-    const requestBody = {
-      answers: {
-        q1: formData.purposeOfInvesting,
-        q2: formData.lifeStage,
-        q3: formData.expectedReturns,
-        q4: formData.derivativeProducts,
-        q5: formData.investmentHorizon,
-        q6: formData.marketDownturnReaction,
-        q7: formData.incomeStability,
-        q8: formData.emergencySavings,
-      },
-      client_details: {
-        name: formData.applicantName,
-        address: formData.applicantAddress,
-        advisor_name: formData.advisorName,
-        advisor_designation: formData.advisorDesignation,
-        assessment_date: formData.assessmentDate,
-        assessment_place: formData.assessmentPlace,
-      },
-      signature: formData.applicantSignature, // Make sure this isn't null
-      total_score: totalScore,
-      risk_bracket: riskProfile,
-      interested_investments: formData.interestedInvestments,
-    };
-
-    // Use relative path for Vercel deployment
-    const response = await fetch('/api/risk/submit', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      credentials: 'include', // Important for cookies
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Submission failed');
+    // Validate required fields
+    if (!formData.applicantName || !formData.applicantAddress || !formData.applicantSignature) {
+      setError('Please complete all required fields including signatures');
+      return;
     }
 
-    const data = await response.json();
-    
-    // Store completion status
-    localStorage.setItem('riskAssessmentCompleted', 'true');
-    router.push('/portfolio');
-    
-  } catch (err) {
-    console.error('Submission error:', err);
-    setError(err.message || 'Failed to submit assessment. Please try again.');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      // Transform data to match backend format
+      const requestBody = {
+        answers: {
+          q1: formData.purposeOfInvesting,
+          q2: formData.lifeStage,
+          q3: formData.expectedReturns,
+          q4: formData.derivativeProducts,
+          q5: formData.investmentHorizon,
+          q6: formData.marketDownturnReaction,
+          q7: formData.incomeStability,
+          q8: formData.emergencySavings,
+        },
+        client_details: {
+          name: formData.applicantName,
+          address: formData.applicantAddress,
+          advisor_name: formData.advisorName,
+          advisor_designation: formData.advisorDesignation,
+          assessment_date: formData.assessmentDate,
+          assessment_place: formData.assessmentPlace,
+        },
+        signature: formData.applicantSignature,
+        total_score: totalScore,
+        risk_bracket: riskProfile,
+        interested_investments: formData.interestedInvestments,
+      };
+
+      const response = await fetch('/api/risk/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Submission failed');
+      }
+
+      const data = await response.json();
+      
+      // Store completion status
+      localStorage.setItem('riskAssessmentCompleted', 'true');
+      router.push('/portfolio');
+      
+    } catch (err) {
+      console.error('Submission error:', err);
+      setError(err.message || 'Failed to submit assessment. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -257,6 +254,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
       </div>
     );
   }
+
   return (
     <div className="risk-assessment-container">
       <Nav user={currentUser} />
@@ -615,7 +613,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
           <h2>Signatures</h2>
           
           <div className="signature-group">
-            <h3>Applicant Signature <span ></span></h3>
+            <h3>Applicant Signature <span className="required">*</span></h3>
             <SignaturePad 
               options={{ penColor: '#000' }}
               onEnd={(sig) => setFormData({...formData, applicantSignature: sig.toDataURL()})}
@@ -854,44 +852,57 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 export async function getServerSideProps(context) {
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = context.req.headers.host;
-  const backendUrl = `${protocol}://${host}/api/portfolio`;
+  const backendUrl = `${protocol}://${host}/api/current-user`;
 
-  const res = await fetch(backendUrl, {
-    method: 'GET',
-    credentials: 'include',
-    headers: {
-      cookie: context.req.headers.cookie || '',
-    },
-  });
-
-  if (res.status === 401) {
-    return {
-      redirect: {
-        destination: '/login',
-        permanent: false,
+  try {
+    const res = await fetch(backendUrl, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        cookie: context.req.headers.cookie || '',
       },
+    });
+
+    if (res.status === 401) {
+      return {
+        redirect: {
+          destination: '/login',
+          permanent: false,
+        },
+      };
+    }
+
+    const data = await res.json();
+
+    const currentUser = {
+      id: data?.current_user?.id || 'guest',
+      isAuthenticated: data?.current_user?.is_authenticated || false,
     };
-  }
 
-  const data = await res.json();
+    if (!res.ok || !data.success) {
+      return {
+        props: {
+          currentUser,
+          errorMessage: data.error || 'Error loading page.',
+        },
+      };
+    }
 
-  const currentUser = {
-    id: data?.current_user?.id || 'guest',
-    isAuthenticated: data?.current_user?.is_authenticated || false,
-  };
-
-  if (!res.ok || !data.success) {
     return {
       props: {
         currentUser,
-        errorMessage: data.error || 'Error loading page.',
+      },
+    };
+  } catch (error) {
+    console.error('Error in getServerSideProps:', error);
+    return {
+      props: {
+        currentUser: {
+          id: 'guest',
+          isAuthenticated: false,
+        },
+        errorMessage: 'Failed to load user data',
       },
     };
   }
-
-  return {
-    props: {
-      currentUser,
-    },
-  };
 }
