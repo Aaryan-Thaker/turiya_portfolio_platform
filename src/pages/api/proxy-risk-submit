@@ -1,0 +1,23 @@
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).send('Method not allowed');
+  }
+
+  // Forward everything exactly as received
+  const backendUrl = process.env.NODE_ENV === 'production'
+    ? 'https://portoflio-backend-snowy.vercel.app/api/risk/submit'
+    : 'http://localhost:5000/api/risk/submit';
+
+  const response = await fetch(backendUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Cookie': req.headers.cookie || ''
+    },
+    body: new URLSearchParams(req.body).toString()
+  });
+
+  // Pass through the raw response (HTML/redirect) untouched
+  const html = await response.text();
+  res.status(response.status).send(html);
+}
