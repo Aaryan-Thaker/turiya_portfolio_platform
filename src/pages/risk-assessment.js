@@ -159,7 +159,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
     e.preventDefault();
 
     // Validate required fields
-    if (!formData.applicantName || !formData.applicantAddress || !formData.applicantSignature) {
+    if (!formData.applicantName || !formData.applicantAddress) {
       setError('Please complete all required fields including signatures');
       return;
     }
@@ -613,7 +613,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
           <h2>Signatures</h2>
           
           <div className="signature-group">
-            <h3>Applicant Signature <span className="required">*</span></h3>
+            <h3>Applicant Signature <span>*</span></h3>
             <SignaturePad 
               options={{ penColor: '#000' }}
               onEnd={(sig) => setFormData({...formData, applicantSignature: sig.toDataURL()})}
