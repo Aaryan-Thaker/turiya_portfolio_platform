@@ -156,79 +156,93 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // Validate required fields
-  if (!formData.applicantName || !formData.applicantAddress) {
-    setError('Please complete all required fields including signatures');
-    return;
-  }
-
-  setIsSubmitting(true);
-  setError('');
-
-  try {
-    // Transform data to match backend format
-    const requestBody = {
-      answers: {
-        q1: formData.purposeOfInvesting,
-        q2: formData.lifeStage,
-        q3: formData.expectedReturns,
-        q4: formData.derivativeProducts,
-        q5: formData.investmentHorizon,
-        q6: formData.marketDownturnReaction,
-        q7: formData.incomeStability,
-        q8: formData.emergencySavings,
-      },
-      client_details: {
-        name: formData.applicantName,
-        address: formData.applicantAddress,
-        advisor_name: formData.advisorName || '',
-        advisor_designation: formData.advisorDesignation || '',
-        assessment_date: formData.assessmentDate,
-        assessment_place: formData.assessmentPlace || '',
-      },
-      signature: formData.applicantSignature,
-      total_score: totalScore,
-      risk_bracket: riskProfile,
-      interested_investments: formData.interestedInvestments || [],
-    };
-
-    // Debug the request body before sending
-    console.log('Request payload:', requestBody);
-
-    const BACKEND_URL = process.env.NODE_ENV === 'production'
-      ? 'https://portoflio-backend-afvc3ycd6-aaryans-projects-56d3a379.vercel.app'
-      : 'http://localhost:5000'; // Adjust if your local dev uses different port
-
-    const res = await fetch(`${BACKEND_URL}/api/risk/submit`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify(requestBody) // Changed from 'data' to 'requestBody'
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.message || 'Submission failed');
+    // Validate required fields
+    if (!formData.applicantName || !formData.applicantAddress) {
+      setError('Please complete all required fields including signatures');
+      return;
     }
 
-    const result = await res.json();
-    console.log('Submission successful:', result);
-    
-    // Store completion status
-    localStorage.setItem('riskAssessmentCompleted', 'true');
-    router.push('/portfolio');
-    
-  } catch (error) {
-    console.error('Submission error:', error);
-    setError(error.message || 'Failed to submit assessment. Please try again.');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      // Create a hidden form to submit the data
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = `${process.env.NODE_ENV === 'production' 
+        ? 'https://portfolio-backend-afvc3ycd6-aaryans-projects-56d3a379.vercel.app' 
+        : 'http://localhost:5000'}/api/risk/submit`;
+      
+      // Add form data as hidden inputs
+      const addHiddenInput = (name, value) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = typeof value === 'object' ? JSON.stringify(value) : value;
+        form.appendChild(input);
+      };
+
+      // Add all form data to the submission
+      addHiddenInput('applicantName', formData.applicantName);
+      addHiddenInput('applicantAddress', formData.applicantAddress);
+      
+      // Add investment experience
+      INVESTMENT_TYPES.forEach(type => {
+        const key = `${type.toLowerCase().replace(' ', '')}Experience`;
+        addHiddenInput(key, formData[key]);
+      });
+      
+      // Add investment goals
+      addHiddenInput('capitalGrowthPriority', formData.capitalGrowthPriority);
+      addHiddenInput('capitalSecurityPriority', formData.capitalSecurityPriority);
+      addHiddenInput('balancedPriority', formData.balancedPriority);
+      addHiddenInput('interestedInvestments', JSON.stringify(formData.interestedInvestments));
+      
+      // Add risk profile questions
+      addHiddenInput('purposeOfInvesting', formData.purposeOfInvesting);
+      addHiddenInput('lifeStage', formData.lifeStage);
+      addHiddenInput('expectedReturns', formData.expectedReturns);
+      addHiddenInput('derivativeProducts', formData.derivativeProducts);
+      addHiddenInput('investmentHorizon', formData.investmentHorizon);
+      addHiddenInput('marketDownturnReaction', formData.marketDownturnReaction);
+      addHiddenInput('incomeStability', formData.incomeStability);
+      addHiddenInput('emergencySavings', formData.emergencySavings);
+      
+      // Add signatures
+      if (formData.applicantSignature) {
+        addHiddenInput('applicantSignature', formData.applicantSignature);
+      }
+      if (formData.advisorSignature) {
+        addHiddenInput('advisorSignature', formData.advisorSignature);
+      }
+      
+      // Add office use data
+      addHiddenInput('advisorName', formData.advisorName);
+      addHiddenInput('advisorDesignation', formData.advisorDesignation);
+      addHiddenInput('assessmentDate', formData.assessmentDate);
+      addHiddenInput('assessmentPlace', formData.assessmentPlace);
+      
+      // Add calculated values
+      addHiddenInput('totalScore', totalScore);
+      addHiddenInput('riskProfile', riskProfile);
+
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+
+      // Store completion status
+      localStorage.setItem('riskAssessmentCompleted', 'true');
+      router.push('/portfolio');
+      
+    } catch (error) {
+      console.error('Submission error:', error);
+      setError('Failed to submit assessment. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -861,7 +875,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 export async function getServerSideProps(context) {
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = context.req.headers.host;
-  const backendUrl = `${protocol}://${host}/api/portfolio`; // Same endpoint as index.js
+  const backendUrl = `${protocol}://${host}/api/portfolio`;
 
   try {
     const res = await fetch(backendUrl, {
