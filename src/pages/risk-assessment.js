@@ -159,7 +159,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   e.preventDefault();
 
   // Validate required fields
-  if (!formData.applicantName || !formData.applicantAddress || !formData.applicantSignature) {
+  if (!formData.applicantName || !formData.applicantAddress) {
     setError('Please complete all required fields');
     return;
   }
