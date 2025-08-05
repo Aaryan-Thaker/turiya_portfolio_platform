@@ -234,7 +234,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 
       // Store completion status
       localStorage.setItem('riskAssessmentCompleted', 'true');
-      router.push('/portfolio');
+      router.push('/');
       
     } catch (error) {
       console.error('Submission error:', error);
