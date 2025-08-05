@@ -156,48 +156,50 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    // Validate required fields
-    if (!formData.applicantName || !formData.applicantAddress) {
-      setError('Please complete all required fields including signatures');
-      return;
-    }
+  // Validate required fields
+  if (!formData.applicantName || !formData.applicantAddress) {
+    setError('Please complete all required fields including signatures');
+    return;
+  }
 
-    setIsSubmitting(true);
-    setError('');
+  setIsSubmitting(true);
+  setError('');
 
-    try {
-      // Transform data to match backend format
-      const requestBody = {
-        answers: {
-          q1: formData.purposeOfInvesting,
-          q2: formData.lifeStage,
-          q3: formData.expectedReturns,
-          q4: formData.derivativeProducts,
-          q5: formData.investmentHorizon,
-          q6: formData.marketDownturnReaction,
-          q7: formData.incomeStability,
-          q8: formData.emergencySavings,
-        },
-        client_details: {
-          name: formData.applicantName,
-          address: formData.applicantAddress,
-          advisor_name: formData.advisorName,
-          advisor_designation: formData.advisorDesignation,
-          assessment_date: formData.assessmentDate,
-          assessment_place: formData.assessmentPlace,
-        },
-        signature: formData.applicantSignature,
-        total_score: totalScore,
-        risk_bracket: riskProfile,
-        interested_investments: formData.interestedInvestments,
-      };
+  try {
+    // Transform data to match backend format
+    const requestBody = {
+      answers: {
+        q1: formData.purposeOfInvesting,
+        q2: formData.lifeStage,
+        q3: formData.expectedReturns,
+        q4: formData.derivativeProducts,
+        q5: formData.investmentHorizon,
+        q6: formData.marketDownturnReaction,
+        q7: formData.incomeStability,
+        q8: formData.emergencySavings,
+      },
+      client_details: {
+        name: formData.applicantName,
+        address: formData.applicantAddress,
+        advisor_name: formData.advisorName || '',
+        advisor_designation: formData.advisorDesignation || '',
+        assessment_date: formData.assessmentDate,
+        assessment_place: formData.assessmentPlace || '',
+      },
+      signature: formData.applicantSignature,
+      total_score: totalScore,
+      risk_bracket: riskProfile,
+      interested_investments: formData.interestedInvestments || [],
+    };
 
-      const BACKEND_URL =
-      process.env.NODE_ENV === 'production'
-        ? 'portoflio-backend-afvc3ycd6-aaryans-projects-56d3a379.vercel.app'
-        : '';
+    // Debug the request body before sending
+    console.log('Request payload:', requestBody);
+
+    const BACKEND_URL = process.env.NODE_ENV === 'production'
+      ? 'https://portoflio-backend-afvc3ycd6-aaryans-projects-56d3a379.vercel.app'
+      : 'http://localhost:5000'; // Adjust if your local dev uses different port
 
     const res = await fetch(`${BACKEND_URL}/api/risk/submit`, {
       method: 'POST',
@@ -205,28 +207,28 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
         'Content-Type': 'application/json',
       },
       credentials: 'include',
-      body: JSON.stringify(data),
+      body: JSON.stringify(requestBody) // Changed from 'data' to 'requestBody'
     });
 
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Submission failed');
-      }
-
-      const data = await response.json();
-      
-      // Store completion status
-      localStorage.setItem('riskAssessmentCompleted', 'true');
-      router.push('/portfolio');
-      
-    } catch (err) {
-      console.error('Submission error:', err);
-      setError(err.message || 'Failed to submit assessment. Please try again.');
-    } finally {
-      setIsSubmitting(false);
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || 'Submission failed');
     }
-  };
+
+    const result = await res.json();
+    console.log('Submission successful:', result);
+    
+    // Store completion status
+    localStorage.setItem('riskAssessmentCompleted', 'true');
+    router.push('/portfolio');
+    
+  } catch (error) {
+    console.error('Submission error:', error);
+    setError(error.message || 'Failed to submit assessment. Please try again.');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
