@@ -199,6 +199,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(requestBody),
       });
 
