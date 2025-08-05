@@ -172,7 +172,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
       const form = document.createElement('form');
       form.method = 'POST';
       form.action = `${process.env.NODE_ENV === 'production' 
-        ? 'https:portoflio-backend-snowy.vercel.app' 
+        ? 'https://portoflio-backend-snowy.vercel.app' 
         : 'http://localhost:5000'}/api/risk/submit`;
       
       // Add form data as hidden inputs
