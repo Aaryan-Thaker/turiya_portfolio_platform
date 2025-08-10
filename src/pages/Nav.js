@@ -8,20 +8,43 @@ export default function Nav({ user }) {
         method: 'POST',
         credentials: 'include',
       });
+
+      // Clear client-side token storage regardless of server success
+      try {
+        localStorage.removeItem('token');
+      } catch (err) {
+        // ignore
+      }
+
+      // Delete cookie named 'token' by expiring it
+      const isProd = process.env.NODE_ENV === 'production';
+      let cookie = `token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;`;
+      if (isProd) {
+        cookie += ' SameSite=None; Secure;';
+      } else {
+        cookie += ' SameSite=Lax;';
+      }
+      document.cookie = cookie;
+
       if (res.ok) {
         window.location.href = '/login';
       } else {
-        alert('Logout failed');
+        // still redirect to login to clear client state
+        window.location.href = '/login';
       }
-    } catch {
-      alert('Logout failed');
+    } catch (err) {
+      // best-effort: clear client state and redirect
+      try { localStorage.removeItem('token'); } catch {}
+      const cookie = `token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT;`;
+      document.cookie = cookie;
+      window.location.href = '/login';
     }
   }
 
   return (
     <nav style={styles.nav}>
       <div style={styles.navTitle}>Portfolio Tracker</div>
-      {user && user.isAuthenticated ? (
+      {user && (user.isAuthenticated || user.is_authenticated) ? (
         <>
           <Link href="/" style={styles.navLink}>Portfolio</Link>
           <Link href="/valuation" style={styles.navLink}>Valuation</Link>
@@ -34,7 +57,7 @@ export default function Nav({ user }) {
             style={{ ...styles.navLink, cursor: 'pointer', userSelect: 'none' }}
             title="Logout"
           >
-            Logout ({user.id})
+            Logout ({user.id || user.email || 'me'})
           </span>
         </>
       ) : (

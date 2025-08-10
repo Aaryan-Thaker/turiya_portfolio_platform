@@ -1,23 +1,56 @@
+// pages/api/proxy-risk-submit.js
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).send('Method not allowed');
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
-  // Forward everything exactly as received
   const backendUrl = process.env.NODE_ENV === 'production'
     ? 'https://portoflio-backend-snowy.vercel.app/api/risk/submit'
     : 'http://localhost:5000/api/risk/submit';
 
-  const response = await fetch(backendUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Cookie': req.headers.cookie || ''
-    },
-    body: new URLSearchParams(req.body).toString()
-  });
+  try {
+    // forward headers: content-type, authorization, cookie
+    const headers = {
+      'Content-Type': req.headers['content-type'] || 'application/json',
+    };
+    if (req.headers.authorization) headers['Authorization'] = req.headers.authorization;
+    if (req.headers.cookie) headers['Cookie'] = req.headers.cookie;
 
-  // Pass through the raw response (HTML/redirect) untouched
-  const html = await response.text();
-  res.status(response.status).send(html);
+    // Prepare body. If JSON, forward JSON string; else forward as urlencoded (preserve)
+    let body;
+    if (headers['Content-Type'].includes('application/json')) {
+      body = JSON.stringify(req.body);
+    } else if (headers['Content-Type'].includes('application/x-www-form-urlencoded')) {
+      body = new URLSearchParams(req.body).toString();
+    } else {
+      // fallback: try JSON
+      body = JSON.stringify(req.body);
+    }
+
+    const backendRes = await fetch(backendUrl, {
+      method: 'POST',
+      headers,
+      body,
+      redirect: 'follow',
+    });
+
+    const text = await backendRes.text();
+    // Try parse JSON else send text
+    const contentType = backendRes.headers.get('content-type') || '';
+    res.status(backendRes.status);
+    if (contentType.includes('application/json')) {
+      try {
+        const json = JSON.parse(text);
+        return res.json(json);
+      } catch (e) {
+        return res.send(text);
+      }
+    } else {
+      return res.send(text);
+    }
+  } catch (err) {
+    console.error('proxy-risk-submit error', err);
+    return res.status(500).json({ success: false, error: 'Proxy error' });
+  }
 }

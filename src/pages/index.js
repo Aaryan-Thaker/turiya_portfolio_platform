@@ -7,7 +7,6 @@ const SectorPie = dynamic(() => import('../components/Charts').then(mod => mod.S
 const GainBar = dynamic(() => import('../components/Charts').then(mod => mod.GainBar), { ssr: false });
 const TreemapChart = dynamic(() => import('../components/Charts').then(mod => mod.TreemapChart), { ssr: false });
 
-
 export default function PortfolioPage({
   currentUser,
   marketData,
@@ -199,16 +198,20 @@ const portfolioSummaryStyle = {
   fontSize: 15,
 };
 
-// Server-side data fetching from Flask backend
+// Updated for DB-backed JWT auth
 export async function getServerSideProps(context) {
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = context.req.headers.host;
   const backendUrl = `${protocol}://${host}/api/portfolio`;
 
+  // Get JWT token from cookies if present
+  const tokenCookie = context.req.cookies?.token || '';
+
   const res = await fetch(backendUrl, {
     method: 'GET',
     credentials: 'include',
     headers: {
+      ...(tokenCookie ? { Authorization: `Bearer ${tokenCookie}` } : {}),
       cookie: context.req.headers.cookie || '',
     },
   });
@@ -226,6 +229,7 @@ export async function getServerSideProps(context) {
 
   const currentUser = {
     id: data?.current_user?.id || 'guest',
+    email: data?.current_user?.email || '',
     isAuthenticated: data?.current_user?.is_authenticated || false,
   };
 

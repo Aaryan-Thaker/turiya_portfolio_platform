@@ -1,5 +1,5 @@
 // pages/risk-assessment.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import dynamic from 'next/dynamic';
 import Nav from './Nav';
@@ -47,13 +47,17 @@ const LIFE_STAGE_OPTIONS = [
 
 export default function RiskAssessment({ currentUser, errorMessage }) {
   const router = useRouter();
+  const applicantSigRef = useRef(null);
+  const advisorSigRef = useRef(null);
+
   const [formData, setFormData] = useState({
     // Client Information
     applicantName: '',
     applicantAddress: '',
     // Investment Experience
     ...INVESTMENT_TYPES.reduce((acc, type) => {
-      const key = `${type.toLowerCase().replace(' ', '')}Experience`;
+      // replace all spaces for the key
+      const key = `${type.toLowerCase().replace(/\s+/g, '')}Experience`;
       return { ...acc, [key]: '' };
     }, {}),
     // Investment Goals
@@ -88,59 +92,60 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   // Calculate score whenever answers change
   useEffect(() => {
     calculateScore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData]);
 
   const calculateScore = () => {
     let score = 0;
-    
+
     // Question 1: Purpose of Investing
     const purposeScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
     if (formData.purposeOfInvesting in purposeScores) {
       score += purposeScores[formData.purposeOfInvesting];
     }
-    
+
     // Question 2: Life Stage
     const lifeStageScores = { a: 50, b: 40, c: 30, d: 50, e: 20, f: 10 };
     if (formData.lifeStage in lifeStageScores) {
       score += lifeStageScores[formData.lifeStage];
     }
-    
+
     // Question 3: Expected Returns
     const returnsScores = { a: 10, b: 20, c: 30, d: 40, e: 50 };
     if (formData.expectedReturns in returnsScores) {
       score += returnsScores[formData.expectedReturns];
     }
-    
+
     // Question 4: Derivative Products
     const derivativesScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
     if (formData.derivativeProducts in derivativesScores) {
       score += derivativesScores[formData.derivativeProducts];
     }
-    
+
     // Question 5: Investment Horizon
     const horizonScores = { a: 10, b: 20, c: 30, d: 40, e: 50 };
     if (formData.investmentHorizon in horizonScores) {
       score += horizonScores[formData.investmentHorizon];
     }
-    
+
     // Question 6: Market Downturn Reaction
     const downturnScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
     if (formData.marketDownturnReaction in downturnScores) {
       score += downturnScores[formData.marketDownturnReaction];
     }
-    
+
     // Question 7: Income Stability
     const incomeScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
     if (formData.incomeStability in incomeScores) {
       score += incomeScores[formData.incomeStability];
     }
-    
+
     // Question 8: Emergency Savings
     const savingsScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
     if (formData.emergencySavings in savingsScores) {
       score += savingsScores[formData.emergencySavings];
     }
-    
+
     setTotalScore(score);
     determineRiskProfile(score);
   };
@@ -155,59 +160,95 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
     setRiskProfile('Undetermined');
   };
 
+  const handleApplicantSigEnd = () => {
+    try {
+      // try several ways to get data URL from ref (defensive)
+      const ref = applicantSigRef.current;
+      let dataUrl = null;
+      if (!ref) return;
+      if (typeof ref.toDataURL === 'function') dataUrl = ref.toDataURL();
+      // react-signature-pad-wrapper sometimes exposes getTrimmedCanvas
+      else if (ref.getTrimmedCanvas) dataUrl = ref.getTrimmedCanvas().toDataURL();
+      else if (ref.getCanvas) dataUrl = ref.getCanvas().toDataURL();
+
+      setFormData(prev => ({ ...prev, applicantSignature: dataUrl }));
+    } catch (e) {
+      // ignore silently
+    }
+  };
+
+  const handleAdvisorSigEnd = () => {
+    try {
+      const ref = advisorSigRef.current;
+      let dataUrl = null;
+      if (!ref) return;
+      if (typeof ref.toDataURL === 'function') dataUrl = ref.toDataURL();
+      else if (ref.getTrimmedCanvas) dataUrl = ref.getTrimmedCanvas().toDataURL();
+      else if (ref.getCanvas) dataUrl = ref.getCanvas().toDataURL();
+
+      setFormData(prev => ({ ...prev, advisorSignature: dataUrl }));
+    } catch (e) {
+      // ignore silently
+    }
+  };
+
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // Validate required fields
-  if (!formData.applicantName || !formData.applicantAddress) {
-    setError('Please complete all required fields');
-    return;
-  }
+    // Validate required fields
+    if (!formData.applicantName || !formData.applicantAddress) {
+      setError('Please complete all required fields');
+      return;
+    }
 
-  setIsSubmitting(true);
-  setError('');
+    setIsSubmitting(true);
+    setError('');
 
-  try {
-    // Get JWT token from localStorage
-    const token = localStorage.getItem('token');
+    try {
+      // Get JWT token from localStorage
+      const token = (typeof window !== 'undefined' && localStorage.getItem('token')) || '';
 
-    const response = await fetch(
-      `${process.env.NODE_ENV === 'production' 
-        ? 'https://portoflio-backend-snowy.vercel.app' 
-        : 'http://localhost:5000'}/api/risk/submit`,
-      {
+      // Use proxied API path so next.config rewrites or API route can forward
+      const apiPath = '/api/risk/submit';
+
+      const response = await fetch(apiPath, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,  // Add the token here
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           ...formData,
           totalScore,
           riskProfile
         })
+      });
+
+      // Parse defensively
+      const text = await response.text();
+      let json;
+      try { json = JSON.parse(text); } catch (e) { json = null; }
+
+      if (!response.ok) {
+        const errorData = json || {};
+        throw new Error(errorData.error || errorData.message || 'Submission failed');
       }
-    );
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Submission failed');
+      // success
+      localStorage.setItem('riskAssessmentCompleted', 'true');
+      router.push('/');
+    } catch (err) {
+      setError(err.message || 'Failed to submit assessment');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    localStorage.setItem('riskAssessmentCompleted', 'true');
-    router.push('/');
-  } catch (error) {
-    setError(error.message || 'Failed to submit assessment');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
+  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    if (type === 'checkbox') {
+
+    if (type === 'checkbox' && name === 'interestedInvestments') {
       setFormData(prev => ({
         ...prev,
         interestedInvestments: checked
@@ -223,6 +264,27 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   };
 
   const clearSignature = (field) => {
+    // clear canvas via ref if possible
+    try {
+      if (field === 'applicantSignature' && applicantSigRef.current) {
+        if (typeof applicantSigRef.current.clear === 'function') applicantSigRef.current.clear();
+        else if (applicantSigRef.current.getCanvas) {
+          const c = applicantSigRef.current.getCanvas();
+          const ctx = c.getContext && c.getContext('2d');
+          if (ctx) ctx.clearRect(0, 0, c.width, c.height);
+        }
+      } else if (field === 'advisorSignature' && advisorSigRef.current) {
+        if (typeof advisorSigRef.current.clear === 'function') advisorSigRef.current.clear();
+        else if (advisorSigRef.current.getCanvas) {
+          const c = advisorSigRef.current.getCanvas();
+          const ctx = c.getContext && c.getContext('2d');
+          if (ctx) ctx.clearRect(0, 0, c.width, c.height);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
     setFormData(prev => ({
       ...prev,
       [field]: null
@@ -598,8 +660,9 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
           <div className="signature-group">
             <h3>Applicant Signature <span>*</span></h3>
             <SignaturePad 
+              ref={applicantSigRef}
               options={{ penColor: '#000' }}
-              onEnd={(sig) => setFormData({...formData, applicantSignature: sig.toDataURL()})}
+              onEnd={handleApplicantSigEnd}
               redrawOnResize={true}
             />
             <button 
@@ -614,8 +677,9 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
           <div className="signature-group">
             <h3>Investment Advisor Signature</h3>
             <SignaturePad 
+              ref={advisorSigRef}
               options={{ penColor: '#000' }}
-              onEnd={(sig) => setFormData({...formData, advisorSignature: sig.toDataURL()})}
+              onEnd={handleAdvisorSigEnd}
               redrawOnResize={true}
             />
             <button 

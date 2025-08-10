@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import Nav from './Nav'; // Adjust import path as needed
 
-export default function TransactionsPage({ 
-  user, 
-  transactionsData, 
-  stockPerformanceData, 
+export default function TransactionsPage({
+  user,
+  transactionsData,
+  stockPerformanceData,
   realizedGainsTotal,
   portfolioIrr,
   error: initialError
@@ -20,7 +20,9 @@ export default function TransactionsPage({
   const [realizedGains, setRealizedGains] = useState(realizedGainsTotal || 0);
   const [portfolioIRR, setPortfolioIRR] = useState(portfolioIrr || 0);
 
-  const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+  // Use proxied API path (next.config.js rewrites /api/* -> backend)
+  const txApiPath = '/api/transactions';
+  const clearApiPath = '/api/clear_transactions';
 
   async function handleAddTransaction(e) {
     e.preventDefault();
@@ -40,14 +42,19 @@ export default function TransactionsPage({
     }
 
     try {
-      const res = await fetch(`/api/transactions`, {
+      const token = (typeof window !== 'undefined' && localStorage.getItem('token')) || '';
+
+      const res = await fetch(txApiPath, {
         credentials: 'include',
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ type, stock: stock.toUpperCase(), quantity: qtyNum, price: priceNum, date }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error || 'Failed to add transaction');
         return;
@@ -59,15 +66,23 @@ export default function TransactionsPage({
       setQuantity('');
       setPrice('');
       setDate('');
-    } catch {
+    } catch (err) {
+      console.error('Add transaction error', err);
       setError('An unexpected error occurred.');
     }
   }
 
   async function fetchTransactions() {
     try {
-      const res = await fetch(`${backendBase}/api/transactions`, { credentials: 'include' });
-      const data = await res.json();
+      const token = (typeof window !== 'undefined' && localStorage.getItem('token')) || '';
+      const res = await fetch(txApiPath, {
+        credentials: 'include',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
         setTransactions(data.transactions || []);
@@ -76,9 +91,15 @@ export default function TransactionsPage({
         setPortfolioIRR(data.portfolioIRR || 0);
         setError('');
       } else {
+        // If unauthorized, redirect to login
+        if (res.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
         setError(data.error || 'Failed to load transactions.');
       }
-    } catch {
+    } catch (err) {
+      console.error('fetchTransactions error', err);
       setError('Failed to load transactions.');
     }
   }
@@ -87,17 +108,23 @@ export default function TransactionsPage({
     if (!confirm('Are you sure you want to clear all transactions?')) return;
 
     try {
-      const res = await fetch(`${backendBase}/api/clear_transactions`, {
+      const token = (typeof window !== 'undefined' && localStorage.getItem('token')) || '';
+      const res = await fetch(clearApiPath, {
         method: 'POST',
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
 
       if (res.ok) {
         await fetchTransactions();
       } else {
-        setError('Failed to clear transactions.');
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || 'Failed to clear transactions.');
       }
-    } catch {
+    } catch (err) {
+      console.error('clearTransactions error', err);
       setError('Failed to clear transactions.');
     }
   }
@@ -106,6 +133,7 @@ export default function TransactionsPage({
     if (!transactionsData) {
       fetchTransactions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function formatCurrency(value) {
@@ -250,15 +278,19 @@ export async function getServerSideProps(context) {
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = context.req.headers.host;
 
-  // Uses the rewrite proxy to /api in dev or uses backend URL in prod
-  const backendUrl = process.env.BACKEND_URL
-    ? `${process.env.BACKEND_URL}/transactions`
-    : `${protocol}://${host}/api/transactions`;
+  // Build proxied API URL (your next.config.js rewrites /api/* -> backend)
+  const backendUrl = `${protocol}://${host}/api/transactions`;
+
+  // extract token cookie value if present
+  const cookieHeader = context.req.headers.cookie || '';
+  const tokenMatch = cookieHeader.split(';').map(s => s.trim()).find(s => s.startsWith('token='));
+  const token = tokenMatch ? decodeURIComponent(tokenMatch.split('=')[1]) : '';
 
   const res = await fetch(backendUrl, {
     credentials: 'include',
     headers: {
-      cookie: context.req.headers.cookie || '',
+      cookie: cookieHeader,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
 
@@ -271,7 +303,7 @@ export async function getServerSideProps(context) {
     };
   }
 
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
 
   const user = {
     id: data.current_user?.id || 'guest',
@@ -289,4 +321,3 @@ export async function getServerSideProps(context) {
     },
   };
 }
-

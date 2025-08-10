@@ -11,11 +11,13 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
     else if (absVal >= 1e6) formatted = (value / 1e6).toFixed(2) + 'M';
     else if (absVal >= 1e3) formatted = (value / 1e3).toFixed(2) + 'K';
     else formatted = value.toFixed(2);
+    // Use Intl to format numeric part only
+    const numberPart = Number(String(formatted).replace(/[TMBK]$/, ''));
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency,
       maximumFractionDigits: 2,
-    }).format(formatted.replace(/[TMBK]$/, '')) + (formatted.match(/[TMBK]/)?.[0] ?? '');
+    }).format(numberPart) + (formatted.match(/[TMBK]/)?.[0] ?? '');
   }
 
   function formatCurrency(value, currency = 'USD') {
@@ -25,7 +27,9 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
 
   function formatPercentage(value) {
     if (value == null || value === 'N/A') return 'N/A';
-    return (value * 100).toFixed(2) + '%';
+    // backend sometimes sends AllocationPercent as raw percent (0-100) or decimal; try to handle both:
+    const v = (Math.abs(value) > 1 && Math.abs(value) <= 100) ? (value / 100) : value;
+    return (v * 100).toFixed(2) + '%';
   }
 
   function formatRatio(value) {
@@ -40,7 +44,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
   // Normalize user prop so Nav sees isAuthenticated (camelCase)
   const normalizedUser = {
     ...currentUser,
-    isAuthenticated: currentUser.is_authenticated ?? false,
+    isAuthenticated: currentUser.is_authenticated ?? currentUser.isAuthenticated ?? false,
   };
 
   return (
@@ -89,28 +93,28 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
                   <td style={{ ...styles.tableBodyCell, ...styles.tickerCell, textAlign: 'left' }}>
                     {symbol} ({c})
                   </td>
-                  <td style={styles.tableBodyCell}>{formatCurrency(v.CurrentPrice, c)}</td>
-                  <td style={styles.tableBodyCell}>{formatCurrency(v.CurrentValue, c)}</td>
-                  <td style={styles.tableBodyCell}>{formatPercentage(v.AllocationPercent)}</td>
-                  <td style={styles.tableBodyCell}>{formatCurrency(v['52wHigh'], c)}</td>
-                  <td style={styles.tableBodyCell}>{formatCurrency(v['52wLow'], c)}</td>
-                  <td style={styles.tableBodyCell}>{formatLargeCurrency(v.MarketCap, c)}</td>
-                  <td style={styles.tableBodyCell}>{formatRatio(v.TrailingPE)}</td>
-                  <td style={styles.tableBodyCell}>{formatRatio(v.ForwardPE)}</td>
-                  <td style={styles.tableBodyCell}>{formatRatio(v.PEGRatio)}</td>
-                  <td style={styles.tableBodyCell}>{formatRatio(v.PriceToSales)}</td>
-                  <td style={styles.tableBodyCell}>{formatRatio(v.PriceToBook)}</td>
-                  <td style={styles.tableBodyCell}>{formatRatio(v['EV/Revenue'] || v['EV/Rev'])}</td>
-                  <td style={styles.tableBodyCell}>{formatRatio(v['EV/EBITDA'])}</td>
-                  <td style={styles.tableBodyCell}>{formatPercentage(v.ProfitMargin)}</td>
-                  <td style={styles.tableBodyCell}>{formatPercentage(v.ROA)}</td>
-                  <td style={styles.tableBodyCell}>{formatPercentage(v.ROE)}</td>
-                  <td style={styles.tableBodyCell}>{formatLargeCurrency(v.Revenue, c)}</td>
-                  <td style={styles.tableBodyCell}>{formatLargeCurrency(v.NetIncome, c)}</td>
-                  <td style={styles.tableBodyCell}>{formatCurrency(v.EPS, c)}</td>
-                  <td style={styles.tableBodyCell}>{formatLargeCurrency(v.TotalCash, c)}</td>
-                  <td style={styles.tableBodyCell}>{formatRatio(v.DebtEquity)}</td>
-                  <td style={styles.tableBodyCell}>{formatLargeCurrency(v.FreeCashFlow, c)}</td>
+                  <td style={styles.tableBodyCell}>{formatCurrency(v.CurrentPrice ?? 0, c)}</td>
+                  <td style={styles.tableBodyCell}>{formatCurrency(v.CurrentValue ?? 0, c)}</td>
+                  <td style={styles.tableBodyCell}>{formatPercentage(v.AllocationPercent ?? 0)}</td>
+                  <td style={styles.tableBodyCell}>{formatCurrency(v['52wHigh'] ?? 0, c)}</td>
+                  <td style={styles.tableBodyCell}>{formatCurrency(v['52wLow'] ?? 0, c)}</td>
+                  <td style={styles.tableBodyCell}>{formatLargeCurrency(v.MarketCap ?? 0, c)}</td>
+                  <td style={styles.tableBodyCell}>{formatRatio(v.TrailingPE ?? 'N/A')}</td>
+                  <td style={styles.tableBodyCell}>{formatRatio(v.ForwardPE ?? 'N/A')}</td>
+                  <td style={styles.tableBodyCell}>{formatRatio(v.PEGRatio ?? 'N/A')}</td>
+                  <td style={styles.tableBodyCell}>{formatRatio(v.PriceToSales ?? 'N/A')}</td>
+                  <td style={styles.tableBodyCell}>{formatRatio(v.PriceToBook ?? 'N/A')}</td>
+                  <td style={styles.tableBodyCell}>{formatRatio(v['EV/Revenue'] ?? v['EV/Rev'] ?? 'N/A')}</td>
+                  <td style={styles.tableBodyCell}>{formatRatio(v['EV/EBITDA'] ?? 'N/A')}</td>
+                  <td style={styles.tableBodyCell}>{formatPercentage(v.ProfitMargin ?? 'N/A')}</td>
+                  <td style={styles.tableBodyCell}>{formatPercentage(v.ROA ?? 'N/A')}</td>
+                  <td style={styles.tableBodyCell}>{formatPercentage(v.ROE ?? 'N/A')}</td>
+                  <td style={styles.tableBodyCell}>{formatLargeCurrency(v.Revenue ?? 0, c)}</td>
+                  <td style={styles.tableBodyCell}>{formatLargeCurrency(v.NetIncome ?? 0, c)}</td>
+                  <td style={styles.tableBodyCell}>{formatCurrency(v.EPS ?? 0, c)}</td>
+                  <td style={styles.tableBodyCell}>{formatLargeCurrency(v.TotalCash ?? 0, c)}</td>
+                  <td style={styles.tableBodyCell}>{formatRatio(v.DebtEquity ?? 'N/A')}</td>
+                  <td style={styles.tableBodyCell}>{formatLargeCurrency(v.FreeCashFlow ?? 0, c)}</td>
                 </tr>
               );
             })}
@@ -172,14 +176,20 @@ export async function getServerSideProps(context) {
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = context.req.headers.host;
 
-  // Construct full URL depending on environment
-  const backendUrl = process.env.BACKEND_URL
-    ? `${process.env.BACKEND_URL}/valuation`
-    : `${protocol}://${host}/api/valuation`;
+  // proxied API
+  const backendUrl = `${protocol}://${host}/api/valuation`;
+
+  // parse token cookie
+  const cookieHeader = context.req.headers.cookie || '';
+  const tokenMatch = cookieHeader.split(';').map(s => s.trim()).find(s => s.startsWith('token='));
+  const token = tokenMatch ? decodeURIComponent(tokenMatch.split('=')[1]) : '';
 
   const res = await fetch(backendUrl, {
     credentials: 'include',
-    headers: { cookie: context.req.headers.cookie || '' },
+    headers: {
+      cookie: cookieHeader,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
 
   if (res.status === 401) {
@@ -191,7 +201,7 @@ export async function getServerSideProps(context) {
     };
   }
 
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
 
   if (!res.ok || !data.success) {
     return {

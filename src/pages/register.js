@@ -1,6 +1,8 @@
+// pages/register.js
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import Nav from './Nav';
 
 export default function Register() {
   const router = useRouter();
@@ -8,89 +10,84 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [message, setMessage] = useState('');
 
-  async function handleRegister(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    setSuccess('');
+    setMessage('');
 
+    if (!email || !password || !confirmPassword) {
+      setError('Please fill all fields.');
+      return;
+    }
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
     }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
 
-    const res = await fetch('/api/register', {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ email, password, confirm_password: confirmPassword })
-    });
+    try {
+      // Use proxied API route — next.config.js rewrites /api/* to your Flask backend
+      const url = '/api/register';
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password,
+          confirm_password: confirmPassword
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-    if (data.success) {
-      setSuccess('Registration successful! Please check your email to verify your account.');
-    } else {
-      setError(data.error || 'Something went wrong');
+      if (res.ok && data.success) {
+        setMessage(data.message || 'Verification email sent. Check your inbox.');
+        // Optionally redirect to login after a short delay
+        setTimeout(() => router.push('/login'), 2200);
+      } else {
+        setError(data.error || 'Registration failed');
+      }
+    } catch (err) {
+      setError('Server error: ' + err.message);
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 to-blue-100">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-8 m-4">
-        <h1 className="text-2xl font-semibold text-center text-gray-800 mb-6">Create Account</h1>
+    <div style={wrap}>
+      <Nav user={{ isAuthenticated: false }} />
+      <div style={card}>
+        <h2>Create account</h2>
 
-        {error && <div className="text-red-600 text-sm text-center mb-4">{error}</div>}
-        {success && <div className="text-green-600 text-sm text-center mb-4">{success}</div>}
+        {message && <div style={success}>{message}</div>}
+        {error && <div style={err}>{error}</div>}
 
-        <form onSubmit={handleRegister} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email Address"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 border rounded-md text-sm focus:outline-none"
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 border rounded-md text-sm focus:outline-none"
-          />
-
-          <input
-            type="password"
-            placeholder="Confirm Password"
-            required
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full px-4 py-2 border rounded-md text-sm focus:outline-none"
-          />
-
-          <button
-            type="submit"
-            className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 transition"
-          >
-            Sign Up
-          </button>
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 10 }}>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" type="email" required style={input} />
+          <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" required style={input} />
+          <input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm Password" type="password" required style={input} />
+          <button type="submit" style={button}>Register</button>
         </form>
 
-        <div className="text-center text-sm text-gray-600 mt-4">
-          Already have an account?{' '}
-          <Link href="/login" className="text-blue-500 hover:underline">Login</Link>
+        <div style={{ marginTop: 12 }}>
+          Already have an account? <Link href="/login">Login</Link>
         </div>
       </div>
     </div>
   );
 }
 
+const wrap = { fontFamily: 'Arial, sans-serif', maxWidth: 900, margin: '20px auto', padding: 20 };
+const card = { background: '#fff', padding: 24, borderRadius: 8, boxShadow: '0 6px 18px rgba(0,0,0,.08)' };
+const input = { padding: 10, borderRadius: 6, border: '1px solid #ddd', fontSize: 14 };
+const button = { padding: '10px 16px', background: '#2196F3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' };
+const err = { color: '#e74c3c', marginBottom: 10 };
+const success = { color: '#2ecc71', marginBottom: 10 };
 
 const styles = {
   body: {

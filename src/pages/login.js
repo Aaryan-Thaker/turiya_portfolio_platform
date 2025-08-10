@@ -18,19 +18,39 @@ export default function Login() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include', // for session cookies
         body: JSON.stringify({
-  email: email.trim().toLowerCase(), 
-  password
-}),
+          email: email.trim().toLowerCase(),
+          password
+        }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       console.log("Login response:", data);
 
       if (res.ok && data.success) {
-        localStorage.setItem('token', data.token);
+        // store token for client-side use
+        if (data.token) {
+          try {
+            localStorage.setItem('token', data.token);
+          } catch (err) {
+            // localStorage might be unavailable in some contexts; ignore
+            console.debug('localStorage set failed', err);
+          }
+
+          // set cookie so SSR (getServerSideProps) can read it
+          // cookie attributes: path=/, max-age 1 day; add SameSite=None & Secure in production
+          const maxAge = 60 * 60 * 24; // 1 day
+          const isProd = process.env.NODE_ENV === 'production';
+          let cookie = `token=${data.token}; Path=/; Max-Age=${maxAge};`;
+          if (isProd) {
+            cookie += ' SameSite=None; Secure;';
+          } else {
+            cookie += ' SameSite=Lax;';
+          }
+          document.cookie = cookie;
+        }
+
         // Login success, redirect to homepage
         router.push('/');
-        
       } else {
         setError(data.error || 'Login failed');
       }
