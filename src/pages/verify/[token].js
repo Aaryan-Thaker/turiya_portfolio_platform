@@ -23,12 +23,35 @@ export default function VerifyPage({ success, error }) {
   );
 }
 
+export async function getServerSideProps(context) {
+  const { token } = context.query;
+
+  if (!token) {
+    return { props: { error: 'Invalid or missing verification token.' } };
+  }
+
+  try {
+    const res = await fetch(
+      `${process.env.NODE_ENV === 'production'
+        ? 'https://portoflio-backend-snowy.vercel.app'
+        : 'http://localhost:5000'}/api/verify?token=${token}`
+    );
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      return { props: { error: data.error || 'Verification failed.' } };
+    }
+
+    return { props: { success: 'Your email has been verified successfully!' } };
+  } catch (err) {
+    return { props: { error: 'Server error during verification.' } };
+  }
+}
+
 const styles = {
   body: {
     fontFamily: 'Arial, sans-serif',
     background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-    margin: 0,
-    padding: 0,
     minHeight: '100vh',
     display: 'flex',
     justifyContent: 'center',
