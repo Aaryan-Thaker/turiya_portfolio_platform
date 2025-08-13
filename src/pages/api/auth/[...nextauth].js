@@ -1,7 +1,6 @@
 // pages/api/auth/[...nextauth].js
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import MicrosoftProvider from "next-auth/providers/microsoft";
 
 const BACKEND_URL =
   process.env.BACKEND_URL ||
@@ -15,24 +14,12 @@ export default NextAuth({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
-    MicrosoftProvider({
-      clientId: process.env.MICROSOFT_CLIENT_ID,
-      clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-      authorization: {
-        params: {
-          scope: "openid email profile offline_access User.Read",
-        },
-      },
-    }),
   ],
 
-  // Use JWT sessions (serverless-friendly)
   session: { strategy: "jwt" },
-
   secret: process.env.NEXTAUTH_SECRET,
 
   callbacks: {
-    // Called after sign in / provider returns. Persist backend JWT into token.accessToken.
     async jwt({ token, account, profile }) {
       if (account && profile) {
         try {
