@@ -1,7 +1,7 @@
 // pages/api/auth/[...nextauth].js
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
+import MicrosoftProvider from "next-auth/providers/microsoft";
 
 const BACKEND_URL =
   process.env.BACKEND_URL ||
@@ -15,10 +15,9 @@ export default NextAuth({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
-    MicrosoftEntraID({
+    MicrosoftProvider({
       clientId: process.env.MICROSOFT_CLIENT_ID,
       clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-      tenantId: "common", // allows personal + work/school accounts
       authorization: {
         params: {
           scope: "openid email profile offline_access User.Read",
@@ -33,16 +32,14 @@ export default NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
 
   callbacks: {
-    // After sign in: exchange OAuth profile with backend to get backend JWT
+    // Called after sign in / provider returns. Persist backend JWT into token.accessToken.
     async jwt({ token, account, profile }) {
       if (account && profile) {
         try {
           const payload = {
             email: profile.email,
             name:
-              profile.name ||
-              profile.preferred_username ||
-              profile.email,
+              profile.name || profile.preferred_username || profile.email,
             provider: account.provider,
             providerAccountId:
               account.providerAccountId || profile.sub,
@@ -56,8 +53,7 @@ export default NextAuth({
 
           if (res.ok) {
             const data = await res.json();
-            token.accessToken =
-              data.token || data.accessToken || null;
+            token.accessToken = data.token || data.accessToken || null;
             token.user =
               data.user || {
                 email: profile.email,
@@ -81,7 +77,6 @@ export default NextAuth({
       return token;
     },
 
-    // Expose backend JWT + user in session
     async session({ session, token }) {
       session.accessToken = token.accessToken || null;
       session.user = session.user || token.user || {};
