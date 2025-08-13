@@ -1,5 +1,7 @@
+// pages/valuation.js
 import React from 'react';
-import Nav from './Nav';  // Adjust path as needed
+import Nav from './Nav';
+import { getSession } from 'next-auth/react';
 
 export default function ValuationPage({ currentUser, tickers = [], valuationData = {}, error }) {
   function formatLargeCurrency(value, currency = 'USD') {
@@ -11,7 +13,6 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
     else if (absVal >= 1e6) formatted = (value / 1e6).toFixed(2) + 'M';
     else if (absVal >= 1e3) formatted = (value / 1e3).toFixed(2) + 'K';
     else formatted = value.toFixed(2);
-    // Use Intl to format numeric part only
     const numberPart = Number(String(formatted).replace(/[TMBK]$/, ''));
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -27,7 +28,6 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
 
   function formatPercentage(value) {
     if (value == null || value === 'N/A') return 'N/A';
-    // backend sometimes sends AllocationPercent as raw percent (0-100) or decimal; try to handle both:
     const v = (Math.abs(value) > 1 && Math.abs(value) <= 100) ? (value / 100) : value;
     return (v * 100).toFixed(2) + '%';
   }
@@ -41,7 +41,6 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
     return <div style={{ padding: 20, color: 'red' }}>Error loading valuation data: {error}</div>;
   }
 
-  // Normalize user prop so Nav sees isAuthenticated (camelCase)
   const normalizedUser = {
     ...currentUser,
     isAuthenticated: currentUser.is_authenticated ?? currentUser.isAuthenticated ?? false,
@@ -173,32 +172,23 @@ const styles = {
 };
 
 export async function getServerSideProps(context) {
+  const session = await getSession(context);
+  const token = session?.accessToken || '';
+
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = context.req.headers.host;
-
-  // proxied API
   const backendUrl = `${protocol}://${host}/api/valuation`;
-
-  // parse token cookie
-  const cookieHeader = context.req.headers.cookie || '';
-  const tokenMatch = cookieHeader.split(';').map(s => s.trim()).find(s => s.startsWith('token='));
-  const token = tokenMatch ? decodeURIComponent(tokenMatch.split('=')[1]) : '';
 
   const res = await fetch(backendUrl, {
     credentials: 'include',
     headers: {
-      cookie: cookieHeader,
+      cookie: context.req.headers.cookie || '',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
 
   if (res.status === 401) {
-    return {
-      redirect: {
-        destination: '/login',
-        permanent: false,
-      },
-    };
+    return { redirect: { destination: '/auth/signin', permanent: false } };
   }
 
   const data = await res.json().catch(() => ({}));

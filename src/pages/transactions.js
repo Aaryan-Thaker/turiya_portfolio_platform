@@ -1,5 +1,7 @@
+// pages/transactions.js
 import { useState, useEffect } from 'react';
-import Nav from './Nav'; // Adjust import path as needed
+import Nav from './Nav';
+import { getSession } from 'next-auth/react';
 
 export default function TransactionsPage({
   user,
@@ -20,7 +22,6 @@ export default function TransactionsPage({
   const [realizedGains, setRealizedGains] = useState(realizedGainsTotal || 0);
   const [portfolioIRR, setPortfolioIRR] = useState(portfolioIrr || 0);
 
-  // Use proxied API path (next.config.js rewrites /api/* -> backend)
   const txApiPath = '/api/transactions';
   const clearApiPath = '/api/clear_transactions';
 
@@ -42,7 +43,8 @@ export default function TransactionsPage({
     }
 
     try {
-      const token = (typeof window !== 'undefined' && localStorage.getItem('token')) || '';
+      const session = await getSession();
+      const token = session?.accessToken || '';
 
       const res = await fetch(txApiPath, {
         credentials: 'include',
@@ -74,7 +76,9 @@ export default function TransactionsPage({
 
   async function fetchTransactions() {
     try {
-      const token = (typeof window !== 'undefined' && localStorage.getItem('token')) || '';
+      const session = await getSession();
+      const token = session?.accessToken || '';
+
       const res = await fetch(txApiPath, {
         credentials: 'include',
         headers: {
@@ -91,9 +95,8 @@ export default function TransactionsPage({
         setPortfolioIRR(data.portfolioIRR || 0);
         setError('');
       } else {
-        // If unauthorized, redirect to login
         if (res.status === 401) {
-          window.location.href = '/login';
+          window.location.href = '/auth/signin';
           return;
         }
         setError(data.error || 'Failed to load transactions.');
@@ -108,7 +111,9 @@ export default function TransactionsPage({
     if (!confirm('Are you sure you want to clear all transactions?')) return;
 
     try {
-      const token = (typeof window !== 'undefined' && localStorage.getItem('token')) || '';
+      const session = await getSession();
+      const token = session?.accessToken || '';
+
       const res = await fetch(clearApiPath, {
         method: 'POST',
         credentials: 'include',
@@ -255,19 +260,19 @@ export default function TransactionsPage({
         .performance-summary { background: #f8f8f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
         .performance-metrics { display: flex; gap: 20px; flex-wrap: wrap; }
         .metric { min-width: 150px; }
-        .metric-value { font-size: 16px; font-weight: bold; } /* smaller font */
+        .metric-value { font-size: 16px; font-weight: bold; }
         .green { color: #006400; }
         .red { color: #8B0000; }
         .transaction-container { display: flex; gap: 20px; flex-wrap: wrap; }
         .transaction-form, .transaction-history { flex: 1; min-width: 300px; }
         .form-group { margin-bottom: 15px; }
-        .input { width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; } /* smaller inputs */
+        .input { width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
         .button { background: #4CAF50; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; }
         .clear { background: #f44336; margin-top: 10px; }
         .alert { color: #8B0000; background: #ffdddd; padding: 8px; border-radius: 4px; margin-top: 10px; font-size: 14px; }
         .table-wrapper { overflow-x: auto; }
-        .table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; } /* smaller font */
-        .table th, .table td { border: 1px solid #ddd; padding: 6px 8px; text-align: center; } /* smaller padding */
+        .table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+        .table th, .table td { border: 1px solid #ddd; padding: 6px 8px; text-align: center; }
         .footer { margin-top: 40px; padding: 20px; background: #f8f8f8; border-top: 1px solid #eee; font-size: 11px; color: #666; text-align: center; }
       `}</style>
     </div>
@@ -275,21 +280,17 @@ export default function TransactionsPage({
 }
 
 export async function getServerSideProps(context) {
+  const session = await getSession(context);
+  const token = session?.accessToken || '';
+
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = context.req.headers.host;
-
-  // Build proxied API URL (your next.config.js rewrites /api/* -> backend)
   const backendUrl = `${protocol}://${host}/api/transactions`;
-
-  // extract token cookie value if present
-  const cookieHeader = context.req.headers.cookie || '';
-  const tokenMatch = cookieHeader.split(';').map(s => s.trim()).find(s => s.startsWith('token='));
-  const token = tokenMatch ? decodeURIComponent(tokenMatch.split('=')[1]) : '';
 
   const res = await fetch(backendUrl, {
     credentials: 'include',
     headers: {
-      cookie: cookieHeader,
+      cookie: context.req.headers.cookie || '',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
@@ -297,7 +298,7 @@ export async function getServerSideProps(context) {
   if (res.status === 401) {
     return {
       redirect: {
-        destination: '/login',
+        destination: '/auth/signin',
         permanent: false,
       }
     };

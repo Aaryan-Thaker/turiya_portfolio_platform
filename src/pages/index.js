@@ -1,6 +1,8 @@
+// pages/index.js
 import React, { useState, useEffect } from 'react';
-import Nav from './Nav';  
+import Nav from './Nav';
 import dynamic from 'next/dynamic';
+import { getSession } from 'next-auth/react';
 
 const StockPie = dynamic(() => import('../components/Charts').then(mod => mod.StockPie), { ssr: false });
 const SectorPie = dynamic(() => import('../components/Charts').then(mod => mod.SectorPie), { ssr: false });
@@ -198,20 +200,20 @@ const portfolioSummaryStyle = {
   fontSize: 15,
 };
 
-// Updated for DB-backed JWT auth
+// Server-side: use NextAuth session (session.accessToken)
 export async function getServerSideProps(context) {
+  const session = await getSession(context);
+  const token = session?.accessToken || '';
+
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = context.req.headers.host;
   const backendUrl = `${protocol}://${host}/api/portfolio`;
-
-  // Get JWT token from cookies if present
-  const tokenCookie = context.req.cookies?.token || '';
 
   const res = await fetch(backendUrl, {
     method: 'GET',
     credentials: 'include',
     headers: {
-      ...(tokenCookie ? { Authorization: `Bearer ${tokenCookie}` } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       cookie: context.req.headers.cookie || '',
     },
   });
@@ -219,13 +221,13 @@ export async function getServerSideProps(context) {
   if (res.status === 401) {
     return {
       redirect: {
-        destination: '/login',
+        destination: '/auth/signin',
         permanent: false,
       },
     };
   }
 
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
 
   const currentUser = {
     id: data?.current_user?.id || 'guest',

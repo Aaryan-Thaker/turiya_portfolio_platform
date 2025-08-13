@@ -1,51 +1,57 @@
+// pages/_app.js
 import "@/styles/globals.css";
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { SessionProvider, getSession } from "next-auth/react";
 
-export default function App({ Component, pageProps }) {
+function AppInner({ Component, pageProps }) {
   const router = useRouter();
 
   useEffect(() => {
     const verifyRiskAssessment = async () => {
-      // Skip these routes from redirection
       const exemptRoutes = [
-        '/login',
-        '/register',
+        '/auth/signin',
         '/risk-assessment',
         '/verify-email',
-        '/api/auth'
+        '/api/auth' // next-auth
       ];
-      
-      if (exemptRoutes.some(route => router.pathname.startsWith(route))) {
-        return;
-      }
+
+      if (exemptRoutes.some(route => router.pathname.startsWith(route))) return;
 
       try {
-        // Check both localStorage and server
+        // If localStorage says done, skip
         const localCompleted = localStorage.getItem('riskAssessmentCompleted');
-        if (localCompleted !== 'true') {
-          const response = await fetch('/api/risk/check');
-          const data = await response.json();
-          
-          if (!data.completed) {
-            // Store attempted path for post-assessment redirect
-            sessionStorage.setItem('preAssessmentRoute', router.asPath);
-            router.push('/risk-assessment');
-          } else {
-            localStorage.setItem('riskAssessmentCompleted', 'true');
-          }
+        if (localCompleted === 'true') return;
+
+        // get session to include backend JWT
+        const session = await getSession();
+        const token = session?.accessToken;
+
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await fetch('/api/risk/check', {
+          method: 'GET',
+          credentials: 'include',
+          headers
+        });
+        const data = await response.json();
+        if (!data.completed) {
+          sessionStorage.setItem('preAssessmentRoute', router.asPath);
+          router.push('/risk-assessment');
+        } else {
+          localStorage.setItem('riskAssessmentCompleted', 'true');
         }
       } catch (error) {
         console.error('Risk assessment check failed:', error);
-        // Continue to requested page if check fails
+        // Do not block navigation on error
       }
     };
 
-    // Handle route changes
     const handleRouteChange = () => verifyRiskAssessment();
-    
+
     router.events.on('routeChangeStart', handleRouteChange);
-    verifyRiskAssessment(); // Initial check
+    verifyRiskAssessment();
 
     return () => {
       router.events.off('routeChangeStart', handleRouteChange);
@@ -53,4 +59,12 @@ export default function App({ Component, pageProps }) {
   }, [router]);
 
   return <Component {...pageProps} />;
+}
+
+export default function App({ Component, pageProps: { session, ...pageProps } }) {
+  return (
+    <SessionProvider session={session}>
+      <AppInner Component={Component} pageProps={pageProps} />
+    </SessionProvider>
+  );
 }

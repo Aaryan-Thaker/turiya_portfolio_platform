@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import dynamic from 'next/dynamic';
 import Nav from './Nav';
+import { getSession } from 'next-auth/react';
 
 // Dynamic imports for signature pads
 const SignaturePad = dynamic(
@@ -205,8 +206,14 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
     setError('');
 
     try {
-      // Get JWT token from localStorage
-      const token = (typeof window !== 'undefined' && localStorage.getItem('token')) || '';
+      // Get JWT token from NextAuth session
+      const session = await getSession();
+      const token = session?.accessToken || '';
+      if (!token) {
+        // Not authenticated → send user to NextAuth sign-in
+        router.push('/auth/signin');
+        return;
+      }
 
       // Use proxied API path so next.config rewrites or API route can forward
       const apiPath = '/api/risk/submit';
@@ -300,9 +307,15 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
     );
   }
 
+  // ensure Nav receives normalized currentUser
+  const normalizedCurrentUser = {
+    ...currentUser,
+    isAuthenticated: currentUser?.is_authenticated ?? currentUser?.isAuthenticated ?? false,
+  };
+
   return (
     <div className="risk-assessment-container">
-      <Nav user={currentUser} />
+      <Nav user={normalizedCurrentUser} />
       
       <h1>Client Risk Profiling and Investment Suitability</h1>
       <p className="disclaimer">
@@ -520,7 +533,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
           <div className="question-group">
             <h3>4. Would you consider using derivative products? <span className="required">*</span></h3>
             <div className="options-group">
-              {[
+              {[ 
                 { value: 'a', label: 'Yes, understand and trade for profit' },
                 { value: 'b', label: 'Yes, as defensive strategy and income' },
                 { value: 'c', label: 'Yes, as defensive strategy only' },
@@ -897,33 +910,48 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 }
 
 export async function getServerSideProps(context) {
+  // Use NextAuth session server-side
+  const session = await getSession(context);
+
+  if (!session || !session.accessToken) {
+    return {
+      redirect: {
+        destination: '/auth/signin',
+        permanent: false,
+      },
+    };
+  }
+
+  // prefer explicit BACKEND_URL env (set this in Vercel). Fallback to host-based proxied route.
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const host = context.req.headers.host;
-  const backendUrl = `${protocol}://${host}/api/portfolio`;
+  const backendBase = process.env.BACKEND_URL ? process.env.BACKEND_URL : `${protocol}://${host}`;
+  const backendUrl = `${backendBase}/api/portfolio`;
 
   try {
     const res = await fetch(backendUrl, {
       method: 'GET',
-      credentials: 'include',
       headers: {
-        cookie: context.req.headers.cookie || '',
+        Authorization: `Bearer ${session.accessToken}`,
+        cookie: context.req.headers.cookie || ''
       },
     });
 
     if (res.status === 401) {
       return {
         redirect: {
-          destination: '/login',
+          destination: '/auth/signin',
           permanent: false,
         },
       };
     }
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
 
     const currentUser = {
-      id: data?.current_user?.id || 'guest',
-      isAuthenticated: data?.current_user?.is_authenticated || false,
+      id: data?.current_user?.id || session.user?.id || 'guest',
+      email: data?.current_user?.email || session.user?.email || '',
+      is_authenticated: !!session
     };
 
     if (!res.ok || !data.success) {
@@ -938,16 +966,16 @@ export async function getServerSideProps(context) {
     return {
       props: {
         currentUser,
+        errorMessage: ''
       },
     };
-
   } catch (error) {
     console.error('Error in getServerSideProps:', error);
     return {
       props: {
         currentUser: {
-          id: 'guest',
-          isAuthenticated: false,
+          id: session.user?.id || session.user?.email || 'guest',
+          is_authenticated: !!session
         },
         errorMessage: 'Failed to load user data. Please try again later.',
       },
