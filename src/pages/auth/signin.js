@@ -48,7 +48,7 @@ export default function SignInPage() {
         ))}
 
         <div style={{marginTop: 18, fontSize: 13, color: '#666'}}>
-          Note: accounts are created via OAuth providers (Google, Microsoft). If you previously used a password, you'll need to sign in using the linked provider.
+          Note, accounts are created via OAuth providers (Google, Microsoft). If you previously used a password, you&apos;ll need to sign in using the linked provider.
         </div>
       </div>
     </div>
