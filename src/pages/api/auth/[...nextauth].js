@@ -1,70 +1,77 @@
-// pages/_app.js
-import "@/styles/globals.css";
-import { useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { SessionProvider, getSession } from "next-auth/react";
+import NextAuth from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
 
-function AppInner({ Component, pageProps }) {
-  const router = useRouter();
+export default NextAuth({
+  providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    }),
+  ],
+  secret: process.env.NEXTAUTH_SECRET,
 
-  useEffect(() => {
-    const verifyRiskAssessment = async () => {
-      const exemptRoutes = [
-        '/auth/signin',
-        '/risk-assessment',
-        '/verify-email',
-        '/api/auth' // next-auth
-      ];
-
-      if (exemptRoutes.some(route => router.pathname.startsWith(route))) return;
+  // 👇 keep this simple, no `session: { strategy: "jwt" }` here
+  callbacks: {
+    async redirect({ url, baseUrl }) {
+      if (typeof window === "undefined") return url;
 
       try {
-        // If localStorage says done, skip
-        const localCompleted = localStorage.getItem('riskAssessmentCompleted');
-        if (localCompleted === 'true') return;
-
-        // get session to include backend JWT
-        const session = await getSession();
-        const token = session?.accessToken;
-
-        const headers = {};
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const response = await fetch('/api/risk/check', {
-          method: 'GET',
-          credentials: 'include',
-          headers
-        });
-        const data = await response.json();
-        if (!data.completed) {
-          sessionStorage.setItem('preAssessmentRoute', router.asPath);
-          router.push('/risk-assessment');
-        } else {
-          localStorage.setItem('riskAssessmentCompleted', 'true');
+        const previewUrl = localStorage.getItem("previewUrl");
+        if (previewUrl && url.startsWith(baseUrl)) {
+          return url.replace(baseUrl, previewUrl);
         }
-      } catch (error) {
-        console.error('Risk assessment check failed:', error);
-        // Do not block navigation on error
+      } catch (err) {
+        console.error("Redirect callback error:", err);
       }
-    };
+      return url;
+    },
 
-    const handleRouteChange = () => verifyRiskAssessment();
+    async signIn({ user, account }) {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_FLASK_API_URL}/api/oauth/login`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: user.email,
+              name: user.name,
+              provider: account.provider,
+            }),
+          }
+        );
 
-    router.events.on('routeChangeStart', handleRouteChange);
-    verifyRiskAssessment();
+        if (!res.ok) {
+          console.error("Flask OAuth login failed:", await res.text());
+          return false;
+        }
 
-    return () => {
-      router.events.off('routeChangeStart', handleRouteChange);
-    };
-  }, [router]);
+        const data = await res.json();
+        if (!data.success) {
+          console.error("Flask backend returned error:", data.error);
+          return false;
+        }
 
-  return <Component {...pageProps} />;
-}
+        user.jwt = data.token; // attach Flask JWT
+        return true;
+      } catch (err) {
+        console.error("Error during OAuth signIn:", err);
+        return false;
+      }
+    },
 
-export default function App({ Component, pageProps: { session, ...pageProps } }) {
-  return (
-    <SessionProvider session={session}>
-      <AppInner Component={Component} pageProps={pageProps} />
-    </SessionProvider>
-  );
-}
+    async jwt({ token, user }) {
+      if (user?.jwt) {
+        token.jwt = user.jwt;
+      }
+      return token;
+    },
+
+    async session({ session, token }) {
+      if (token?.jwt) {
+        session.jwt = token.jwt;
+      }
+      return session;
+    },
+  },
+});
