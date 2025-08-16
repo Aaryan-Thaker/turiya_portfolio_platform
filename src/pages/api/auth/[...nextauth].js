@@ -1,72 +1,70 @@
-import NextAuth from "next-auth"
-import GoogleProvider from "next-auth/providers/google"
+// pages/_app.js
+import "@/styles/globals.css";
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { SessionProvider, getSession } from "next-auth/react";
 
-export default NextAuth({
-  providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    }),
-  ],
-  secret: process.env.NEXTAUTH_SECRET,
-  session: {
-    strategy: "jwt",
-  },
-  callbacks: {
-    /**
-     * Called when a user signs in.
-     * We call our Flask backend to upsert/login the user.
-     */
-    async signIn({ user, account, profile }) {
+function AppInner({ Component, pageProps }) {
+  const router = useRouter();
+
+  useEffect(() => {
+    const verifyRiskAssessment = async () => {
+      const exemptRoutes = [
+        '/auth/signin',
+        '/risk-assessment',
+        '/verify-email',
+        '/api/auth' // next-auth
+      ];
+
+      if (exemptRoutes.some(route => router.pathname.startsWith(route))) return;
+
       try {
-        const res = await fetch(`${process.env.FLASK_API_URL}/api/oauth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            email: user.email,
-            name: user.name,
-            provider: account.provider,
-        }),
+        // If localStorage says done, skip
+        const localCompleted = localStorage.getItem('riskAssessmentCompleted');
+        if (localCompleted === 'true') return;
+
+        // get session to include backend JWT
+        const session = await getSession();
+        const token = session?.accessToken;
+
+        const headers = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await fetch('/api/risk/check', {
+          method: 'GET',
+          credentials: 'include',
+          headers
         });
-
-        if (!res.ok) {
-          console.error("Flask OAuth login failed:", await res.text())
-          return false
+        const data = await response.json();
+        if (!data.completed) {
+          sessionStorage.setItem('preAssessmentRoute', router.asPath);
+          router.push('/risk-assessment');
+        } else {
+          localStorage.setItem('riskAssessmentCompleted', 'true');
         }
-
-        const data = await res.json()
-        if (!data.success) {
-          console.error("Flask backend returned error:", data.error)
-          return false
-        }
-
-        // Store JWT in user object for token callback
-        user.jwt = data.token
-        return true
-      } catch (err) {
-        console.error("Error during OAuth signIn:", err)
-        return false
+      } catch (error) {
+        console.error('Risk assessment check failed:', error);
+        // Do not block navigation on error
       }
-    },
+    };
 
-    /**
-     * Add JWT from Flask backend to the NextAuth token
-     */
-    async jwt({ token, user }) {
-      if (user?.jwt) {
-        token.jwt = user.jwt
-      }
-      return token
-    },
+    const handleRouteChange = () => verifyRiskAssessment();
 
-    /**
-     * Make JWT available to the client in the session
-     */
-    async session({ session, token }) {
-      if (token?.jwt) {
-        session.jwt = token.jwt
-      }
-      return session
-    },
-  },
-})
+    router.events.on('routeChangeStart', handleRouteChange);
+    verifyRiskAssessment();
+
+    return () => {
+      router.events.off('routeChangeStart', handleRouteChange);
+    };
+  }, [router]);
+
+  return <Component {...pageProps} />;
+}
+
+export default function App({ Component, pageProps: { session, ...pageProps } }) {
+  return (
+    <SessionProvider session={session}>
+      <AppInner Component={Component} pageProps={pageProps} />
+    </SessionProvider>
+  );
+}
