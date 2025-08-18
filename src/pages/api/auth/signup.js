@@ -1,5 +1,5 @@
-import { db } from '../../../lib/db.js';
-import { users } from '../../../lib/schema.js';
+import { db } from '../../../components/db.js';
+import { users } from '../../../components/schema.js';
 import { hash } from 'bcryptjs';
 
 export default async function handler(req, res) {

@@ -1,8 +1,8 @@
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { db } from '../../../lib/db.js';
-import { users } from '../../../lib/schema.js';
+import { db } from '../../../components/db.js';
+import { users } from '../../../components/schema.js';
 import { hash, compare } from 'bcryptjs';
 
 export const authOptions = {
