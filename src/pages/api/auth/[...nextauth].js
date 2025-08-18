@@ -1,15 +1,18 @@
 // src/pages/api/auth/[...nextauth].js
 import NextAuth from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { db } from "../../../components/db"; // your Drizzle db
-import { users } from "../../../components/schema";
-import { compare } from "bcryptjs"; // pure JS, no native Node modules
-import { DrizzleAdapter } from "@next-auth/drizzle-adapter";
+import { db } from "../../../components/db.js";
+import { users } from "../../../components/schema.js";
+import { compare } from "bcryptjs";
 
 export const authOptions = {
-  adapter: DrizzleAdapter(db), // Drizzle adapter
   session: { strategy: "jwt" },
   providers: [
+    GoogleProvider({
+      clientId: process.env.GOOGLE_ID,
+      clientSecret: process.env.GOOGLE_SECRET,
+    }),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -19,21 +22,52 @@ export const authOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // Fetch user from Drizzle
-        const result = await db.select().from(users).where(users.email.eq(credentials.email)).limit(1);
+        const result = await db
+          .select()
+          .from(users)
+          .where(users.email.eq(credentials.email))
+          .limit(1);
         const user = result[0];
         if (!user) return null;
 
-        // Compare password using bcryptjs
-        const isValid = await compare(credentials.password, user.hashed_password);
+        const isValid = await compare(credentials.password, user.hashed_password || "");
         if (!isValid) return null;
 
         return { id: user.id.toString(), email: user.email };
       },
     }),
   ],
-  secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (!user?.email) return false;
+
+      const existing = await db
+        .select()
+        .from(users)
+        .where(users.email.eq(user.email))
+        .limit(1);
+
+      if (existing.length > 0) {
+        await db
+          .update(users)
+          .set({
+            oauth_provider: account?.provider || null,
+            meta: { ...existing[0].meta, ...profile },
+            updated_at: new Date(),
+          })
+          .where(users.email.eq(user.email));
+      } else {
+        await db.insert(users).values({
+          email: user.email,
+          hashed_password: null,
+          verified: true,
+          oauth_provider: account?.provider || null,
+          meta: profile,
+          created_at: new Date(),
+        });
+      }
+      return true;
+    },
     async jwt({ token, user }) {
       if (user) token.id = user.id;
       return token;
@@ -43,6 +77,7 @@ export const authOptions = {
       return session;
     },
   },
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
 export default NextAuth(authOptions);
