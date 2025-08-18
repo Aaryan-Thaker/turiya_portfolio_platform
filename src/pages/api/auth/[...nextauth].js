@@ -6,6 +6,17 @@ import { db } from "../../../components/db.js";
 import { users } from "../../../components/schema.js";
 import { compare } from "bcryptjs";
 
+// -------------------------
+// Dynamically set NEXTAUTH_URL
+// -------------------------
+if (process.env.VERCEL_URL) {
+  // For Vercel production or preview deployments
+  process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`;
+} else {
+  // Local development fallback
+  process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
+}
+
 export const authOptions = {
   session: { strategy: "jwt" },
   providers: [
