@@ -9,8 +9,11 @@ import { compare } from "bcryptjs";
 // -------------------------
 // Dynamically set NEXTAUTH_URL
 // -------------------------
-if (process.env.VERCEL_URL) {
-  // For Vercel production or preview deployments
+if (process.env.VERCEL_BRANCH_URL) {
+  // Branch deployment (preview)
+  process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_BRANCH_URL}`;
+} else if (process.env.VERCEL_URL) {
+  // Production deployment
   process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`;
 } else {
   // Local development fallback
