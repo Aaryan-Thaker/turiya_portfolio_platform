@@ -1,156 +1,24 @@
 import { useState } from 'react';
+import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import Link from 'next/link';
 
 export default function Login() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const router = useRouter();
 
-  async function handleSubmit(e) {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-
-    try {
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // for session cookies
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          password
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      console.log("Login response:", data);
-
-      if (res.ok && data.success) {
-        // store token for client-side use
-        if (data.token) {
-          try {
-            localStorage.setItem('token', data.token);
-          } catch (err) {
-            // localStorage might be unavailable in some contexts; ignore
-            console.debug('localStorage set failed', err);
-          }
-
-          // set cookie so SSR (getServerSideProps) can read it
-          // cookie attributes: path=/, max-age 1 day; add SameSite=None & Secure in production
-          const maxAge = 60 * 60 * 24; // 1 day
-          const isProd = process.env.NODE_ENV === 'production';
-          let cookie = `token=${data.token}; Path=/; Max-Age=${maxAge};`;
-          if (isProd) {
-            cookie += ' SameSite=None; Secure;';
-          } else {
-            cookie += ' SameSite=Lax;';
-          }
-          document.cookie = cookie;
-        }
-
-        // Login success, redirect to homepage
-        router.push('/');
-      } else {
-        setError(data.error || 'Login failed');
-      }
-    } catch (err) {
-      setError('Server error: ' + err.message);
-    }
-  }
+    const res = await signIn('credentials', { email, password, redirect: false });
+    if (res.ok) router.push('/');
+    else alert('Invalid credentials');
+  };
 
   return (
-    <>
-      <style>{`
-        body {
-          font-family: Arial, sans-serif;
-          background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-          margin: 0;
-          padding: 0;
-          min-height: 100vh;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        }
-        .auth-container {
-          width: 100%;
-          max-width: 400px;
-          background: white;
-          border-radius: 10px;
-          box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-          padding: 30px;
-          margin: 20px;
-        }
-        .auth-title {
-          text-align: center;
-          color: #2c3e50;
-          margin-bottom: 25px;
-        }
-        .auth-form input {
-          width: 100%;
-          padding: 12px;
-          margin-bottom: 15px;
-          border: 1px solid #ddd;
-          border-radius: 5px;
-          font-size: 16px;
-        }
-        .auth-btn {
-          width: 100%;
-          padding: 12px;
-          background: #3498db;
-          color: white;
-          border: none;
-          border-radius: 5px;
-          font-size: 16px;
-          cursor: pointer;
-        }
-        .auth-links {
-          text-align: center;
-          margin-top: 20px;
-        }
-        .error-message {
-          color: #e74c3c;
-          margin-bottom: 15px;
-          text-align: center;
-        }
-        a {
-          color: #3498db;
-          text-decoration: none;
-        }
-        a:hover {
-          text-decoration: underline;
-        }
-      `}</style>
-
-      <div className="auth-container">
-        <h1 className="auth-title">Login</h1>
-
-        {error && <div className="error-message">{error}</div>}
-
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <input
-            type="email"
-            name="email"
-            placeholder="Email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button type="submit" className="auth-btn">Login</button>
-        </form>
-
-        <div className="auth-links">
-          Don&apos;t have an account? <Link href="/register">Sign Up</Link>
-        </div>
-      </div>
-    </>
+    <form onSubmit={handleSubmit}>
+      <input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+      <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+      <button type="submit">Login</button>
+    </form>
   );
 }

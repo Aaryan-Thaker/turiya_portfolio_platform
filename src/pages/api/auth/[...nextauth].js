@@ -1,77 +1,43 @@
-import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
+import NextAuth from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import { db } from '../../../lib/db';
+import { users } from '../../../lib/schema';
+import { compare } from 'bcrypt';
+import { DrizzleAdapter } from '@next-auth/drizzle-adapter';
 
-export default NextAuth({
+export const authOptions = {
+  adapter: DrizzleAdapter(db),
+  session: { strategy: 'jwt' },
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    CredentialsProvider({
+      name: 'Credentials',
+      credentials: {
+        email: { label: 'Email', type: 'text' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        const result = await db.select().from(users).where(users.email.eq(credentials.email)).limit(1);
+        const user = result[0];
+        if (!user) return null;
+
+        const isValid = await compare(credentials.password, user.hashed_password);
+        if (!isValid) return null;
+
+        return { id: user.id.toString(), email: user.email };
+      },
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
-
-  // 👇 keep this simple, no `session: { strategy: "jwt" }` here
   callbacks: {
-    async redirect({ url, baseUrl }) {
-      if (typeof window === "undefined") return url;
-
-      try {
-        const previewUrl = localStorage.getItem("previewUrl");
-        if (previewUrl && url.startsWith(baseUrl)) {
-          return url.replace(baseUrl, previewUrl);
-        }
-      } catch (err) {
-        console.error("Redirect callback error:", err);
-      }
-      return url;
-    },
-
-    async signIn({ user, account }) {
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_FLASK_API_URL}/api/oauth/login`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email: user.email,
-              name: user.name,
-              provider: account.provider,
-            }),
-          }
-        );
-
-        if (!res.ok) {
-          console.error("Flask OAuth login failed:", await res.text());
-          return false;
-        }
-
-        const data = await res.json();
-        if (!data.success) {
-          console.error("Flask backend returned error:", data.error);
-          return false;
-        }
-
-        user.jwt = data.token; // attach Flask JWT
-        return true;
-      } catch (err) {
-        console.error("Error during OAuth signIn:", err);
-        return false;
-      }
-    },
-
     async jwt({ token, user }) {
-      if (user?.jwt) {
-        token.jwt = user.jwt;
-      }
+      if (user) token.id = user.id;
       return token;
     },
-
     async session({ session, token }) {
-      if (token?.jwt) {
-        session.jwt = token.jwt;
-      }
+      if (token) session.user.id = token.id;
       return session;
     },
   },
-});
+};
+
+export default NextAuth(authOptions);
