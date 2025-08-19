@@ -5,8 +5,20 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "../../../components/db.js";
 import { users } from "../../../components/schema.js";
 import { compare } from "bcryptjs";
-import { eq } from "drizzle-orm"; // Correct way to compare columns in Drizzle
 
+// -------------------------
+// Helper function
+// -------------------------
+async function findUserByEmail(email) {
+  const user = await db.query.users.findFirst({
+    where: (u) => u.email.equals(email)
+  });
+  return user || null;
+}
+
+// -------------------------
+// NextAuth options
+// -------------------------
 export const authOptions = {
   session: { strategy: "jwt" },
   providers: [
@@ -23,14 +35,7 @@ export const authOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // Drizzle query with eq()
-        const result = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, credentials.email))
-          .limit(1);
-
-        const user = result[0];
+        const user = await findUserByEmail(credentials.email);
         if (!user) return null;
 
         const isValid = await compare(credentials.password, user.hashed_password || "");
@@ -44,21 +49,14 @@ export const authOptions = {
     async signIn({ user, account, profile }) {
       if (!user?.email) return false;
 
-      const existing = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, user.email))
-        .limit(1);
+      const existing = await findUserByEmail(user.email);
 
-      if (existing.length > 0) {
-        await db
-          .update(users)
-          .set({
-            oauth_provider: account?.provider || null,
-            meta: { ...existing[0].meta, ...profile },
-            updated_at: new Date(),
-          })
-          .where(eq(users.email, user.email));
+      if (existing) {
+        await db.update(users).set({
+          oauth_provider: account?.provider || null,
+          meta: { ...existing.meta, ...profile },
+          updated_at: new Date(),
+        }).where(users.id.equals(existing.id));
       } else {
         await db.insert(users).values({
           email: user.email,
