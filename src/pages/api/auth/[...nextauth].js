@@ -7,18 +7,10 @@ import { users } from "../../../components/schema.js";
 import { compare } from "bcryptjs";
 
 // -------------------------
-// Helper function
+// NEXTAUTH_URL from env
 // -------------------------
-async function findUserByEmail(email) {
-  const user = await db.query.users.findFirst({
-    where: (u) => u.email.equals(email)
-  });
-  return user || null;
-}
+process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
-// -------------------------
-// NextAuth options
-// -------------------------
 export const authOptions = {
   session: { strategy: "jwt" },
   providers: [
@@ -35,7 +27,11 @@ export const authOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const user = await findUserByEmail(credentials.email);
+        // Drizzle query using .eq()
+        const user = await db.query.users.findFirst({
+          where: (u) => u.email.eq(credentials.email),
+        });
+
         if (!user) return null;
 
         const isValid = await compare(credentials.password, user.hashed_password || "");
@@ -49,15 +45,21 @@ export const authOptions = {
     async signIn({ user, account, profile }) {
       if (!user?.email) return false;
 
-      const existing = await findUserByEmail(user.email);
+      const existing = await db.query.users.findFirst({
+        where: (u) => u.email.eq(user.email),
+      });
 
       if (existing) {
-        await db.update(users).set({
-          oauth_provider: account?.provider || null,
-          meta: { ...existing.meta, ...profile },
-          updated_at: new Date(),
-        }).where(users.id.equals(existing.id));
+        // Update user
+        await db.update(users)
+          .set({
+            oauth_provider: account?.provider || null,
+            meta: { ...existing.meta, ...profile },
+            updated_at: new Date(),
+          })
+          .where(users.id.eq(existing.id));
       } else {
+        // Insert new user
         await db.insert(users).values({
           email: user.email,
           hashed_password: null,
@@ -67,7 +69,6 @@ export const authOptions = {
           created_at: new Date(),
         });
       }
-
       return true;
     },
     async jwt({ token, user }) {
