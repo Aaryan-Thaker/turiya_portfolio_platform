@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "../../../components/db.js";
 import { users } from "../../../components/schema.js";
 import { compare } from "bcryptjs";
+import { eq } from "drizzle-orm";
 
 export const authOptions = {
   session: { strategy: "jwt" },
@@ -22,10 +23,11 @@ export const authOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        // Corrected Drizzle query
         const result = await db
           .select()
           .from(users)
-          .where(users.email.eq(credentials.email))
+          .where(eq(users.email, credentials.email))
           .limit(1);
 
         const user = result[0];
@@ -45,7 +47,7 @@ export const authOptions = {
       const existing = await db
         .select()
         .from(users)
-        .where(users.email.eq(user.email))
+        .where(eq(users.email, user.email))
         .limit(1);
 
       if (existing.length > 0) {
@@ -56,7 +58,7 @@ export const authOptions = {
             meta: { ...existing[0].meta, ...profile },
             updated_at: new Date(),
           })
-          .where(users.email.eq(user.email));
+          .where(eq(users.email, user.email));
       } else {
         await db.insert(users).values({
           email: user.email,
