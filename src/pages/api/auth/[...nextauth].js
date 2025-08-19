@@ -6,21 +6,6 @@ import { db } from "../../../components/db.js";
 import { users } from "../../../components/schema.js";
 import { compare } from "bcryptjs";
 
-// -------------------------
-// Dynamically set NEXTAUTH_URL
-// -------------------------
-if (process.env.VERCEL_BRANCH_URL) {
-  // Preview branch deployment
-  process.env.NEXT_PUBLIC_NEXTAUTH_URL = `https://${process.env.VERCEL_BRANCH_URL}`;
-} else if (process.env.VERCEL_URL) {
-  // Production deployment
-  process.env.NEXT_PUBLIC_NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`;
-} else {
-  // Local development
-  process.env.NEXT_PUBLIC_NEXTAUTH_URL = "http://localhost:3000";
-}
-
-
 export const authOptions = {
   session: { strategy: "jwt" },
   providers: [
@@ -42,6 +27,7 @@ export const authOptions = {
           .from(users)
           .where(users.email.eq(credentials.email))
           .limit(1);
+
         const user = result[0];
         if (!user) return null;
 
