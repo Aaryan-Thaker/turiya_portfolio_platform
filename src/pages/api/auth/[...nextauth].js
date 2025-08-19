@@ -5,7 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "../../../components/db.js";
 import { users } from "../../../components/schema.js";
 import { compare } from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { eq } from "drizzle-orm"; // Correct way to compare columns in Drizzle
 
 export const authOptions = {
   session: { strategy: "jwt" },
@@ -23,7 +23,7 @@ export const authOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // Corrected Drizzle query
+        // Drizzle query with eq()
         const result = await db
           .select()
           .from(users)
@@ -69,6 +69,7 @@ export const authOptions = {
           created_at: new Date(),
         });
       }
+
       return true;
     },
     async jwt({ token, user }) {
