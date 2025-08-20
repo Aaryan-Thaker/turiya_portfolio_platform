@@ -13,6 +13,7 @@
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "drizzle-orm": "^0.44.4",
+    "jsonwebtoken": "^9.0.2",
     "next": "15.4.4",
     "next-auth": "^4.24.11",
     "pg": "^8.16.3",
