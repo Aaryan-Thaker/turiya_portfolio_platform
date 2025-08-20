@@ -3,45 +3,42 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import jsonwebtoken from "jsonwebtoken";
 
-const BACKEND_JWT_SECRET = process.env.JWT_SECRET_KEY || process.env.NEXTAUTH_SECRET;
-const BACKEND_JWT_ALGO = process.env.JWT_ALGORITHM || "HS256";
-const BACKEND_JWT_EXPIRE_DAYS = parseInt(process.env.JWT_EXPIRE_DAYS || "7", 10);
-const BACKEND_JWT_ISS = process.env.BACKEND_JWT_ISS || "your-app-name";
-const BACKEND_JWT_AUD = process.env.BACKEND_JWT_AUD || "your-app-client";
+// -------------------------
+// Backend JWT config
+// -------------------------
+const BACKEND_JWT_SECRET = process.env.NEXTAUTH_SECRET; // use same secret as frontend
+const BACKEND_JWT_ALGO = "HS256";
+const BACKEND_JWT_EXPIRE_DAYS = 7;
 
-function createBackendJwt(userIdentifier) {
-  console.log("[createBackendJwt] userIdentifier:", userIdentifier);
-  if (!BACKEND_JWT_SECRET) {
-    console.warn("[createBackendJwt] WARNING: BACKEND_JWT_SECRET not set");
-    return null;
-  }
-
+// -------------------------
+// Helper: create backend JWT
+// -------------------------
+function createBackendJwt(userId) {
   const nowSec = Math.floor(Date.now() / 1000);
   const expSec = nowSec + BACKEND_JWT_EXPIRE_DAYS * 24 * 60 * 60;
 
   const payload = {
-    user_id: String(userIdentifier),
+    user_id: String(userId),
     iat: nowSec,
     exp: expSec,
-    iss: BACKEND_JWT_ISS,
-    aud: BACKEND_JWT_AUD,
   };
-
-  console.log("[createBackendJwt] payload:", payload);
 
   try {
     const token = jsonwebtoken.sign(payload, BACKEND_JWT_SECRET, {
       algorithm: BACKEND_JWT_ALGO,
       expiresIn: `${BACKEND_JWT_EXPIRE_DAYS}d`,
     });
-    console.log("[createBackendJwt] token generated:", token);
+    console.log("[createBackendJwt] generated token:", token);
     return token;
   } catch (err) {
-    console.error("[createBackendJwt] ERROR signing JWT:", err);
+    console.error("[createBackendJwt] error signing token:", err);
     return null;
   }
 }
 
+// -------------------------
+// NextAuth configuration
+// -------------------------
 export default NextAuth({
   providers: [
     GoogleProvider({
@@ -51,40 +48,52 @@ export default NextAuth({
   ],
 
   secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: "jwt" },
-  jwt: { secret: process.env.NEXTAUTH_SECRET },
+
+  session: {
+    strategy: "jwt",
+  },
+
+  jwt: {
+    secret: process.env.NEXTAUTH_SECRET,
+  },
 
   callbacks: {
-    async jwt({ token, user, account, profile }) {
-      console.log("=== [jwt callback] BEFORE ===");
-      console.log({ token, user, account, profile });
-
-      try {
-        if (user && account) {
-          console.log("[jwt callback] new login detected, creating backend JWT...");
-          
-          // Use email as user identifier since Google doesn't provide user.id
-          const userIdentifier = user.email || account.providerAccountId;
-          token.userId = userIdentifier;
-          token.provider = account.provider || null;
-          
-          const backendJwt = createBackendJwt(userIdentifier);
-          token.accessToken = backendJwt;
-          token.refreshToken = account.refresh_token || null;
-        }
-
-        console.log("=== [jwt callback] AFTER ===");
-        console.log(token);
-        return token;
-      } catch (err) {
-        console.error("[jwt callback] ERROR:", err);
-        return token;
-      }
+    async signIn({ user, account, profile }) {
+      console.log("=== [signIn] callback ===");
+      console.log("user:", user);
+      console.log("account:", account);
+      console.log("profile:", profile);
+      return true; // allow all logins
     },
 
-    async session({ session, token, user }) {
-      console.log("=== [session callback] BEFORE ===");
-      console.log({ session, token, user });
+    async jwt({ token, user, account }) {
+      console.log("=== [jwt] callback ===");
+      console.log("incoming token:", token);
+      console.log("user:", user);
+      console.log("account:", account);
+
+      // On first login
+      if (user && account) {
+        const userId = user.id || user.sub; // Google OAuth uses 'sub' as ID
+        token.userId = userId;
+        token.accessToken = createBackendJwt(userId); // backend JWT for API
+        token.refreshToken = account.refresh_token || null;
+        token.provider = account.provider;
+        console.log("[jwt] new login - token populated:", token);
+      }
+
+      // Warn if accessToken is missing
+      if (!token.accessToken) {
+        console.warn("[jwt] WARNING: token.accessToken missing!", token);
+      }
+
+      return token;
+    },
+
+    async session({ session, token }) {
+      console.log("=== [session] callback ===");
+      console.log("session before:", session);
+      console.log("token:", token);
 
       try {
         session.user.id = token.userId || null;
@@ -92,24 +101,46 @@ export default NextAuth({
         session.refreshToken = token.refreshToken || null;
         session.provider = token.provider || null;
 
-        console.log("=== [session callback] AFTER ===");
-        console.log(session);
-
-        return session;
+        console.log("session after:", session);
       } catch (err) {
-        console.error("[session callback] ERROR:", err);
-        return session;
+        console.error("[session] callback error:", err);
       }
+
+      return session;
+    },
+
+    async redirect({ url, baseUrl }) {
+      console.log("[redirect] url:", url);
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      try {
+        const u = new URL(url);
+        if (u.origin === baseUrl) return url;
+      } catch (e) {
+        console.error("[redirect] invalid URL:", url, e);
+      }
+      return baseUrl;
     },
   },
 
   events: {
-    async signIn(message) { console.log(">>> [Event] signIn:", message); },
-    async signOut(message) { console.log(">>> [Event] signOut:", message); },
-    async createUser(message) { console.log(">>> [Event] createUser:", message); },
-    async linkAccount(message) { console.log(">>> [Event] linkAccount:", message); },
-    async session(message) { console.log(">>> [Event] session:", message); },
-    async error(message) { console.error(">>> [Event] error:", message); },
+    async signIn(message) {
+      console.log(">>> [Event] signIn:", message);
+    },
+    async signOut(message) {
+      console.log(">>> [Event] signOut:", message);
+    },
+    async createUser(message) {
+      console.log(">>> [Event] createUser:", message);
+    },
+    async linkAccount(message) {
+      console.log(">>> [Event] linkAccount:", message);
+    },
+    async session(message) {
+      console.log(">>> [Event] session:", message);
+    },
+    async error(message) {
+      console.error(">>> [Event] error:", message);
+    },
   },
 
   debug: true,
