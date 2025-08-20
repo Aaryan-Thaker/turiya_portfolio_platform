@@ -3,16 +3,14 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import jsonwebtoken from "jsonwebtoken";
 
-const BACKEND_JWT_SECRET = process.env.JWT_SECRET_KEY || process.env.NEXTAUTH_SECRET;
-const BACKEND_JWT_ALGO = process.env.JWT_ALGORITHM || "HS256";
-const BACKEND_JWT_EXPIRE_DAYS = parseInt(process.env.JWT_EXPIRE_DAYS || "7", 10);
-const BACKEND_JWT_ISS = process.env.BACKEND_JWT_ISS || "your-app-name";
-const BACKEND_JWT_AUD = process.env.BACKEND_JWT_AUD || "your-app-client";
+const BACKEND_JWT_SECRET = process.env.NEXTAUTH_SECRET; // same secret for frontend & backend
+const BACKEND_JWT_ALGO = "HS256";
+const BACKEND_JWT_EXPIRE_DAYS = 7; // adjust if needed
 
+// Helper: create backend JWT
 function createBackendJwt(userId) {
-  console.log("[createBackendJwt] userId:", userId);
-  if (!BACKEND_JWT_SECRET) {
-    console.warn("[createBackendJwt] WARNING: BACKEND_JWT_SECRET not set");
+  if (!userId) {
+    console.warn("[createBackendJwt] userId is missing!");
     return null;
   }
 
@@ -23,21 +21,17 @@ function createBackendJwt(userId) {
     user_id: String(userId),
     iat: nowSec,
     exp: expSec,
-    iss: BACKEND_JWT_ISS,
-    aud: BACKEND_JWT_AUD,
   };
-
-  console.log("[createBackendJwt] payload:", payload);
 
   try {
     const token = jsonwebtoken.sign(payload, BACKEND_JWT_SECRET, {
       algorithm: BACKEND_JWT_ALGO,
       expiresIn: `${BACKEND_JWT_EXPIRE_DAYS}d`,
     });
-    console.log("[createBackendJwt] token generated:", token);
+    console.log("[createBackendJwt] Generated token:", token);
     return token;
   } catch (err) {
-    console.error("[createBackendJwt] ERROR signing JWT:", err);
+    console.error("[createBackendJwt] Error signing token:", err);
     return null;
   }
 }
@@ -52,15 +46,19 @@ export default NextAuth({
 
   secret: process.env.NEXTAUTH_SECRET,
 
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+  },
 
-  jwt: { secret: process.env.NEXTAUTH_SECRET },
+  jwt: {
+    secret: process.env.NEXTAUTH_SECRET,
+  },
 
   callbacks: {
     async signIn({ user, account, profile, email, credentials }) {
       console.log("=== [signIn callback] ===");
       console.log({ user, account, profile, email, credentials });
-      return true; // allow all sign-ins
+      return true; // allow all
     },
 
     async jwt({ token, user, account, profile }) {
@@ -69,41 +67,52 @@ export default NextAuth({
 
       try {
         if (user && account) {
-          console.log("[jwt callback] new login detected, creating backend JWT...");
-          token.userId = user.id || null;
-          token.provider = account.provider || null;
-          const backendJwt = createBackendJwt(token.userId);
-          token.accessToken = backendJwt;
-          token.refreshToken = account.refresh_token || null;
+          // IMPORTANT: Google OAuth does not provide user.id, use user.sub instead
+          const userId = user.id || user.sub;
+          console.log("[jwt callback] Resolved userId:", userId);
+
+          token.userId = userId;
+          token.accessToken = createBackendJwt(userId);
+          token.provider = account.provider;
         }
 
         console.log("=== [jwt callback] AFTER ===");
-        console.log(token);
+        console.log("token:", token);
+
         return token;
       } catch (err) {
-        console.error("[jwt callback] ERROR:", err);
+        console.error("[jwt callback] Error:", err);
         return token;
       }
     },
 
     async session({ session, token, user }) {
-      console.log("=== [session callback] BEFORE ===");
+      console.log("=== [session callback] ===");
       console.log({ session, token, user });
 
       try {
         session.user.id = token.userId || null;
         session.accessToken = token.accessToken || null;
-        session.refreshToken = token.refreshToken || null;
         session.provider = token.provider || null;
 
-        console.log("=== [session callback] AFTER ===");
-        console.log(session);
-
+        console.log("[session callback] Final session:", session);
         return session;
       } catch (err) {
-        console.error("[session callback] ERROR:", err);
+        console.error("[session callback] Error:", err);
         return session;
       }
+    },
+
+    async redirect({ url, baseUrl }) {
+      console.log("[redirect callback] url:", url, "baseUrl:", baseUrl);
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      try {
+        const u = new URL(url);
+        if (u.origin === baseUrl) return url;
+      } catch (e) {
+        console.warn("[redirect callback] Invalid URL:", url);
+      }
+      return baseUrl;
     },
   },
 
