@@ -4,19 +4,31 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import pkg from "pg";
-import jwt from "jsonwebtoken";
-
+import jsonwebtoken from "jsonwebtoken";
 const { Pool } = pkg;
 
 // -------------------------
-// PostgreSQL (Neon) connection
+// PostgreSQL connection
 // -------------------------
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
 // -------------------------
-// Helper: DB lookups
+// Backend JWT config
+// -------------------------
+const BACKEND_JWT_SECRET =
+  process.env.JWT_SECRET_KEY || process.env.NEXTAUTH_SECRET;
+const BACKEND_JWT_ALGO = process.env.JWT_ALGORITHM || "HS256";
+const BACKEND_JWT_EXPIRE_DAYS = parseInt(
+  process.env.JWT_EXPIRE_DAYS || "7",
+  10
+);
+const BACKEND_JWT_ISS = process.env.BACKEND_JWT_ISS || "your-app-name";
+const BACKEND_JWT_AUD = process.env.BACKEND_JWT_AUD || "your-app-client";
+
+// -------------------------
+// DB helpers
 // -------------------------
 async function getUserByEmail(email) {
   const client = await pool.connect();
@@ -40,25 +52,24 @@ async function createOrUpdateOAuthUser(user, account, profile) {
     );
 
     if (existing.rows.length > 0) {
+      const dbUser = existing.rows[0];
       await client.query(
-        `UPDATE users 
-         SET oauth_provider = $1, meta = $2, updated_at = NOW() 
-         WHERE email = $3`,
+        `UPDATE users SET oauth_provider = $1, meta = $2, updated_at = NOW() WHERE email = $3`,
         [
           account.provider,
-          JSON.stringify({
-            ...(existing.rows[0].meta || {}),
-            ...profile,
-          }),
+          JSON.stringify({ ...dbUser.meta, ...profile }),
           user.email,
         ]
       );
+      return dbUser; // return row with UUID
     } else {
-      await client.query(
+      const insert = await client.query(
         `INSERT INTO users (email, hashed_password, verified, oauth_provider, meta, created_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())`,
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         RETURNING *`,
         [user.email, null, true, account.provider, JSON.stringify(profile)]
       );
+      return insert.rows[0];
     }
   } finally {
     client.release();
@@ -66,26 +77,26 @@ async function createOrUpdateOAuthUser(user, account, profile) {
 }
 
 // -------------------------
-// Utility: sign backend JWT
+// Utility: backend JWT
 // -------------------------
-function createBackendJwt(user) {
-  const secret = process.env.JWT_SECRET_KEY;
-  if (!secret) {
-    console.error("JWT_SECRET_KEY is not set in environment!");
-    return null;
-  }
+function createBackendJwt(userId) {
+  if (!BACKEND_JWT_SECRET) return null;
 
-  return jwt.sign(
-    {
-      user_id: String(user.id),
-      email: user.email,
-    },
-    secret,
-    {
-      algorithm: "HS256",
-      expiresIn: "7d",
-    }
-  );
+  const nowSec = Math.floor(Date.now() / 1000);
+  const expSec = nowSec + BACKEND_JWT_EXPIRE_DAYS * 24 * 60 * 60;
+
+  const payload = {
+    user_id: String(userId),
+    iat: nowSec,
+    exp: expSec,
+    iss: BACKEND_JWT_ISS,
+    aud: BACKEND_JWT_AUD,
+  };
+
+  return jsonwebtoken.sign(payload, BACKEND_JWT_SECRET, {
+    algorithm: BACKEND_JWT_ALGO,
+    expiresIn: `${BACKEND_JWT_EXPIRE_DAYS}d`,
+  });
 }
 
 // -------------------------
@@ -124,37 +135,49 @@ export const authOptions = {
   ],
 
   callbacks: {
+    // On OAuth sign-in: make sure user exists in DB, and attach DB UUID
     async signIn({ user, account, profile }) {
-      if (user?.email && account) {
+      if (!user?.email) return false;
+
+      if (account?.provider === "google") {
         try {
-          await createOrUpdateOAuthUser(user, account, profile);
+          const dbUser = await createOrUpdateOAuthUser(user, account, profile);
+          if (dbUser) {
+            // overwrite NextAuth user with DB UUID
+            user.id = dbUser.id.toString();
+          }
         } catch (err) {
           console.error("signIn DB sync error:", err);
         }
       }
+
       return true;
     },
 
+    // JWT callback: attach backend JWT
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id || user.sub;
-        token.email = user.email;
-
-        // Generate backend JWT
-        const backendJwt = createBackendJwt({
-          id: token.id,
-          email: token.email,
-        });
-        if (backendJwt) token.accessToken = backendJwt;
+      if (user?.id) {
+        token.id = user.id; // DB UUID now
       }
+
+      if (!token.accessToken && token.id) {
+        try {
+          token.accessToken = createBackendJwt(token.id);
+        } catch (err) {
+          console.error("Failed to create backend JWT:", err);
+        }
+      }
+
       return token;
     },
 
+    // Session callback: expose backend JWT
     async session({ session, token }) {
-      session.user = session.user || {};
-      session.user.id = token.id;
-      session.user.email = token.email;
-      session.accessToken = token.accessToken || null;
+      if (token) {
+        session.user = session.user || {};
+        session.user.id = token.id;
+        session.accessToken = token.accessToken || null;
+      }
       return session;
     },
   },
