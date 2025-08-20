@@ -6,7 +6,7 @@ import jsonwebtoken from "jsonwebtoken";
 // -------------------------
 // Backend JWT config
 // -------------------------
-const BACKEND_JWT_SECRET = process.env.NEXTAUTH_SECRET; // use same secret as frontend
+const BACKEND_JWT_SECRET = process.env.NEXTAUTH_SECRET; // must match Flask backend
 const BACKEND_JWT_ALGO = "HS256";
 const BACKEND_JWT_EXPIRE_DAYS = 7;
 
@@ -72,7 +72,7 @@ export default NextAuth({
       console.log("user:", user);
       console.log("account:", account);
 
-      // On first login
+      // On first login, create backend JWT
       if (user && account) {
         const userId = user.id || user.sub; // Google OAuth uses 'sub' as ID
         token.userId = userId;
