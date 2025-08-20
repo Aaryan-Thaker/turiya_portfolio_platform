@@ -1,33 +1,38 @@
-// src/pages/api/auth/[...nextauth].js
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import jsonwebtoken from "jsonwebtoken";
 
-const BACKEND_JWT_SECRET = process.env.JWT_SECRET_KEY || process.env.NEXTAUTH_SECRET;
-const BACKEND_JWT_ALGO = process.env.JWT_ALGORITHM || "HS256";
-const BACKEND_JWT_EXPIRE_DAYS = parseInt(process.env.JWT_EXPIRE_DAYS || "7", 10);
-const BACKEND_JWT_ISS = process.env.BACKEND_JWT_ISS || "your-app-name";
-const BACKEND_JWT_AUD = process.env.BACKEND_JWT_AUD || "your-app-client";
+const BACKEND_JWT_SECRET = process.env.NEXTAUTH_SECRET; // same secret for frontend & backend
+const BACKEND_JWT_ALGO = "HS256"; // algorithm for JWT
+const BACKEND_JWT_EXPIRE_DAYS = 7;
 
-// Helper to create a backend JWT for Flask
+// Helper: create a backend JWT compatible with Flask
 function createBackendJwt(userId) {
-  if (!BACKEND_JWT_SECRET) {
-    console.warn("createBackendJwt: BACKEND_JWT_SECRET not set!");
+  try {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const expSec = nowSec + BACKEND_JWT_EXPIRE_DAYS * 24 * 60 * 60;
+
+    const payload = {
+      user_id: String(userId),
+      iat: nowSec,
+      exp: expSec,
+      iss: "turiyaportfolioplatform",
+      aud: "frontend",
+    };
+
+    const token = jsonwebtoken.sign(payload, BACKEND_JWT_SECRET, {
+      algorithm: BACKEND_JWT_ALGO,
+      expiresIn: `${BACKEND_JWT_EXPIRE_DAYS}d`,
+    });
+
+    console.log("[createBackendJwt] payload:", payload);
+    console.log("[createBackendJwt] token:", token);
+
+    return token;
+  } catch (err) {
+    console.error("[createBackendJwt] Error:", err);
     return null;
   }
-  const nowSec = Math.floor(Date.now() / 1000);
-  const expSec = nowSec + BACKEND_JWT_EXPIRE_DAYS * 24 * 60 * 60;
-  const payload = {
-    user_id: String(userId),
-    iat: nowSec,
-    exp: expSec,
-    iss: BACKEND_JWT_ISS,
-    aud: BACKEND_JWT_AUD,
-  };
-  return jsonwebtoken.sign(payload, BACKEND_JWT_SECRET, {
-    algorithm: BACKEND_JWT_ALGO,
-    expiresIn: `${BACKEND_JWT_EXPIRE_DAYS}d`,
-  });
 }
 
 export default NextAuth({
@@ -40,8 +45,13 @@ export default NextAuth({
 
   secret: process.env.NEXTAUTH_SECRET,
 
-  session: { strategy: "jwt" },
-  jwt: { secret: process.env.NEXTAUTH_SECRET },
+  session: {
+    strategy: "jwt",
+  },
+
+  jwt: {
+    secret: process.env.NEXTAUTH_SECRET,
+  },
 
   callbacks: {
     async signIn({ user, account, profile, email, credentials }) {
@@ -51,12 +61,8 @@ export default NextAuth({
       console.log("profile:", profile);
       console.log("email:", email);
       console.log("credentials:", credentials);
-      try {
-        return true; // allow all logins
-      } catch (err) {
-        console.error("Error in signIn callback:", err);
-        return false;
-      }
+
+      return true; // allow all logins
     },
 
     async jwt({ token, user, account, profile }) {
@@ -68,22 +74,19 @@ export default NextAuth({
 
       try {
         if (user) {
-          token.userId = user.id || user.sub || null;
-          token.accessToken = account?.access_token || null;
-          token.refreshToken = account?.refresh_token || null;
-          token.provider = account?.provider || null;
+          token.userId = user.id || user.sub;
+        }
 
-          // Generate backend JWT compatible with Flask
-          const backendJwt = createBackendJwt(token.userId);
-          token.backendJwt = backendJwt;
-          console.log("Generated backend JWT:", backendJwt);
+        // generate backend JWT only once
+        if (!token.backendJwt && token.userId) {
+          token.backendJwt = createBackendJwt(token.userId);
         }
 
         console.log("=== [jwt callback] AFTER ===");
         console.log("token:", token);
         return token;
       } catch (err) {
-        console.error("Error in jwt callback:", err);
+        console.error("[jwt callback] Error:", err);
         return token;
       }
     },
@@ -96,18 +99,26 @@ export default NextAuth({
 
       try {
         session.user.id = token.userId || null;
-        session.accessToken = token.backendJwt || token.accessToken || null; // Flask expects backend JWT here
-        session.refreshToken = token.refreshToken || null;
+        session.accessToken = token.backendJwt || null; // ✅ backend JWT for Flask
         session.provider = token.provider || null;
 
         console.log("=== [session callback] AFTER ===");
         console.log("session:", session);
-
         return session;
       } catch (err) {
-        console.error("Error in session callback:", err);
+        console.error("[session callback] Error:", err);
         return session;
       }
+    },
+
+    async redirect({ url, baseUrl }) {
+      console.log("[redirect callback] url:", url, "baseUrl:", baseUrl);
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      try {
+        const u = new URL(url);
+        if (u.origin === baseUrl) return url;
+      } catch (e) {}
+      return baseUrl;
     },
   },
 
