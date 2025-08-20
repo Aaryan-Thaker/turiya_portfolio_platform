@@ -4,19 +4,16 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 import pkg from "pg";
-import jsonwebtoken from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+
 const { Pool } = pkg;
 
-// -------------------------
-// PostgreSQL connection
-// -------------------------
+/** --------- Postgres (Neon) --------- */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// -------------------------
-// Backend JWT config
-// -------------------------
+/** --------- Backend JWT settings (MUST match Flask) --------- */
 const BACKEND_JWT_SECRET =
   process.env.JWT_SECRET_KEY || process.env.NEXTAUTH_SECRET;
 const BACKEND_JWT_ALGO = process.env.JWT_ALGORITHM || "HS256";
@@ -24,12 +21,11 @@ const BACKEND_JWT_EXPIRE_DAYS = parseInt(
   process.env.JWT_EXPIRE_DAYS || "7",
   10
 );
+/** These defaults match your Flask verify_jwt() */
 const BACKEND_JWT_ISS = process.env.BACKEND_JWT_ISS || "your-app-name";
 const BACKEND_JWT_AUD = process.env.BACKEND_JWT_AUD || "your-app-client";
 
-// -------------------------
-// DB helpers
-// -------------------------
+/** --------- DB helpers --------- */
 async function getUserByEmail(email) {
   const client = await pool.connect();
   try {
@@ -52,58 +48,52 @@ async function createOrUpdateOAuthUser(user, account, profile) {
     );
 
     if (existing.rows.length > 0) {
-      const dbUser = existing.rows[0];
+      const priorMeta = existing.rows[0].meta || {};
       await client.query(
-        `UPDATE users SET oauth_provider = $1, meta = $2, updated_at = NOW() WHERE email = $3`,
-        [
-          account.provider,
-          JSON.stringify({ ...dbUser.meta, ...profile }),
-          user.email,
-        ]
+        `UPDATE users
+           SET oauth_provider = $1,
+               meta = $2,
+               updated_at = NOW()
+         WHERE email = $3`,
+        [account.provider, JSON.stringify({ ...priorMeta, ...profile }), user.email]
       );
-      return dbUser; // return row with UUID
     } else {
-      const insert = await client.query(
+      await client.query(
         `INSERT INTO users (email, hashed_password, verified, oauth_provider, meta, created_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())
-         RETURNING *`,
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
         [user.email, null, true, account.provider, JSON.stringify(profile)]
       );
-      return insert.rows[0];
     }
   } finally {
     client.release();
   }
 }
 
-// -------------------------
-// Utility: backend JWT
-// -------------------------
-function createBackendJwt(userId) {
+/** --------- Mint backend JWT (for Flask) --------- */
+function mintBackendJwt(userId) {
   if (!BACKEND_JWT_SECRET) return null;
 
-  const nowSec = Math.floor(Date.now() / 1000);
-  const expSec = nowSec + BACKEND_JWT_EXPIRE_DAYS * 24 * 60 * 60;
+  const now = Math.floor(Date.now() / 1000);
+  const exp = now + BACKEND_JWT_EXPIRE_DAYS * 24 * 60 * 60;
 
   const payload = {
     user_id: String(userId),
-    iat: nowSec,
-    exp: expSec,
+    iat: now,
+    exp,
     iss: BACKEND_JWT_ISS,
     aud: BACKEND_JWT_AUD,
   };
 
-  return jsonwebtoken.sign(payload, BACKEND_JWT_SECRET, {
+  return jwt.sign(payload, BACKEND_JWT_SECRET, {
     algorithm: BACKEND_JWT_ALGO,
     expiresIn: `${BACKEND_JWT_EXPIRE_DAYS}d`,
   });
 }
 
-// -------------------------
-// NextAuth config
-// -------------------------
+/** --------- NextAuth config --------- */
 export const authOptions = {
   session: { strategy: "jwt" },
+  secret: process.env.NEXTAUTH_SECRET, // keep this set
 
   providers: [
     GoogleProvider({
@@ -119,70 +109,67 @@ export const authOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
-
         const user = await getUserByEmail(credentials.email);
         if (!user) return null;
-
-        const isValid = await compare(
-          credentials.password,
-          user.hashed_password || ""
-        );
-        if (!isValid) return null;
-
+        const ok = await compare(credentials.password, user.hashed_password || "");
+        if (!ok) return null;
         return { id: user.id.toString(), email: user.email };
       },
     }),
   ],
 
+  pages: {
+    signIn: "/auth/signin",
+  },
+
   callbacks: {
-    // On OAuth sign-in: make sure user exists in DB, and attach DB UUID
+    /** Ensure user exists/updated on OAuth sign-in */
     async signIn({ user, account, profile }) {
       if (!user?.email) return false;
-
-      if (account?.provider === "google") {
+      if (account) {
         try {
-          const dbUser = await createOrUpdateOAuthUser(user, account, profile);
-          if (dbUser) {
-            // overwrite NextAuth user with DB UUID
-            user.id = dbUser.id.toString();
-          }
-        } catch (err) {
-          console.error("signIn DB sync error:", err);
+          await createOrUpdateOAuthUser(user, account, profile);
+        } catch (e) {
+          console.error("signIn DB sync error:", e);
         }
       }
-
       return true;
     },
 
-    // JWT callback: attach backend JWT
+    /** Store our own backend JWT in the NextAuth JWT */
     async jwt({ token, user }) {
-      if (user?.id) {
-        token.id = user.id; // DB UUID now
+      // On initial sign-in, persist id
+      if (user) {
+        token.id = user.id || user.sub;
       }
-
+      // If we don't have a backend token yet, mint one
       if (!token.accessToken && token.id) {
         try {
-          token.accessToken = createBackendJwt(token.id);
-        } catch (err) {
-          console.error("Failed to create backend JWT:", err);
+          token.accessToken = mintBackendJwt(token.id);
+        } catch (e) {
+          console.error("Mint backend JWT failed:", e);
         }
       }
-
       return token;
     },
 
-    // Session callback: expose backend JWT
+    /** Expose backend token on the session for SSR/client fetches */
     async session({ session, token }) {
-      if (token) {
-        session.user = session.user || {};
-        session.user.id = token.id;
-        session.accessToken = token.accessToken || null;
-      }
+      session.user = session.user || {};
+      if (token?.id) session.user.id = token.id;
+      session.accessToken = token?.accessToken || null; // <- your frontend reads this
       return session;
     },
-  },
 
-  secret: process.env.NEXTAUTH_SECRET,
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      try {
+        const u = new URL(url);
+        if (u.origin === baseUrl) return url;
+      } catch {}
+      return baseUrl;
+    },
+  },
 };
 
 export default NextAuth(authOptions);
