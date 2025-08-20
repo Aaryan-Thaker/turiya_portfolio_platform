@@ -97,6 +97,17 @@ export const authOptions = {
       if (token) session.user.id = token.id;
       return session;
     },
+    async redirect({ url, baseUrl }) {
+      // Allow relative URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Allow same-origin absolute URLs
+      try {
+        const u = new URL(url);
+        if (u.origin === baseUrl) return url;
+      } catch (e) {}
+      // Fallback: home
+      return baseUrl;
+    },
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
