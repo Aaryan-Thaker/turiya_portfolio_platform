@@ -3,14 +3,16 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import jsonwebtoken from "jsonwebtoken";
 
-const BACKEND_JWT_SECRET = process.env.NEXTAUTH_SECRET; // same secret for frontend & backend
-const BACKEND_JWT_ALGO = "HS256";
-const BACKEND_JWT_EXPIRE_DAYS = 7; // adjust if needed
+const BACKEND_JWT_SECRET = process.env.JWT_SECRET_KEY || process.env.NEXTAUTH_SECRET;
+const BACKEND_JWT_ALGO = process.env.JWT_ALGORITHM || "HS256";
+const BACKEND_JWT_EXPIRE_DAYS = parseInt(process.env.JWT_EXPIRE_DAYS || "7", 10);
+const BACKEND_JWT_ISS = process.env.BACKEND_JWT_ISS || "your-app-name";
+const BACKEND_JWT_AUD = process.env.BACKEND_JWT_AUD || "your-app-client";
 
-// Helper: create backend JWT
-function createBackendJwt(userId) {
-  if (!userId) {
-    console.warn("[createBackendJwt] userId is missing!");
+function createBackendJwt(userIdentifier) {
+  console.log("[createBackendJwt] userIdentifier:", userIdentifier);
+  if (!BACKEND_JWT_SECRET) {
+    console.warn("[createBackendJwt] WARNING: BACKEND_JWT_SECRET not set");
     return null;
   }
 
@@ -18,20 +20,24 @@ function createBackendJwt(userId) {
   const expSec = nowSec + BACKEND_JWT_EXPIRE_DAYS * 24 * 60 * 60;
 
   const payload = {
-    user_id: String(userId),
+    user_id: String(userIdentifier),
     iat: nowSec,
     exp: expSec,
+    iss: BACKEND_JWT_ISS,
+    aud: BACKEND_JWT_AUD,
   };
+
+  console.log("[createBackendJwt] payload:", payload);
 
   try {
     const token = jsonwebtoken.sign(payload, BACKEND_JWT_SECRET, {
       algorithm: BACKEND_JWT_ALGO,
       expiresIn: `${BACKEND_JWT_EXPIRE_DAYS}d`,
     });
-    console.log("[createBackendJwt] Generated token:", token);
+    console.log("[createBackendJwt] token generated:", token);
     return token;
   } catch (err) {
-    console.error("[createBackendJwt] Error signing token:", err);
+    console.error("[createBackendJwt] ERROR signing JWT:", err);
     return null;
   }
 }
@@ -45,74 +51,55 @@ export default NextAuth({
   ],
 
   secret: process.env.NEXTAUTH_SECRET,
-
-  session: {
-    strategy: "jwt",
-  },
-
-  jwt: {
-    secret: process.env.NEXTAUTH_SECRET,
-  },
+  session: { strategy: "jwt" },
+  jwt: { secret: process.env.NEXTAUTH_SECRET },
 
   callbacks: {
-    async signIn({ user, account, profile, email, credentials }) {
-      console.log("=== [signIn callback] ===");
-      console.log({ user, account, profile, email, credentials });
-      return true; // allow all
-    },
-
     async jwt({ token, user, account, profile }) {
       console.log("=== [jwt callback] BEFORE ===");
       console.log({ token, user, account, profile });
 
       try {
         if (user && account) {
-          // IMPORTANT: Google OAuth does not provide user.id, use user.sub instead
-          const userId = user.id || user.sub;
-          console.log("[jwt callback] Resolved userId:", userId);
-
-          token.userId = userId;
-          token.accessToken = createBackendJwt(userId);
-          token.provider = account.provider;
+          console.log("[jwt callback] new login detected, creating backend JWT...");
+          
+          // Use email as user identifier since Google doesn't provide user.id
+          const userIdentifier = user.email || account.providerAccountId;
+          token.userId = userIdentifier;
+          token.provider = account.provider || null;
+          
+          const backendJwt = createBackendJwt(userIdentifier);
+          token.accessToken = backendJwt;
+          token.refreshToken = account.refresh_token || null;
         }
 
         console.log("=== [jwt callback] AFTER ===");
-        console.log("token:", token);
-
+        console.log(token);
         return token;
       } catch (err) {
-        console.error("[jwt callback] Error:", err);
+        console.error("[jwt callback] ERROR:", err);
         return token;
       }
     },
 
     async session({ session, token, user }) {
-      console.log("=== [session callback] ===");
+      console.log("=== [session callback] BEFORE ===");
       console.log({ session, token, user });
 
       try {
         session.user.id = token.userId || null;
         session.accessToken = token.accessToken || null;
+        session.refreshToken = token.refreshToken || null;
         session.provider = token.provider || null;
 
-        console.log("[session callback] Final session:", session);
+        console.log("=== [session callback] AFTER ===");
+        console.log(session);
+
         return session;
       } catch (err) {
-        console.error("[session callback] Error:", err);
+        console.error("[session callback] ERROR:", err);
         return session;
       }
-    },
-
-    async redirect({ url, baseUrl }) {
-      console.log("[redirect callback] url:", url, "baseUrl:", baseUrl);
-      if (url.startsWith("/")) return `${baseUrl}${url}`;
-      try {
-        const u = new URL(url);
-        if (u.origin === baseUrl) return url;
-      } catch (e) {
-        console.warn("[redirect callback] Invalid URL:", url);
-      }
-      return baseUrl;
     },
   },
 
