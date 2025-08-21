@@ -19,8 +19,6 @@ function createBackendJwt(userId) {
   const expSec = nowSec + BACKEND_JWT_EXPIRE_DAYS * 24 * 60 * 60;
   const payload = {
     user_id: String(userId),
-    iat: nowSec,
-    exp: expSec,
     iss: BACKEND_JWT_ISS,
     aud: BACKEND_JWT_AUD,
   };
