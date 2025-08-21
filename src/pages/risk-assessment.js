@@ -208,7 +208,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
     try {
       // Get JWT token from NextAuth session
       const session = await getSession();
-      const token = session?.accessToken || '';
+      const token = session?.user.idToken || '';
       if (!token) {
         // Not authenticated → send user to NextAuth sign-in
         router.push('/auth/signin');
