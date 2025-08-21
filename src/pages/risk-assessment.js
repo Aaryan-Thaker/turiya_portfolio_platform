@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import dynamic from 'next/dynamic';
 import Nav from './Nav';
-import { getSession } from 'next-auth/react';
+import { getSession, signIn, useSession } from 'next-auth/react';
 
 // Dynamic imports for signature pads
 const SignaturePad = dynamic(
@@ -51,11 +51,14 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   const applicantSigRef = useRef(null);
   const advisorSigRef = useRef(null);
 
+  // useSession for reactive client-side auth state
+  const { data: session, status } = useSession();
+
   const [formData, setFormData] = useState({
     // Client Information
     applicantName: '',
     applicantAddress: '',
-    // Investment Experience
+    // Investment Experience (dynamically added keys)
     ...INVESTMENT_TYPES.reduce((acc, type) => {
       // replace all spaces for the key
       const key = `${type.toLowerCase().replace(/\s+/g, '')}Experience`;
@@ -89,12 +92,61 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   const [riskProfile, setRiskProfile] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [existingAssessment, setExistingAssessment] = useState(null);
+  const [checkingAssessment, setCheckingAssessment] = useState(true);
 
   // Calculate score whenever answers change
   useEffect(() => {
     calculateScore();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData]);
+
+  // Fetch existing risk assessment ONCE when authenticated
+  useEffect(() => {
+    async function loadAssessment() {
+      // If not authenticated, skip calling protected endpoint
+      if (status !== 'authenticated') {
+        setCheckingAssessment(false);
+        return;
+      }
+
+      try {
+        const s = session || (await getSession());
+        const token = s?.accessToken;
+        if (!token) {
+          setCheckingAssessment(false);
+          return;
+        }
+
+        const res = await fetch('/api/risk/check', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (res.status === 401) {
+          // unauthorized — nothing to show
+          setCheckingAssessment(false);
+          return;
+        }
+
+        const json = await res.json().catch(() => null);
+        if (json && json.success && json.completed) {
+          setExistingAssessment(json.latest_assessment || null);
+        }
+      } catch (err) {
+        // non-fatal; we show UI anyway
+        console.warn('Could not load existing assessment:', err);
+      } finally {
+        setCheckingAssessment(false);
+      }
+    }
+
+    loadAssessment();
+    // run when status (auth) changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   const calculateScore = () => {
     let score = 0;
@@ -163,12 +215,10 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 
   const handleApplicantSigEnd = () => {
     try {
-      // try several ways to get data URL from ref (defensive)
       const ref = applicantSigRef.current;
       let dataUrl = null;
       if (!ref) return;
       if (typeof ref.toDataURL === 'function') dataUrl = ref.toDataURL();
-      // react-signature-pad-wrapper sometimes exposes getTrimmedCanvas
       else if (ref.getTrimmedCanvas) dataUrl = ref.getTrimmedCanvas().toDataURL();
       else if (ref.getCanvas) dataUrl = ref.getCanvas().toDataURL();
 
@@ -206,12 +256,18 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
     setError('');
 
     try {
-      // Get JWT token from NextAuth session
-      const session = await getSession();
-      const token = session?.accessToken || '';
+      // Prefer reactive session from useSession()
+      const s = session || (await getSession());
+      if (!s) {
+        // Prompt sign in (NextAuth) — uses Google provider
+        await signIn('google', { callbackUrl: window.location.href });
+        return;
+      }
+
+      const token = s?.accessToken;
       if (!token) {
-        // Not authenticated → send user to NextAuth sign-in
-        router.push('/auth/signin');
+        // If session exists but no backend JWT, force re-auth
+        await signIn('google', { callbackUrl: window.location.href });
         return;
       }
 
@@ -220,10 +276,9 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 
       const response = await fetch(apiPath, {
         method: 'POST',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           ...formData,
@@ -239,7 +294,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 
       if (!response.ok) {
         const errorData = json || {};
-        throw new Error(errorData.error || errorData.message || 'Submission failed');
+        throw new Error(errorData.error || errorData.message || `Submission failed (${response.status})`);
       }
 
       // success
@@ -271,7 +326,6 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   };
 
   const clearSignature = (field) => {
-    // clear canvas via ref if possible
     try {
       if (field === 'applicantSignature' && applicantSigRef.current) {
         if (typeof applicantSigRef.current.clear === 'function') applicantSigRef.current.clear();
@@ -324,6 +378,15 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
         tailored to your specific needs and objectives.
       </p>
 
+      {checkingAssessment ? (
+        <p>Checking previous assessment...</p>
+      ) : existingAssessment ? (
+        <div className="form-section">
+          <h3>You already completed a risk assessment</h3>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(existingAssessment, null, 2)}</pre>
+        </div>
+      ) : null}
+
       <form onSubmit={handleSubmit}>
         {/* Client Information Section */}
         <section className="form-section">
@@ -372,9 +435,9 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
                     <td key={level}>
                       <input
                         type="radio"
-                        name={`${type.toLowerCase().replace(' ', '')}Experience`}
+                        name={`${type.toLowerCase().replace(/\s+/g, '')}Experience`}
                         value={level}
-                        checked={formData[`${type.toLowerCase().replace(' ', '')}Experience`] === level}
+                        checked={formData[`${type.toLowerCase().replace(/\s+/g, '')}Experience`] === level}
                         onChange={handleInputChange}
                         required
                       />
@@ -909,8 +972,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   );
 }
 
-
-
+/* Server-side props (unchanged) */
 export async function getServerSideProps(context) {
   const session = await getSession(context);
 
@@ -971,4 +1033,3 @@ export async function getServerSideProps(context) {
     },
   };
 }
-

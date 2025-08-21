@@ -1,14 +1,27 @@
 import { getProviders, signIn } from "next-auth/react";
 
 export default function SignIn({ providers }) {
+  if (!providers) {
+    return (
+      <div style={{ padding: '20px', color: 'red' }}>
+        <h1>Sign In</h1>
+        <p>No authentication providers configured. Please contact the admin.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-      <h1 className="text-2xl font-bold mb-6">Sign in to your account</h1>
+    <div style={{ padding: '20px' }}>
+      <h1>Sign In</h1>
       {Object.values(providers).map((provider) => (
-        <div key={provider.name}>
+        <div key={provider.name} style={{ margin: '10px 0' }}>
           <button
-            onClick={() => signIn(provider.id)}
-            className="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700"
+            onClick={() => signIn(provider.id, { callbackUrl: "/" })}
+            style={{
+              padding: '10px 20px',
+              fontSize: '16px',
+              cursor: 'pointer'
+            }}
           >
             Sign in with {provider.name}
           </button>
@@ -18,8 +31,10 @@ export default function SignIn({ providers }) {
   );
 }
 
-// Fetch providers at build time
-export async function getServerSideProps() {
+// Fetch providers server-side
+export async function getServerSideProps(context) {
   const providers = await getProviders();
-  return { props: { providers } };
+  return {
+    props: { providers: providers ?? null }, // fallback to null
+  };
 }
