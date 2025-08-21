@@ -279,36 +279,53 @@ export default function TransactionsPage({
   );
 }
 
+import { getSession } from "next-auth/react";
+
 export async function getServerSideProps(context) {
   const session = await getSession(context);
-  const token = session?.accessToken || '';
+  const token = session?.accessToken;
 
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-  const host = context.req.headers.host;
-  const backendUrl = `${protocol}://${host}/api/transactions`;
-
-  const res = await fetch(backendUrl, {
-    credentials: 'include',
-    headers: {
-      cookie: context.req.headers.cookie || '',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-
-  if (res.status === 401) {
+  // Redirect if not authenticated
+  if (!token) {
     return {
       redirect: {
-        destination: '/auth/signin',
+        destination: "/auth/signin",
         permanent: false,
-      }
+      },
     };
   }
 
-  const data = await res.json().catch(() => ({}));
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  const host = context.req.headers.host;
+  const backendBase = process.env.BACKEND_URL || `${protocol}://${host}`;
+  const backendUrl = `${backendBase}/api/transactions`;
+
+  let data = {};
+  try {
+    const res = await fetch(backendUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (res.status === 401) {
+      return {
+        redirect: {
+          destination: "/auth/signin",
+          permanent: false,
+        },
+      };
+    }
+
+    data = await res.json().catch(() => ({}));
+  } catch (err) {
+    console.error("Error fetching transactions:", err);
+  }
 
   const user = {
-    id: data.current_user?.id || 'guest',
-    isAuthenticated: data.current_user?.is_authenticated || false,
+    id: data?.current_user?.id || session.user?.id || "guest",
+    isAuthenticated: !!session,
   };
 
   return {
@@ -318,7 +335,8 @@ export async function getServerSideProps(context) {
       stockPerformanceData: data.stockPerformance || [],
       realizedGainsTotal: data.realizedGainsTotal || 0,
       portfolioIrr: data.portfolioIRR || 0,
-      error: '',
+      error: data?.error || "",
     },
   };
 }
+

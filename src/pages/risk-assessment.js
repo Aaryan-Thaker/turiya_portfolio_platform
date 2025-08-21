@@ -909,76 +909,66 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   );
 }
 
+import { getSession } from "next-auth/react";
+
 export async function getServerSideProps(context) {
-  // Use NextAuth session server-side
   const session = await getSession(context);
 
+  // Redirect if not authenticated
   if (!session || !session.accessToken) {
     return {
       redirect: {
-        destination: '/auth/signin',
+        destination: "/auth/signin",
         permanent: false,
       },
     };
   }
 
-  // prefer explicit BACKEND_URL env (set this in Vercel). Fallback to host-based proxied route.
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
   const host = context.req.headers.host;
-  const backendBase = process.env.BACKEND_URL ? process.env.BACKEND_URL : `${protocol}://${host}`;
+  const backendBase = process.env.BACKEND_URL || `${protocol}://${host}`;
   const backendUrl = `${backendBase}/api/portfolio`;
 
+  let data = {};
   try {
     const res = await fetch(backendUrl, {
-      method: 'GET',
+      method: "GET",
       headers: {
         Authorization: `Bearer ${session.accessToken}`,
-        cookie: context.req.headers.cookie || ''
       },
     });
 
     if (res.status === 401) {
       return {
         redirect: {
-          destination: '/auth/signin',
+          destination: "/auth/signin",
           permanent: false,
         },
       };
     }
 
-    const data = await res.json().catch(() => ({}));
-
-    const currentUser = {
-      id: data?.current_user?.id || session.user?.id || 'guest',
-      email: data?.current_user?.email || session.user?.email || '',
-      is_authenticated: !!session
-    };
-
-    if (!res.ok || !data.success) {
-      return {
-        props: {
-          currentUser,
-          errorMessage: data.error || 'Error loading user data.',
-        },
-      };
-    }
-
-    return {
-      props: {
-        currentUser,
-        errorMessage: ''
-      },
-    };
-  } catch (error) {
-    console.error('Error in getServerSideProps:', error);
-    return {
-      props: {
-        currentUser: {
-          id: session.user?.id || session.user?.email || 'guest',
-          is_authenticated: !!session
-        },
-        errorMessage: 'Failed to load user data. Please try again later.',
-      },
-    };
+    data = await res.json().catch(() => ({}));
+  } catch (err) {
+    console.error("Error fetching portfolio:", err);
   }
+
+  const currentUser = {
+    id: data?.current_user?.id || session.user?.id || "guest",
+    email: data?.current_user?.email || session.user?.email || "",
+    is_authenticated: !!session,
+  };
+
+  return {
+    props: {
+      currentUser,
+      marketData: data.marketData || {},
+      totalValue: data.totalValue || 0,
+      totalCost: data.totalCost || 0,
+      totalGain: data.totalGain || 0,
+      totalGainPct: data.totalGainPercent || 0,
+      portfolioTableData: data.portfolioTableData || [],
+      errorMessage: data?.error || "",
+    },
+  };
 }
+

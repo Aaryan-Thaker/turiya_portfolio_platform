@@ -201,59 +201,70 @@ const portfolioSummaryStyle = {
 };
 
 // Server-side: use NextAuth session (session.accessToken)
+import { getSession } from "next-auth/react";
+
 export async function getServerSideProps(context) {
+  // Get session (contains backend JWT)
   const session = await getSession(context);
-  const token = session?.accessToken || '';
+  const token = session?.accessToken || "";
 
-
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-  const host = context.req.headers.host;
-  const backendUrl = `${protocol}://${host}/api/portfolio`;
-
-  const res = await fetch(backendUrl, {
-    method: 'GET',
-    credentials: 'include',
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      cookie: context.req.headers.cookie || '',
-    },
-  });
-
-  if (res.status === 401) {
+  // If not authenticated, redirect to sign-in
+  if (!token) {
     return {
       redirect: {
-        destination: '/auth/signin',
+        destination: "/auth/signin",
         permanent: false,
       },
     };
   }
 
-  const data = await res.json().catch(() => ({}));
+  // Build backend API URL
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  const host = process.env.BACKEND_DOMAIN || context.req.headers.host;
+  const backendUrl = `${protocol}://${host}/api/portfolio`;
 
+  // Fetch portfolio data with backend JWT
+  let data = {};
+  try {
+    const res = await fetch(backendUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (res.status === 401) {
+      return {
+        redirect: {
+          destination: "/auth/signin",
+          permanent: false,
+        },
+      };
+    }
+
+    data = await res.json();
+  } catch (err) {
+    console.error("Error fetching portfolio:", err);
+    data = {};
+  }
+
+  // Prepare currentUser object
   const currentUser = {
-    id: data?.current_user?.id || 'guest',
-    email: data?.current_user?.email || '',
+    id: data?.current_user?.id || "guest",
+    email: data?.current_user?.email || "",
     isAuthenticated: data?.current_user?.is_authenticated || false,
   };
-
-  if (!res.ok || !data.success) {
-    return {
-      props: {
-        currentUser,
-        errorMessage: data.error || 'Error loading portfolio data.',
-      },
-    };
-  }
 
   return {
     props: {
       currentUser,
       marketData: data.marketData || {},
-      totalValue: data.totalValue,
-      totalCost: data.totalCost,
-      totalGain: data.totalGain,
-      totalGainPct: data.totalGainPercent,
+      totalValue: data.totalValue || 0,
+      totalCost: data.totalCost || 0,
+      totalGain: data.totalGain || 0,
+      totalGainPct: data.totalGainPercent || 0,
       portfolioTableData: data.portfolioTableData || [],
+      errorMessage: data?.error || null,
     },
   };
 }

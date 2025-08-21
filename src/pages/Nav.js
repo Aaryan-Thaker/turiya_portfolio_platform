@@ -1,4 +1,3 @@
-// pages/Nav.js
 import React from 'react';
 import Link from 'next/link';
 import { signOut, useSession } from 'next-auth/react';
@@ -11,10 +10,12 @@ export default function Nav({ user: propUser }) {
     await signOut({ callbackUrl: '/auth/signin' });
   }
 
+  const isLoggedIn = user?.is_authenticated;
+
   return (
     <nav style={styles.nav}>
       <div style={styles.navTitle}>Portfolio Tracker</div>
-      {user && (user.isAuthenticated || user.is_authenticated || session) ? (
+      {isLoggedIn ? (
         <>
           <Link href="/" style={styles.navLink}>Portfolio</Link>
           <Link href="/valuation" style={styles.navLink}>Valuation</Link>

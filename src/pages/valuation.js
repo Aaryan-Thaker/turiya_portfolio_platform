@@ -171,45 +171,57 @@ const styles = {
   footer: { marginTop: 40, padding: 20, backgroundColor: '#f8f8f8', borderTop: '1px solid #eee', fontSize: 11, color: '#666' },
 };
 
+import { getSession } from "next-auth/react";
+
 export async function getServerSideProps(context) {
   const session = await getSession(context);
-  const token = session?.accessToken || '';
+  const token = session?.accessToken;
 
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-  const host = context.req.headers.host;
-  const backendUrl = `${protocol}://${host}/api/valuation`;
-
-  const res = await fetch(backendUrl, {
-    credentials: 'include',
-    headers: {
-      cookie: context.req.headers.cookie || '',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-
-  if (res.status === 401) {
-    return { redirect: { destination: '/auth/signin', permanent: false } };
-  }
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok || !data.success) {
+  if (!token) {
     return {
-      props: {
-        error: data.error || 'Failed to fetch valuation data',
-        currentUser: { id: 'guest', is_authenticated: false },
-        tickers: [],
-        valuationData: {},
+      redirect: {
+        destination: "/auth/signin",
+        permanent: false,
       },
     };
   }
 
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  const host = context.req.headers.host;
+  const backendBase = process.env.BACKEND_URL || `${protocol}://${host}`;
+  const backendUrl = `${backendBase}/api/valuation`;
+
+  let data = {};
+  try {
+    const res = await fetch(backendUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (res.status === 401) {
+      return {
+        redirect: {
+          destination: "/auth/signin",
+          permanent: false,
+        },
+      };
+    }
+
+    data = await res.json().catch(() => ({}));
+  } catch (err) {
+    console.error("Error fetching valuation data:", err);
+  }
+
+  const currentUser = data.current_user || { id: session.user?.id || "guest", is_authenticated: !!session };
+
   return {
     props: {
-      currentUser: data.current_user || { id: 'guest', is_authenticated: false },
+      currentUser,
       tickers: data.tickers || [],
       valuationData: data.valuationData || {},
-      error: '',
+      error: data?.error || "",
     },
   };
 }
