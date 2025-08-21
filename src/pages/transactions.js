@@ -44,7 +44,7 @@ export default function TransactionsPage({
 
     try {
       const session = await getSession();
-      const token = session?.user.idToken || '';
+      const token = session?.accessToken || '';
 
       const res = await fetch(txApiPath, {
         credentials: 'include',

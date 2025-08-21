@@ -203,7 +203,7 @@ const portfolioSummaryStyle = {
 // Server-side: use NextAuth session (session.accessToken)
 export async function getServerSideProps(context) {
   const session = await getSession(context);
-  const token = session?.user.idToken || '';
+  const token = session?.accessToken || '';
 
 
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
