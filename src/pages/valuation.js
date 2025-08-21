@@ -171,7 +171,7 @@ const styles = {
   footer: { marginTop: 40, padding: 20, backgroundColor: '#f8f8f8', borderTop: '1px solid #eee', fontSize: 11, color: '#666' },
 };
 
-import { getSession } from "next-auth/react";
+
 
 export async function getServerSideProps(context) {
   const session = await getSession(context);

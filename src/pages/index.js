@@ -201,7 +201,6 @@ const portfolioSummaryStyle = {
 };
 
 // Server-side: use NextAuth session (session.accessToken)
-import { getSession } from "next-auth/react";
 
 export async function getServerSideProps(context) {
   // Get session (contains backend JWT)
