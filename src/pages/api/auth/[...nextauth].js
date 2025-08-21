@@ -1,7 +1,7 @@
 // src/pages/api/auth/[...nextauth].js
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import jwt from "jsonwebtoken";
+import jsonwebtoken from "jsonwebtoken";
 
 const BACKEND_JWT_SECRET = process.env.JWT_SECRET_KEY || process.env.NEXTAUTH_SECRET;
 const BACKEND_JWT_ALGO = process.env.JWT_ALGORITHM || "HS256";
@@ -9,25 +9,26 @@ const BACKEND_JWT_EXPIRE_DAYS = parseInt(process.env.JWT_EXPIRE_DAYS || "7", 10)
 const BACKEND_JWT_ISS = process.env.BACKEND_JWT_ISS || "your-app-name";
 const BACKEND_JWT_AUD = process.env.BACKEND_JWT_AUD || "your-app-client";
 
-// Helper: create Flask-compatible backend JWT
+// Helper to create a backend JWT for Flask (safe version)
 function createBackendJwt(userId) {
-  if (!BACKEND_JWT_SECRET) {
-    console.warn("BACKEND_JWT_SECRET not set!");
-    return null;
-  }
-
-  return jwt.sign(
-    {
+  try {
+    if (!BACKEND_JWT_SECRET || !userId) {
+      console.warn("createBackendJwt: missing secret or userId", { BACKEND_JWT_SECRET, userId });
+      return null;
+    }
+    const payload = {
       user_id: String(userId),
       iss: BACKEND_JWT_ISS,
       aud: BACKEND_JWT_AUD,
-    },
-    BACKEND_JWT_SECRET,
-    {
+    };
+    return jsonwebtoken.sign(payload, BACKEND_JWT_SECRET, {
       algorithm: BACKEND_JWT_ALGO,
       expiresIn: `${BACKEND_JWT_EXPIRE_DAYS}d`,
-    }
-  );
+    });
+  } catch (err) {
+    console.error("Error creating backend JWT:", err);
+    return null;
+  }
 }
 
 export default NextAuth({
@@ -39,42 +40,84 @@ export default NextAuth({
   ],
 
   secret: process.env.NEXTAUTH_SECRET,
-  pages: { signIn: "/auth/signin" },
 
   session: { strategy: "jwt" },
   jwt: { secret: process.env.NEXTAUTH_SECRET },
 
   callbacks: {
-    async signIn({ user, account, profile }) {
-      console.log(">>> signIn callback", { user, account, profile });
-      return true;
-    },
-
-    async jwt({ token, user, account }) {
-      if (user) {
-        token.userId = user.id || user.sub || null;
-        token.accessToken = account?.access_token || null;
-        token.refreshToken = account?.refresh_token || null;
-        token.provider = account?.provider || null;
-
-        token.backendJwt = createBackendJwt(token.userId);
-        console.log("Generated backend JWT:", token.backendJwt);
+    async signIn({ user, account, profile, email, credentials }) {
+      console.log("=== [signIn callback] ===");
+      console.log("user:", user);
+      console.log("account:", account);
+      console.log("profile:", profile);
+      console.log("email:", email);
+      console.log("credentials:", credentials);
+      try {
+        return true; // allow all logins
+      } catch (err) {
+        console.error("Error in signIn callback:", err);
+        return false;
       }
-      return token;
     },
 
-    async session({ session, token }) {
-      session.user.id = token.userId || null;
-      session.accessToken = token.backendJwt || token.accessToken || null; // Flask expects backend JWT
-      session.refreshToken = token.refreshToken || null;
-      session.provider = token.provider || null;
-      return session;
+    async jwt({ token, user, account, profile }) {
+      console.log("=== [jwt callback] BEFORE ===");
+      console.log("token:", token);
+      console.log("user:", user);
+      console.log("account:", account);
+      console.log("profile:", profile);
+
+      try {
+        if (user) {
+          token.userId = user.id || user.sub || null;
+          token.accessToken = account?.access_token || null;
+          token.refreshToken = account?.refresh_token || null;
+          token.provider = account?.provider || null;
+
+          // Generate backend JWT compatible with Flask safely
+          token.backendJwt = createBackendJwt(token.userId);
+          console.log("Generated backend JWT:", token.backendJwt);
+        }
+
+        console.log("=== [jwt callback] AFTER ===");
+        console.log("token:", token);
+        return token;
+      } catch (err) {
+        console.error("Error in jwt callback:", err);
+        return token;
+      }
+    },
+
+    async session({ session, token, user }) {
+      console.log("=== [session callback] BEFORE ===");
+      console.log("session:", session);
+      console.log("token:", token);
+      console.log("user:", user);
+
+      try {
+        session.user.id = token.userId || null;
+        session.accessToken = token.backendJwt || token.accessToken || null; // Flask expects backend JWT here
+        session.refreshToken = token.refreshToken || null;
+        session.provider = token.provider || null;
+
+        console.log("=== [session callback] AFTER ===");
+        console.log("session:", session);
+
+        return session;
+      } catch (err) {
+        console.error("Error in session callback:", err);
+        return session;
+      }
     },
   },
 
   events: {
-    signIn: async (msg) => console.log(">>> Event signIn:", msg),
-    error: async (msg) => console.error(">>> Event error:", msg),
+    async signIn(message) { console.log(">>> [Event] signIn:", message); },
+    async signOut(message) { console.log(">>> [Event] signOut:", message); },
+    async createUser(message) { console.log(">>> [Event] createUser:", message); },
+    async linkAccount(message) { console.log(">>> [Event] linkAccount:", message); },
+    async session(message) { console.log(">>> [Event] session:", message); },
+    async error(message) { console.error(">>> [Event] error:", message); },
   },
 
   debug: true,
