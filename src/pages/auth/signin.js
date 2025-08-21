@@ -3,12 +3,23 @@ import { getProviders, signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
 
 export default function SignInPage() {
-  const [providers, setProviders] = useState(null);
+  const [providers, setProviders] = useState({});
 
   useEffect(() => {
-    // fetch providers for dynamic rendering
-    getProviders().then(setProviders);
+    async function fetchProviders() {
+      try {
+        const res = await getProviders();
+        if (res) setProviders(res);
+      } catch (err) {
+        console.error("Error fetching providers:", err);
+      }
+    }
+    fetchProviders();
   }, []);
+
+  if (!providers || Object.keys(providers).length === 0) {
+    return <div>Loading providers…</div>;
+  }
 
   return (
     <div style={{
@@ -24,15 +35,17 @@ export default function SignInPage() {
         borderRadius: 12,
         boxShadow: '0 8px 24px rgba(0,0,0,0.08)'
       }}>
-        <h2 style={{marginBottom: 10}}>Sign in</h2>
-        <p style={{marginTop: 0, marginBottom: 16, color: '#555'}}>Choose a provider to continue</p>
+        <h2 style={{ marginBottom: 10 }}>Sign in</h2>
+        <p style={{ marginTop: 0, marginBottom: 16, color: '#555' }}>
+          Choose a provider to continue
+        </p>
 
-        {!providers && <div>Loading providers…</div>}
-
-        {providers && Object.values(providers).map((p) => (
-          <div key={p.name} style={{marginBottom: 12}}>
+        {Object.values(providers).map((p) => (
+          <div key={p.name} style={{ marginBottom: 12 }}>
             <button
-              onClick={() => signIn(p.id, { callbackUrl: '/' })}
+              onClick={() => signIn(p.id, {
+                callbackUrl: process.env.NEXT_PUBLIC_NEXTAUTH_URL || '/',
+              })}
               style={{
                 width: '100%',
                 padding: '10px 14px',
@@ -46,10 +59,6 @@ export default function SignInPage() {
             </button>
           </div>
         ))}
-
-        <div style={{marginTop: 18, fontSize: 13, color: '#666'}}>
-          Note, accounts are created via OAuth providers (Google, Microsoft). If you previously used a password, you&apos;ll need to sign in using the linked provider.
-        </div>
       </div>
     </div>
   );
