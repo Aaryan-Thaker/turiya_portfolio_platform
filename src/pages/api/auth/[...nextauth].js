@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import jwt from "jsonwebtoken";
 
+// Load environment variables
 const {
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
@@ -12,7 +13,7 @@ const {
   BACKEND_JWT_AUD = "your-app-client",
 } = process.env;
 
-// Helper: generate backend JWT (for Flask)
+// Helper: generate backend JWT for Flask
 function createBackendJwt(userId) {
   if (!BACKEND_JWT_SECRET) return null;
   return jwt.sign(
@@ -32,7 +33,9 @@ export default NextAuth({
 
   secret: NEXTAUTH_SECRET,
 
-  session: { strategy: "jwt" }, // JWT-based session
+  session: {
+    strategy: "jwt", // Use JWT-based sessions
+  },
 
   callbacks: {
     // Add backend JWT to JWT token
