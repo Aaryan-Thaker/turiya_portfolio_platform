@@ -1,14 +1,22 @@
-// pages/auth/signin.js
-import { getProviders, signIn } from "next-auth/react";
+import { getProviders, signIn, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 
 export default function SignInPage() {
   const [providers, setProviders] = useState(null);
+  const { data: session } = useSession();
 
   useEffect(() => {
-    // fetch providers for dynamic rendering
     getProviders().then(setProviders);
   }, []);
+
+  // ✅ When session updates, save backend JWT
+  useEffect(() => {
+    if (session?.accessToken) {
+      localStorage.setItem("jwt_token", session.accessToken);
+      // Optional: redirect automatically
+      window.location.href = "/"; // or any route you want
+    }
+  }, [session]);
 
   return (
     <div style={{
@@ -25,14 +33,16 @@ export default function SignInPage() {
         boxShadow: '0 8px 24px rgba(0,0,0,0.08)'
       }}>
         <h2 style={{marginBottom: 10}}>Sign in</h2>
-        <p style={{marginTop: 0, marginBottom: 16, color: '#555'}}>Choose a provider to continue</p>
+        <p style={{marginTop: 0, marginBottom: 16, color: '#555'}}>
+          Choose a provider to continue
+        </p>
 
         {!providers && <div>Loading providers…</div>}
 
         {providers && Object.values(providers).map((p) => (
           <div key={p.name} style={{marginBottom: 12}}>
             <button
-              onClick={() => signIn(p.id, { callbackUrl: '/' })}
+              onClick={() => signIn(p.id)}
               style={{
                 width: '100%',
                 padding: '10px 14px',
@@ -48,7 +58,7 @@ export default function SignInPage() {
         ))}
 
         <div style={{marginTop: 18, fontSize: 13, color: '#666'}}>
-          Note, accounts are created via OAuth providers (Google, Microsoft). If you previously used a password, you&apos;ll need to sign in using the linked provider.
+          Note, accounts are created via OAuth providers (Google, Microsoft). 
         </div>
       </div>
     </div>
