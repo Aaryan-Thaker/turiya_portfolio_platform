@@ -112,7 +112,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 
       try {
         const s = session || (await getSession());
-        const token = s?.accessToken;
+        const token = localStorage.getItem("jwt_token");
         if (!token) {
           setCheckingAssessment(false);
           return;

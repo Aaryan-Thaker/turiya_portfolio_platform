@@ -175,7 +175,7 @@ const styles = {
 
 export async function getServerSideProps(context) {
   const session = await getSession(context);
-  const token = session?.accessToken;
+  const token = localStorage.getItem("jwt_token");
 
   if (!token) {
     return {

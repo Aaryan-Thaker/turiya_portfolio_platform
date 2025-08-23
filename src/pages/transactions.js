@@ -283,7 +283,7 @@ export default function TransactionsPage({
 
 export async function getServerSideProps(context) {
   const session = await getSession(context);
-  const token = session?.accessToken;
+  const token = localStorage.getItem("jwt_token");
 
   // Redirect if not authenticated
   if (!token) {

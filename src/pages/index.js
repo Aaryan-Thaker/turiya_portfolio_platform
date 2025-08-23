@@ -205,7 +205,7 @@ const portfolioSummaryStyle = {
 export async function getServerSideProps(context) {
   // Get session (contains backend JWT)
   const session = await getSession(context);
-  const token = session?.accessToken || "";
+  const token = localStorage.getItem("jwt_token");
 
   // If not authenticated, redirect to sign-in
   if (!token) {
