@@ -16,10 +16,12 @@ function createBackendJwt(userId) {
       console.warn("createBackendJwt: missing secret or userId", { BACKEND_JWT_SECRET, userId });
       return null;
     }
+    const now = Math.floor(Date.now() / 1000); // seconds
     const payload = {
       user_id: String(userId),
       iss: BACKEND_JWT_ISS,
       aud: BACKEND_JWT_AUD,
+      iat: now, // add issued-at like Flask does
     };
     return jsonwebtoken.sign(payload, BACKEND_JWT_SECRET, {
       algorithm: BACKEND_JWT_ALGO,
