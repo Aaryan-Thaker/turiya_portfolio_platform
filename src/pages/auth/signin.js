@@ -32,7 +32,7 @@ export default function SignInPage() {
         {providers && Object.values(providers).map((p) => (
           <div key={p.name} style={{marginBottom: 12}}>
             <button
-              onClick={() => signIn(p.id, { callbackUrl: '/portfolio' })}
+              onClick={() => signIn(p.id, { callbackUrl: '/' })}
               style={{
                 width: '100%',
                 padding: '10px 14px',

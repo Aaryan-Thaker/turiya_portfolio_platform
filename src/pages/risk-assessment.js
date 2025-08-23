@@ -973,11 +973,14 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 }
 
 /* Server-side props (unchanged) */
-export async function getServerSideProps(context) {
-  const session = await getSession(context);
 
-  // Redirect if not authenticated
-  if (!session || !session.accessToken) {
+export async function getServerSideProps(context) {
+  // Get session (contains backend JWT)
+  const session = await getSession(context);
+  const token = session?.accessToken || "";
+
+  // If not authenticated, redirect to sign-in
+  if (!token) {
     return {
       redirect: {
         destination: "/auth/signin",
@@ -986,17 +989,15 @@ export async function getServerSideProps(context) {
     };
   }
 
-  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
-  const host = context.req.headers.host;
-  const backendBase = process.env.BACKEND_URL || `${protocol}://${host}`;
-  const backendUrl = `${backendBase}/api/portfolio`;
+  // ✅ Just hit the relative API route — next.config.mjs rewrites this to Flask backend
+  const backendUrl = "/api/portfolio";
 
   let data = {};
   try {
     const res = await fetch(backendUrl, {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${session.accessToken}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 
@@ -1012,12 +1013,14 @@ export async function getServerSideProps(context) {
     data = await res.json().catch(() => ({}));
   } catch (err) {
     console.error("Error fetching portfolio:", err);
+    data = {};
   }
 
+  // Prepare currentUser object
   const currentUser = {
-    id: data?.current_user?.id || session.user?.id || "guest",
-    email: data?.current_user?.email || session.user?.email || "",
-    is_authenticated: !!session,
+    id: data?.current_user?.id || "guest",
+    email: data?.current_user?.email || "",
+    isAuthenticated: !!session,
   };
 
   return {
@@ -1029,7 +1032,8 @@ export async function getServerSideProps(context) {
       totalGain: data.totalGain || 0,
       totalGainPct: data.totalGainPercent || 0,
       portfolioTableData: data.portfolioTableData || [],
-      errorMessage: data?.error || "",
+      errorMessage: data?.error || null,
     },
   };
 }
+
