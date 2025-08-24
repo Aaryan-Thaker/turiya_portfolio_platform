@@ -1,7 +1,8 @@
+// pages/_app.js
 import "@/styles/globals.css";
 import { useEffect } from "react";
 import { useRouter } from "next/router";
-import { SessionProvider } from "next-auth/react";
+import { SessionProvider, getSession } from "next-auth/react";
 
 function AppInner({ Component, pageProps }) {
   const router = useRouter();
@@ -16,7 +17,9 @@ function AppInner({ Component, pageProps }) {
       ) {
         try {
           localStorage.setItem("previewUrl", window.location.origin);
-        } catch (e) {}
+        } catch (e) {
+          // ignore storage errors
+        }
       }
     }
 
@@ -28,27 +31,40 @@ function AppInner({ Component, pageProps }) {
         "/api/auth", // next-auth
       ];
 
+      // skip check for exempt routes
       if (exemptRoutes.some((route) => router.pathname.startsWith(route))) return;
 
       try {
-        // Use token stored in localStorage (set on signin) — this is the Google ID token
-        const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
-        if (!token) return; // if no token, frontend will redirect to signin elsewhere
+        // Get NextAuth session server-side friendly (no localStorage)
+        const s = await getSession();
+        const token = s?.accessToken || null;
+
+        // If there's no token, don't block navigation here.
+        // (Per app design: frontend routes/pages should handle redirect to signin.)
+        if (!token) return;
 
         const response = await fetch("/api/risk/check", {
           method: "GET",
-          credentials: "include",
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        const data = await response.json();
+        // If endpoint returns 401 or similar, let the page handle auth flows
+        if (response.status === 401) {
+          return;
+        }
+
+        const data = await response.json().catch(() => ({}));
         if (!data.completed) {
-          sessionStorage.setItem("preAssessmentRoute", router.asPath);
+          try {
+            sessionStorage.setItem("preAssessmentRoute", router.asPath);
+          } catch (e) {}
           router.push("/risk-assessment");
         } else {
-          localStorage.setItem("riskAssessmentCompleted", "true");
+          try {
+            localStorage.setItem("riskAssessmentCompleted", "true");
+          } catch (e) {}
         }
       } catch (error) {
         console.error("Risk assessment check failed:", error);
@@ -59,6 +75,7 @@ function AppInner({ Component, pageProps }) {
     const handleRouteChange = () => verifyRiskAssessment();
 
     router.events.on("routeChangeStart", handleRouteChange);
+    // run once on mount
     verifyRiskAssessment();
 
     return () => {

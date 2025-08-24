@@ -1,7 +1,7 @@
 // pages/transactions.js
 import { useState, useEffect } from 'react';
 import Nav from './Nav';
-import { getSession } from 'next-auth/react';
+import { getSession, useSession, signIn } from 'next-auth/react';
 
 export default function TransactionsPage({
   user,
@@ -11,6 +11,7 @@ export default function TransactionsPage({
   portfolioIrr,
   error: initialError
 }) {
+  const { data: session, status } = useSession();
   const [type, setType] = useState('Buy');
   const [stock, setStock] = useState('');
   const [quantity, setQuantity] = useState('');
@@ -25,6 +26,9 @@ export default function TransactionsPage({
   const txApiPath = '/api/transactions';
   const clearApiPath = '/api/clear_transactions';
 
+  // Helper to get access token from session (client)
+  const getClientToken = () => session?.accessToken || '';
+
   async function handleAddTransaction(e) {
     e.preventDefault();
     setError('');
@@ -34,7 +38,7 @@ export default function TransactionsPage({
       return;
     }
 
-    const qtyNum = parseInt(quantity);
+    const qtyNum = parseInt(quantity, 10);
     const priceNum = parseFloat(price);
 
     if (isNaN(qtyNum) || isNaN(priceNum)) {
@@ -43,8 +47,21 @@ export default function TransactionsPage({
     }
 
     try {
-      const session = await getSession();
-      const token = session?.accessToken || '';
+      // Require user to be authenticated
+      if (status !== 'authenticated') {
+        await signIn('google', { callbackUrl: window.location.href });
+        return;
+      }
+
+      const token = getClientToken();
+      if (!token) {
+        // fallback to explicit session retrieval
+        const s = await getSession();
+        if (!s?.accessToken) {
+          await signIn('google', { callbackUrl: window.location.href });
+          return;
+        }
+      }
 
       const res = await fetch(txApiPath, {
         credentials: 'include',
@@ -58,6 +75,10 @@ export default function TransactionsPage({
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (res.status === 401) {
+          await signIn('google', { callbackUrl: window.location.href });
+          return;
+        }
         setError(data.error || 'Failed to add transaction');
         return;
       }
@@ -76,8 +97,16 @@ export default function TransactionsPage({
 
   async function fetchTransactions() {
     try {
-      const session = await getSession();
-      const token = session?.accessToken || '';
+      // If not authenticated client-side, try to redirect to sign-in
+      if (status === 'unauthenticated') {
+        await signIn('google', { callbackUrl: window.location.href });
+        return;
+      }
+
+      // If session still loading, wait
+      if (status === 'loading') return;
+
+      const token = getClientToken() || (await (await getSession())?.accessToken) || '';
 
       const res = await fetch(txApiPath, {
         credentials: 'include',
@@ -85,6 +114,12 @@ export default function TransactionsPage({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
+
+      // If unauthorized server returns 401, force sign-in
+      if (res.status === 401) {
+        await signIn('google', { callbackUrl: window.location.href });
+        return;
+      }
 
       const data = await res.json().catch(() => ({}));
 
@@ -95,10 +130,6 @@ export default function TransactionsPage({
         setPortfolioIRR(data.portfolioIRR || 0);
         setError('');
       } else {
-        if (res.status === 401) {
-          window.location.href = '/auth/signin';
-          return;
-        }
         setError(data.error || 'Failed to load transactions.');
       }
     } catch (err) {
@@ -111,9 +142,11 @@ export default function TransactionsPage({
     if (!confirm('Are you sure you want to clear all transactions?')) return;
 
     try {
-      const session = await getSession();
-      const token = session?.accessToken || '';
-
+      if (status !== 'authenticated') {
+        await signIn('google', { callbackUrl: window.location.href });
+        return;
+      }
+      const token = getClientToken();
       const res = await fetch(clearApiPath, {
         method: 'POST',
         credentials: 'include',
@@ -121,6 +154,11 @@ export default function TransactionsPage({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
+
+      if (res.status === 401) {
+        await signIn('google', { callbackUrl: window.location.href });
+        return;
+      }
 
       if (res.ok) {
         await fetchTransactions();
@@ -135,7 +173,11 @@ export default function TransactionsPage({
   }
 
   useEffect(() => {
+    // if initial props gave us transactions, we don't need to refetch right away
     if (!transactionsData) {
+      fetchTransactions();
+    } else {
+      // if initial props present, still call to refresh after mount
       fetchTransactions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -254,9 +296,6 @@ export default function TransactionsPage({
 
       <style jsx>{`
         .container { font-family: Arial; max-width: 1400px; margin: 0 auto; padding: 20px; }
-        .navbar { display: flex; align-items: center; padding-bottom: 15px; border-bottom: 1px solid #eee; }
-        .nav-title { font-size: 24px; font-weight: bold; margin-right: 30px; }
-        .nav-link { margin-right: 15px; text-decoration: none; color: #333; font-size: 15px; }
         .performance-summary { background: #f8f8f8; padding: 15px; border-radius: 5px; margin: 20px 0; }
         .performance-metrics { display: flex; gap: 20px; flex-wrap: wrap; }
         .metric { min-width: 150px; }
@@ -281,6 +320,7 @@ export default function TransactionsPage({
 
 
 
+// Server-side props unchanged (keeps previous backend host logic)
 export async function getServerSideProps(context) {
   const session = await getSession(context);
   const token = session?.accessToken || "";
@@ -339,4 +379,3 @@ export async function getServerSideProps(context) {
     },
   };
 }
-

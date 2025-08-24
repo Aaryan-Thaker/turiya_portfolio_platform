@@ -111,9 +111,9 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
       }
 
       try {
-        // Prefer reactive session token, else fallback to localStorage
+        // Prefer reactive session token, else fallback to getSession()
         const s = session || (await getSession());
-        const token = s?.accessToken || (typeof window !== 'undefined' ? localStorage.getItem('jwt_token') : null);
+        const token = s?.accessToken;
         if (!token) {
           setCheckingAssessment(false);
           return;
@@ -265,10 +265,9 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
         return;
       }
 
-      // Prefer session.accessToken, fallback to localStorage jwt_token
-      const token = s?.accessToken || (typeof window !== 'undefined' ? localStorage.getItem('jwt_token') : null);
+      const token = s?.accessToken;
       if (!token) {
-        // If session exists but no token, force re-auth
+        // If session exists but no backend JWT, force re-auth
         await signIn('google', { callbackUrl: window.location.href });
         return;
       }
