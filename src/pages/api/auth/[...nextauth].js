@@ -16,28 +16,29 @@ export default NextAuth({
       }
     })
   ],
+
+  // Required
   secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: "jwt" },
-  jwt: { secret: process.env.NEXTAUTH_SECRET },
+
+  session: {
+    strategy: "jwt",
+  },
 
   callbacks: {
     async jwt({ token, account, profile }) {
-      // When first sign in, account contains tokens
       if (account) {
-        // Take Google ID token (id_token) first, fallback to access_token
-        token.idToken = account.id_token || token.idToken || null;
-        token.accessTokenRaw = account.access_token || token.accessTokenRaw || null;
-        token.refreshToken = account.refresh_token || token.refreshToken || null;
-        token.userId = profile?.sub || token.userId || null;
+        token.idToken = account.id_token ?? null;
+        token.accessToken = account.access_token ?? null;
+        token.refreshToken = account.refresh_token ?? null;
+        token.userId = profile?.sub ?? null;
       }
       return token;
     },
 
     async session({ session, token }) {
-      // Expose the Google ID token as session.accessToken for backend calls
       session.user = session.user || {};
       session.user.id = token.userId || session.user.id;
-      session.accessToken = token.idToken || token.accessTokenRaw || null;
+      session.accessToken = token.idToken || token.accessToken || null;
       session.refreshToken = token.refreshToken || null;
       return session;
     }
