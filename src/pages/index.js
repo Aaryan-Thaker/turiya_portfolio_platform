@@ -234,11 +234,10 @@ export async function getServerSideProps(context) {
 
     if (res.status === 401) {
       return {
-        redirect: {
-          destination: "/auth/signin",
-          permanent: false,
-        },
-      };
+    props: {
+      currentUser: null,   // show loading UI on client
+    }
+  };
     }
 
     data = await res.json();
