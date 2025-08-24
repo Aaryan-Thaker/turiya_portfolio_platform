@@ -281,8 +281,6 @@ export default function TransactionsPage({
 
 
 
-import { getSession } from "next-auth/react";
-
 export async function getServerSideProps(context) {
   const session = await getSession(context);
   const token = session?.accessToken || "";
