@@ -1,126 +1,58 @@
-// src/pages/api/auth/[...nextauth].js
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import jsonwebtoken from "jsonwebtoken";
-
-const BACKEND_JWT_SECRET = process.env.JWT_SECRET_KEY || process.env.NEXTAUTH_SECRET;
-const BACKEND_JWT_ALGO = process.env.JWT_ALGORITHM || "HS256";
-const BACKEND_JWT_EXPIRE_DAYS = parseInt(process.env.JWT_EXPIRE_DAYS || "7", 10);
-const BACKEND_JWT_ISS = process.env.BACKEND_JWT_ISS || "your-app-name";
-const BACKEND_JWT_AUD = process.env.BACKEND_JWT_AUD || "your-app-client";
-
-// Helper to create a backend JWT for Flask (safe version)
-function createBackendJwt(userId) {
-  try {
-    if (!BACKEND_JWT_SECRET || !userId) {
-      console.warn("createBackendJwt: missing secret or userId", { BACKEND_JWT_SECRET, userId });
-      return null;
-    }
-    const now = Math.floor(Date.now() / 1000); // seconds
-    const payload = {
-      user_id: String(userId),
-      iss: BACKEND_JWT_ISS,
-      aud: BACKEND_JWT_AUD,
-      iat: now, // add issued-at like Flask does
-    };
-    return jsonwebtoken.sign(payload, BACKEND_JWT_SECRET, {
-      algorithm: BACKEND_JWT_ALGO,
-      expiresIn: `${BACKEND_JWT_EXPIRE_DAYS}d`,
-    });
-  } catch (err) {
-    console.error("Error creating backend JWT:", err);
-    return null;
-  }
-}
 
 export default NextAuth({
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      // You can add authorization params if you need offline access / consent screen:
+      // authorization: { params: { prompt: "consent", access_type: "offline", response_type: "code" } }
     }),
   ],
 
   secret: process.env.NEXTAUTH_SECRET,
-
   session: { strategy: "jwt" },
   jwt: { secret: process.env.NEXTAUTH_SECRET },
 
   callbacks: {
-    async signIn({ user, account, profile, email, credentials }) {
-      console.log("=== [signIn callback] ===");
-      console.log("user:", user);
-      console.log("account:", account);
-      console.log("profile:", profile);
-      console.log("email:", email);
-      console.log("credentials:", credentials);
-      try {
-        return true; // allow all logins
-      } catch (err) {
-        console.error("Error in signIn callback:", err);
-        return false;
-      }
+    // Allow sign-ins (keep as you had it)
+    async signIn({ user, account, profile }) {
+      return true;
     },
 
+    // Persist relevant tokens into the NextAuth JWT
     async jwt({ token, user, account, profile }) {
-      console.log("=== [jwt callback] BEFORE ===");
-      console.log("token:", token);
-      console.log("user:", user);
-      console.log("account:", account);
-      console.log("profile:", profile);
+      // On initial sign in, NextAuth provides `account`
+      if (account) {
+        // Capture Google ID token (this is what Flask will verify)
+        token.idToken = account.id_token || null;
 
-      try {
-        if (user) {
-          token.userId = user.id || user.sub || null;
-          token.accessToken = account?.access_token || null;
-          token.refreshToken = account?.refresh_token || null;
-          token.provider = account?.provider || null;
-
-          // Generate backend JWT compatible with Flask safely
-          token.backendJwt = createBackendJwt(token.userId);
-          console.log("Generated backend JWT:", token.backendJwt);
-        }
-
-        console.log("=== [jwt callback] AFTER ===");
-        console.log("token:", token);
-        return token;
-      } catch (err) {
-        console.error("Error in jwt callback:", err);
-        return token;
+        // Keep provider + ids + oauth tokens for convenience (optional)
+        token.provider = account.provider || null;
+        token.userId = profile?.sub || user?.id || token.userId || null;
+        token.accessTokenRaw = account.access_token || token.accessTokenRaw || null;
+        token.refreshToken = account.refresh_token || token.refreshToken || null;
       }
+      return token;
     },
 
-    async session({ session, token, user }) {
-      console.log("=== [session callback] BEFORE ===");
-      console.log("session:", session);
-      console.log("token:", token);
-      console.log("user:", user);
-
-      try {
-        session.user.id = token.userId || null;
-        session.accessToken = token.backendJwt || token.accessToken || null; // Flask expects backend JWT here
-        session.refreshToken = token.refreshToken || null;
-        session.provider = token.provider || null;
-
-        console.log("=== [session callback] AFTER ===");
-        console.log("session:", session);
-
-        return session;
-      } catch (err) {
-        console.error("Error in session callback:", err);
-        return session;
-      }
+    // Expose the Google ID token as session.accessToken
+    async session({ session, token }) {
+      if (!session.user) session.user = {};
+      session.user.id = token.userId || session.user.id;
+      // IMPORTANT: session.accessToken is the Google ID token your Flask backend will verify
+      session.accessToken = token.idToken || null;
+      session.provider = token.provider || null;
+      return session;
     },
   },
 
   events: {
-    async signIn(message) { console.log(">>> [Event] signIn:", message); },
-    async signOut(message) { console.log(">>> [Event] signOut:", message); },
-    async createUser(message) { console.log(">>> [Event] createUser:", message); },
-    async linkAccount(message) { console.log(">>> [Event] linkAccount:", message); },
-    async session(message) { console.log(">>> [Event] session:", message); },
-    async error(message) { console.error(">>> [Event] error:", message); },
+    async signIn(message) {
+      if (process.env.NODE_ENV !== "production") console.log("[nextauth] signIn:", message);
+    },
   },
 
-  debug: true,
+  debug: process.env.NODE_ENV !== "production",
 });

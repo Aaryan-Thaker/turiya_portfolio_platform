@@ -203,9 +203,9 @@ const portfolioSummaryStyle = {
 // Server-side: use NextAuth session (session.accessToken)
 
 export async function getServerSideProps(context) {
-  // Get session (contains backend JWT)
+  // Get session (contains Google ID token as accessToken)
   const session = await getSession(context);
-  const token = localStorage.getItem("jwt_token");
+  const token = session?.accessToken || "";
 
   // If not authenticated, redirect to sign-in
   if (!token) {
@@ -217,12 +217,12 @@ export async function getServerSideProps(context) {
     };
   }
 
-  // Build backend API URL
+  // Keep backend URL construction exactly as it was before
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
   const host = process.env.BACKEND_DOMAIN || context.req.headers.host;
   const backendUrl = `${protocol}://${host}/api/portfolio`;
 
-  // Fetch portfolio data with backend JWT
+  // Fetch portfolio data with the Google ID token
   let data = {};
   try {
     const res = await fetch(backendUrl, {
@@ -247,11 +247,10 @@ export async function getServerSideProps(context) {
     data = {};
   }
 
-  // Prepare currentUser object
   const currentUser = {
     id: data?.current_user?.id || "guest",
     email: data?.current_user?.email || "",
-    isAuthenticated: data?.current_user?.is_authenticated || false,
+    is_authenticated: data?.current_user?.is_authenticated || false,
   };
 
   return {
@@ -267,3 +266,4 @@ export async function getServerSideProps(context) {
     },
   };
 }
+

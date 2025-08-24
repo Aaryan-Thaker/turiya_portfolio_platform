@@ -1,21 +1,22 @@
-// pages/_app.js
 import "@/styles/globals.css";
 import { useEffect } from "react";
 import { useRouter } from "next/router";
-import { SessionProvider, getSession } from "next-auth/react";
+import { SessionProvider } from "next-auth/react";
 
 function AppInner({ Component, pageProps }) {
   const router = useRouter();
 
   useEffect(() => {
-    // ✅ Detect if running on a Vercel preview deployment
+    // Detect Vercel preview deployments (optional)
     if (typeof window !== "undefined") {
       const hostname = window.location.hostname;
       if (
         hostname.endsWith(".vercel.app") &&
-        hostname !== "turiyaportfolioplatform.vercel.app" // <-- your production domain
+        hostname !== "turiyaportfolioplatform.vercel.app"
       ) {
-        localStorage.setItem("previewUrl", window.location.origin);
+        try {
+          localStorage.setItem("previewUrl", window.location.origin);
+        } catch (e) {}
       }
     }
 
@@ -30,22 +31,18 @@ function AppInner({ Component, pageProps }) {
       if (exemptRoutes.some((route) => router.pathname.startsWith(route))) return;
 
       try {
-        // If localStorage says done, skip
-        const localCompleted = localStorage.getItem("riskAssessmentCompleted");
-        if (localCompleted === "true") return;
-
-        // get session to include backend JWT
-        const session = await getSession();
-        const token = session?.accessToken;
-
-        const headers = {};
-        if (token) headers["Authorization"] = `Bearer ${token}`;
+        // Use token stored in localStorage (set on signin) — this is the Google ID token
+        const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
+        if (!token) return; // if no token, frontend will redirect to signin elsewhere
 
         const response = await fetch("/api/risk/check", {
           method: "GET",
           credentials: "include",
-          headers,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
+
         const data = await response.json();
         if (!data.completed) {
           sessionStorage.setItem("preAssessmentRoute", router.asPath);

@@ -281,9 +281,11 @@ export default function TransactionsPage({
 
 
 
+import { getSession } from "next-auth/react";
+
 export async function getServerSideProps(context) {
   const session = await getSession(context);
-  const token = localStorage.getItem("jwt_token");
+  const token = session?.accessToken || "";
 
   // Redirect if not authenticated
   if (!token) {

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import dynamic from 'next/dynamic';
 import Nav from './Nav';
-import { getSession, signIn, useSession } from 'next-auth/react';
+import { getSession, useSession, signIn } from 'next-auth/react';
 
 // Dynamic imports for signature pads
 const SignaturePad = dynamic(
@@ -111,8 +111,9 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
       }
 
       try {
+        // Prefer reactive session token, else fallback to localStorage
         const s = session || (await getSession());
-        const token = localStorage.getItem("jwt_token");
+        const token = s?.accessToken || (typeof window !== 'undefined' ? localStorage.getItem('jwt_token') : null);
         if (!token) {
           setCheckingAssessment(false);
           return;
@@ -264,9 +265,10 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
         return;
       }
 
-      const token = s?.accessToken;
+      // Prefer session.accessToken, fallback to localStorage jwt_token
+      const token = s?.accessToken || (typeof window !== 'undefined' ? localStorage.getItem('jwt_token') : null);
       if (!token) {
-        // If session exists but no backend JWT, force re-auth
+        // If session exists but no token, force re-auth
         await signIn('google', { callbackUrl: window.location.href });
         return;
       }
@@ -298,7 +300,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
       }
 
       // success
-      localStorage.setItem('riskAssessmentCompleted', 'true');
+      try { localStorage.setItem('riskAssessmentCompleted', 'true'); } catch (e) {}
       router.push('/');
     } catch (err) {
       setError(err.message || 'Failed to submit assessment');
@@ -975,11 +977,9 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 /* Server-side props (unchanged) */
 
 export async function getServerSideProps(context) {
-  // Get session (contains backend JWT)
   const session = await getSession(context);
   const token = session?.accessToken || "";
 
-  // If not authenticated, redirect to sign-in
   if (!token) {
     return {
       redirect: {
@@ -989,10 +989,10 @@ export async function getServerSideProps(context) {
     };
   }
 
-  // ✅ Just hit the relative API route — next.config.mjs rewrites this to Flask backend
-  const backendUrl = "/api/portfolio";
+  // Use the relative API route — your next.config.mjs rewrites should forward this to Flask
+  const backendUrl = "/api/risk/check";
 
-  let data = {};
+  let existingAssessment = null;
   try {
     const res = await fetch(backendUrl, {
       method: "GET",
@@ -1010,30 +1010,18 @@ export async function getServerSideProps(context) {
       };
     }
 
-    data = await res.json().catch(() => ({}));
+    const data = await res.json().catch(() => ({}));
+    if (data?.completed && data?.latest_assessment) {
+      existingAssessment = data.latest_assessment;
+    }
   } catch (err) {
-    console.error("Error fetching portfolio:", err);
-    data = {};
+    console.error("Error checking risk assessment:", err);
+    // don't block: just show empty form client-side
   }
-
-  // Prepare currentUser object
-  const currentUser = {
-    id: data?.current_user?.id || "guest",
-    email: data?.current_user?.email || "",
-    isAuthenticated: !!session,
-  };
 
   return {
     props: {
-      currentUser,
-      marketData: data.marketData || {},
-      totalValue: data.totalValue || 0,
-      totalCost: data.totalCost || 0,
-      totalGain: data.totalGain || 0,
-      totalGainPct: data.totalGainPercent || 0,
-      portfolioTableData: data.portfolioTableData || [],
-      errorMessage: data?.error || null,
+      existingAssessment,
     },
   };
 }
-
