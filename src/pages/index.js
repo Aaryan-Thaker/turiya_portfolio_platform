@@ -8,6 +8,23 @@ const StockPie = dynamic(() => import('../components/Charts').then(mod => mod.St
 const SectorPie = dynamic(() => import('../components/Charts').then(mod => mod.SectorPie), { ssr: false });
 const GainBar = dynamic(() => import('../components/Charts').then(mod => mod.GainBar), { ssr: false });
 const TreemapChart = dynamic(() => import('../components/Charts').then(mod => mod.TreemapChart), { ssr: false });
+console.log('PORTFOLIO fetch backendUrl:', backendUrl);
+
+const res = await fetch(backendUrl, {
+  method: "GET",
+  headers: { Authorization: `Bearer ${token}` },
+});
+
+console.log('PORTFOLIO fetch status:', res.status);
+const text = await res.text().catch(() => null);
+console.log('PORTFOLIO raw response text:', text);
+let data;
+try {
+  data = JSON.parse(text || "{}");
+} catch(e) {
+  console.error('Failed to parse portfolio JSON', e);
+  data = {};
+}
 
 export default function PortfolioPage({
   currentUser,
@@ -34,6 +51,7 @@ export default function PortfolioPage({
     );
   }
 
+  
   const formatCurrency = (num) => (typeof num === 'number' ? num.toFixed(2) : 'N/A');
   const formatQuantity = (num) => (typeof num === 'number' ? Math.round(num) : 'N/A');
   const formatPercent = (num) => (typeof num === 'number' ? num.toFixed(2) + '%' : 'N/A');
@@ -219,8 +237,9 @@ export async function getServerSideProps(context) {
 
   // Keep backend URL construction exactly as it was before
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
-  const host = process.env.BACKEND_DOMAIN || context.req.headers.host;
-  const backendUrl = `${protocol}://${host}/api/portfolio`;
+  const host = context.req.headers.host;
+  const backendBase = process.env.BACKEND_URL || `${protocol}://${host}`;
+  const backendUrl = `${backendBase}/api/portfolio`;
 
   // Fetch portfolio data with the Google ID token
   let data = {};
