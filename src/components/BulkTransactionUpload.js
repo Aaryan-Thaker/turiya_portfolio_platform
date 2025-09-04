@@ -7,6 +7,8 @@
 
 import React, { useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
+import { getSession } from "next-auth/react";
+
 
 const EXPECTED_HEADERS = [
   "date",     // YYYY-MM-DD
@@ -229,29 +231,42 @@ export default function BulkTransactionUpload() {
   }
 
   async function submitValid() {
-    const validRows = rows.filter((r) => r.isValid).map((r) => r.row);
-    if (validRows.length === 0) return;
+  const validRows = rows.filter((r) => r.isValid).map((r) => r.row);
+  if (validRows.length === 0) return;
 
-    try {
-      const res = await fetch("/api/transactions/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transactions: validRows }),
-      });
+  try {
+    // Get NextAuth session
+    const session = await getSession();
+    const token = session?.accessToken;
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to upload transactions");
-      }
-
-      alert(`${validRows.length} transactions successfully uploaded!`);
-      setOpen(false);
-      setRows([]);
-    } catch (err) {
-      console.error(err);
-      alert("Error uploading transactions: " + err.message);
+    if (!token) {
+      alert("You must be logged in to upload transactions.");
+      return;
     }
+
+    const res = await fetch("/api/transactions/bulk", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`, // <-- include the token
+      },
+      body: JSON.stringify({ transactions: validRows }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to upload transactions");
+    }
+
+    alert(`${validRows.length} transactions successfully uploaded!`);
+    setOpen(false);
+    setRows([]);
+  } catch (err) {
+    console.error(err);
+    alert("Error uploading transactions: " + err.message);
   }
+}
+
 
   return (
     <div className="inline-flex items-center gap-2">
