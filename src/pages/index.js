@@ -8,23 +8,6 @@ const StockPie = dynamic(() => import('../components/Charts').then(mod => mod.St
 const SectorPie = dynamic(() => import('../components/Charts').then(mod => mod.SectorPie), { ssr: false });
 const GainBar = dynamic(() => import('../components/Charts').then(mod => mod.GainBar), { ssr: false });
 const TreemapChart = dynamic(() => import('../components/Charts').then(mod => mod.TreemapChart), { ssr: false });
-console.log('PORTFOLIO fetch backendUrl:', backendUrl);
-
-const res = await fetch(backendUrl, {
-  method: "GET",
-  headers: { Authorization: `Bearer ${token}` },
-});
-
-console.log('PORTFOLIO fetch status:', res.status);
-const text = await res.text().catch(() => null);
-console.log('PORTFOLIO raw response text:', text);
-let data;
-try {
-  data = JSON.parse(text || "{}");
-} catch(e) {
-  console.error('Failed to parse portfolio JSON', e);
-  data = {};
-}
 
 export default function PortfolioPage({
   currentUser,
@@ -51,7 +34,6 @@ export default function PortfolioPage({
     );
   }
 
-  
   const formatCurrency = (num) => (typeof num === 'number' ? num.toFixed(2) : 'N/A');
   const formatQuantity = (num) => (typeof num === 'number' ? Math.round(num) : 'N/A');
   const formatPercent = (num) => (typeof num === 'number' ? num.toFixed(2) + '%' : 'N/A');
