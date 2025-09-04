@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Nav from './Nav';
 import { getSession, useSession, signIn } from 'next-auth/react';
-
+import BulkTransactionUpload from "@/components/BulkTransactionUpload";
 export default function TransactionsPage({
   user,
   transactionsData,
@@ -255,6 +255,10 @@ export default function TransactionsPage({
           </form>
           {error && <div className="alert">{error}</div>}
         </section>
+
+        <div className="mb-4 flex items-center gap-3">
+          <BulkTransactionUpload />
+        </div>
 
         <section className="transaction-history">
           <h2>Past Transactions</h2>

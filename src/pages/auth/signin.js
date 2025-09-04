@@ -15,7 +15,6 @@ export default function SignInPage() {
   // Redirect once session exists
   useEffect(() => {
     if (status === "authenticated" && session) {
-      console.log("Session after login:", session);
       router.push("/");
     }
   }, [session, status, router]);
@@ -67,27 +66,6 @@ export default function SignInPage() {
 
         <div style={{ marginTop: 18, fontSize: 13, color: "#666" }}>
           Note, accounts are created via OAuth providers (Google, Microsoft).
-        </div>
-
-        {/* 🔎 Debug Panel */}
-        <div
-          style={{
-            marginTop: 24,
-            padding: 12,
-            fontSize: 12,
-            background: "#f9f9f9",
-            border: "1px solid #eee",
-            borderRadius: 8,
-            color: "#333",
-            maxHeight: 200,
-            overflow: "auto",
-          }}
-        >
-          <strong>Debug session:</strong>
-          <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-            {JSON.stringify(session, null, 2)}
-          </pre>
-          <div>Status: {status}</div>
         </div>
       </div>
     </div>
