@@ -1,5 +1,5 @@
 // pages/risk-assessment.js
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import dynamic from 'next/dynamic';
 import Nav from './Nav';
@@ -426,9 +426,9 @@ export default function RiskAssessment({
     };
   };
 
-  const displayedAssessment = useMemo(() => {
-    return existingAssessment ? getSummaryFromAssessment(existingAssessment) : null;
-  }, [existingAssessment]);
+  const displayedAssessment = existingAssessment
+     ? getSummaryFromAssessment(existingAssessment)
+     : null;
 
   return (
     <div className="risk-assessment-container">
