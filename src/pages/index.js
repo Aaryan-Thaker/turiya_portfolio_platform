@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Nav from './Nav';
 import dynamic from 'next/dynamic';
 import { getSession } from 'next-auth/react';
+import { exportToCSV } from '../components/exportCSV';
 
 const StockPie = dynamic(() => import('../components/Charts').then(mod => mod.StockPie), { ssr: false });
 const SectorPie = dynamic(() => import('../components/Charts').then(mod => mod.SectorPie), { ssr: false });
@@ -123,7 +124,42 @@ export default function PortfolioPage({
         />
       </div>
 
-      {renderTable()}
+      {portfolioTableData?.length > 0 ? (
+        renderTable()
+      ) : (
+        <div style={{ padding: 20, color: '#666', fontStyle: 'italic' }}>
+          Start by adding Transactions in the Transactions page.
+        </div>
+      )}
+
+      {portfolioTableData?.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <button
+            onClick={() =>
+              exportToCSV(
+                'portfolio.csv',
+                [
+                  'Ticker', 'Name', 'Quantity', 'Currency', 'Avg Cost/Share',
+                  'CMP', 'Current Value', 'Total Cost', 'Gain/Loss',
+                  'Gain/Loss %', 'AllocationPercent', 'Investment Date',
+                  'Exchange', '52w High', '52w Low', 'Unrealized Gains', 'Sector'
+                ],
+                portfolioTableData
+              )
+            }
+            style={{
+              padding: '6px 12px',
+              background: '#4CAF50',
+              color: 'white',
+              border: 'none',
+              borderRadius: 4,
+              cursor: 'pointer'
+            }}
+          >
+            Download CSV
+          </button>
+        </div>
+      )}
 
       <div style={{ marginBottom: 20 }}>
         {[
@@ -201,13 +237,10 @@ const portfolioSummaryStyle = {
 };
 
 // Server-side: use NextAuth session (session.accessToken)
-
 export async function getServerSideProps(context) {
-  // Get session (contains Google ID token as accessToken)
   const session = await getSession(context);
   const token = session?.accessToken || "";
 
-  // If not authenticated, redirect to sign-in
   if (!token) {
     return {
       redirect: {
@@ -217,13 +250,11 @@ export async function getServerSideProps(context) {
     };
   }
 
-  // Keep backend URL construction exactly as it was before
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
   const host = context.req.headers.host;
   const backendBase = process.env.BACKEND_URL || `${protocol}://${host}`;
   const backendUrl = `${backendBase}/api/portfolio`;
 
-  // Fetch portfolio data with the Google ID token
   let data = {};
   try {
     const res = await fetch(backendUrl, {
@@ -235,10 +266,10 @@ export async function getServerSideProps(context) {
 
     if (res.status === 401) {
       return {
-    props: {
-      currentUser: null,   // show loading UI on client
-    }
-  };
+        props: {
+          currentUser: null,
+        },
+      };
     }
 
     data = await res.json();
@@ -266,4 +297,3 @@ export async function getServerSideProps(context) {
     },
   };
 }
-

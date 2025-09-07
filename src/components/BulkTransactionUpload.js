@@ -1,26 +1,29 @@
-// components/BulkTransactionUpload.js
-// Drop-in React component for Next.js to add a CSV bulk upload flow for transactions.
-// - Exact CSV headers expected (lowercase): date,stock,type,quantity,price,source,notes
-// - Validates each row; shows inline errors; lets user edit or remove rows
-// - Calls backend /api/transactions/bulk with only VALID rows
-// - Includes a CSV template download button
+// components/BulkTransactionUpload.js 
+// CSV bulk upload for transactions with validation
+// Updated: 
+//  - Removed success popup
+//  - Calls parent callback to refresh transactions table
+//  - Prevents incorrect manual transactions from submitting
+//  - Adds manual transaction entry form with validation
 
 import React, { useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
 import { getSession } from "next-auth/react";
 
-
 const EXPECTED_HEADERS = [
-  "date",     // YYYY-MM-DD
-  "stock",    // e.g. AAPL or RELIANCE.NS
-  "type",     // buy | sell (lowercase)
-  "quantity", // integer > 0
-  "price",    // number > 0
-  "source",   // optional, default "import"
-  "notes",    // optional
+  "date",
+  "stock",
+  "type",
+  "quantity",
+  "price",
+  "source",
+  "notes",
 ];
 
-const CSV_TEMPLATE = `date,stock,type,quantity,price,source,notes\n2025-01-15,AAPL,buy,10,185.50,import,Initial buy\n2025-02-20,RELIANCE.NS,sell,5,2450.00,import,Trim position\n`;
+const CSV_TEMPLATE = `date,stock,type,quantity,price,source,notes
+2025-01-15,AAPL,buy,10,185.50,import,Initial buy
+2025-02-20,RELIANCE.NS,sell,5,2450.00,import,Trim position
+`;
 
 function isValidISODate(yyyyMMdd) {
   if (typeof yyyyMMdd !== "string") return false;
@@ -65,7 +68,8 @@ function validateRow(raw, index) {
     errors.type = "Type is required (buy/sell)";
   } else {
     const t = String(row.type).trim().toLowerCase();
-    if (t !== "buy" && t !== "sell") errors.type = "Type must be 'buy' or 'sell' (lowercase)";
+    if (t !== "buy" && t !== "sell")
+      errors.type = "Type must be 'buy' or 'sell' (lowercase)";
     row.type = t;
   }
 
@@ -87,7 +91,7 @@ function validateRow(raw, index) {
 
   // source
   if (!row.source || String(row.source).trim().length === 0) {
-    row.source = "import";
+    row.source = "manual";
   } else {
     row.source = String(row.source).trim();
   }
@@ -107,12 +111,20 @@ function HeaderMismatch({ missing, extra }) {
     <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
       <div className="font-medium">CSV header mismatch</div>
       {missing?.length ? (
-        <div>Missing columns: <span className="font-mono">{missing.join(", ")}</span></div>
+        <div>
+          Missing columns:{" "}
+          <span className="font-mono">{missing.join(", ")}</span>
+        </div>
       ) : null}
       {extra?.length ? (
-        <div>Unexpected columns: <span className="font-mono">{extra.join(", ")}</span></div>
+        <div>
+          Unexpected columns:{" "}
+          <span className="font-mono">{extra.join(", ")}</span>
+        </div>
       ) : null}
-      <div className="mt-1 text-xs text-red-600">Expected exactly: {EXPECTED_HEADERS.join(", ")}</div>
+      <div className="mt-1 text-xs text-red-600">
+        Expected exactly: {EXPECTED_HEADERS.join(", ")}
+      </div>
     </div>
   );
 }
@@ -146,19 +158,35 @@ function Badge({ children, tone = "gray" }) {
     blue: "bg-blue-100 text-blue-700",
   };
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${tones[tone]}`}>{children}</span>
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${tones[tone]}`}
+    >
+      {children}
+    </span>
   );
 }
 
-export default function BulkTransactionUpload() {
+export default function BulkTransactionUpload({ onTransactionsUploaded }) {
   const [rows, setRows] = useState([]); // {row, errors, isValid}
   const [headerIssue, setHeaderIssue] = useState(null);
   const [open, setOpen] = useState(false);
   const [parsing, setParsing] = useState(false);
   const fileRef = useRef(null);
 
+  // manual form state
+  const [manual, setManual] = useState({
+    date: "",
+    stock: "",
+    type: "buy",
+    quantity: "",
+    price: "",
+    notes: "",
+  });
+  const [manualError, setManualError] = useState(null);
+
   const counts = useMemo(() => {
-    let valid = 0, invalid = 0;
+    let valid = 0,
+      invalid = 0;
     rows.forEach((r) => (r.isValid ? valid++ : invalid++));
     return { valid, invalid, total: rows.length };
   }, [rows]);
@@ -198,7 +226,9 @@ export default function BulkTransactionUpload() {
           setHeaderIssue(null);
         }
 
-        const validated = (results.data || []).map((rec, idx) => validateRow(rec, idx));
+        const validated = (results.data || []).map((rec, idx) =>
+          validateRow(rec, idx)
+        );
         setRows(validated);
         setOpen(true);
         setParsing(false);
@@ -231,69 +261,195 @@ export default function BulkTransactionUpload() {
   }
 
   async function submitValid() {
-  const validRows = rows.filter((r) => r.isValid).map((r) => r.row);
-  if (validRows.length === 0) return;
-
-  try {
-    // Get NextAuth session
-    const session = await getSession();
-    const token = session?.accessToken;
-
-    if (!token) {
-      alert("You must be logged in to upload transactions.");
+    const validRows = rows.filter((r) => r.isValid).map((r) => r.row);
+    if (validRows.length === 0) {
+      alert("No valid transactions to upload.");
       return;
     }
 
-    const res = await fetch("/api/transactions/bulk", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`, // <-- include the token
-      },
-      body: JSON.stringify({ transactions: validRows }),
-    });
+    try {
+      const session = await getSession();
+      const token = session?.accessToken;
 
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "Failed to upload transactions");
+      if (!token) {
+        alert("You must be logged in to upload transactions.");
+        return;
+      }
+
+      const res = await fetch("/api/transactions/bulk", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ transactions: validRows }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to upload transactions");
+      }
+
+      // Instead of popup, refresh parent
+      if (onTransactionsUploaded) {
+        onTransactionsUploaded();
+      }
+
+      setOpen(false);
+      setRows([]);
+    } catch (err) {
+      console.error(err);
+      alert("Error uploading transactions: " + err.message);
+    }
+  }
+
+  async function submitManual(e) {
+    e.preventDefault();
+    setManualError(null);
+
+    const { row, errors, isValid } = validateRow(manual, -1);
+    if (!isValid) {
+      setManualError("Please correct errors: " + Object.values(errors).join(", "));
+      return;
     }
 
-    alert(`${validRows.length} transactions successfully uploaded!`);
-    setOpen(false);
-    setRows([]);
-  } catch (err) {
-    console.error(err);
-    alert("Error uploading transactions: " + err.message);
-  }
-}
+    try {
+      const session = await getSession();
+      const token = session?.accessToken;
+      if (!token) {
+        alert("You must be logged in to add transactions.");
+        return;
+      }
 
+      const res = await fetch("/api/transactions/bulk", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ transactions: [row] }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to add transaction");
+      }
+
+      if (onTransactionsUploaded) {
+        onTransactionsUploaded();
+      }
+
+      setManual({
+        date: "",
+        stock: "",
+        type: "buy",
+        quantity: "",
+        price: "",
+        notes: "",
+      });
+    } catch (err) {
+      console.error(err);
+      setManualError(err.message);
+    }
+  }
 
   return (
-    <div className="inline-flex items-center gap-2">
-      <button
-        type="button"
-        onClick={triggerFile}
-        className="rounded-2xl border border-gray-300 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-gray-50"
-      >
-        Upload Transactions (CSV)
-      </button>
-      <button
-        type="button"
-        onClick={downloadTemplate}
-        className="rounded-2xl border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50"
-        title="Download CSV template"
-      >
-        Download CSV template
-      </button>
+    <div className="space-y-6">
+      {/* Bulk Upload Section */}
+      <div className="inline-flex items-center gap-2">
+        <button
+          type="button"
+          onClick={triggerFile}
+          className="rounded-2xl border border-gray-300 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-gray-50"
+        >
+          Upload Transactions (CSV)
+        </button>
+        <button
+          type="button"
+          onClick={downloadTemplate}
+          className="rounded-2xl border border-dashed border-gray-300 px-3 py-2 text-xs text-gray-600 hover:bg-gray-50"
+          title="Download CSV template"
+        >
+          Download CSV template
+        </button>
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".csv"
-        className="hidden"
-        onChange={handleFileChange}
-      />
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv"
+          className="hidden"
+          onChange={handleFileChange}
+        />
 
+        {parsing ? (
+          <div className="ml-2 text-sm text-gray-600">Parsing CSV…</div>
+        ) : null}
+      </div>
+
+      {/* Manual Entry Section */}
+      <div className="rounded-xl border p-4">
+        <h3 className="mb-3 font-semibold">Add Transaction Manually</h3>
+        <form onSubmit={submitManual} className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <input
+            type="date"
+            value={manual.date}
+            onChange={(e) => setManual({ ...manual, date: e.target.value })}
+            required
+            className="rounded-md border px-2 py-1 text-sm"
+          />
+          <input
+            type="text"
+            placeholder="Stock (e.g. AAPL)"
+            value={manual.stock}
+            onChange={(e) => setManual({ ...manual, stock: e.target.value })}
+            required
+            className="rounded-md border px-2 py-1 text-sm"
+          />
+          <select
+            value={manual.type}
+            onChange={(e) => setManual({ ...manual, type: e.target.value })}
+            className="rounded-md border px-2 py-1 text-sm"
+          >
+            <option value="buy">Buy</option>
+            <option value="sell">Sell</option>
+          </select>
+          <input
+            type="number"
+            placeholder="Quantity"
+            value={manual.quantity}
+            onChange={(e) => setManual({ ...manual, quantity: e.target.value })}
+            required
+            className="rounded-md border px-2 py-1 text-sm"
+          />
+          <input
+            type="number"
+            placeholder="Price"
+            step="0.01"
+            value={manual.price}
+            onChange={(e) => setManual({ ...manual, price: e.target.value })}
+            required
+            className="rounded-md border px-2 py-1 text-sm"
+          />
+          <input
+            type="text"
+            placeholder="Notes (optional)"
+            value={manual.notes}
+            onChange={(e) => setManual({ ...manual, notes: e.target.value })}
+            className="rounded-md border px-2 py-1 text-sm col-span-2 md:col-span-4"
+          />
+          <button
+            type="submit"
+            className="col-span-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 md:col-span-1"
+          >
+            Add Transaction
+          </button>
+        </form>
+        {manualError && (
+          <div className="mt-2 text-sm text-red-600">{manualError}</div>
+        )}
+      </div>
+
+      {/* CSV Modal */}
       <Modal open={open} onClose={() => setOpen(false)}>
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
@@ -304,7 +460,10 @@ export default function BulkTransactionUpload() {
               <Badge tone="red">Invalid: {counts.invalid}</Badge>
             </div>
           </div>
-          <button onClick={() => setOpen(false)} className="rounded-md px-2 py-1 text-sm text-gray-500 hover:bg-gray-100">
+          <button
+            onClick={() => setOpen(false)}
+            className="rounded-md px-2 py-1 text-sm text-gray-500 hover:bg-gray-100"
+          >
             ✕ Close
           </button>
         </div>
@@ -319,7 +478,9 @@ export default function BulkTransactionUpload() {
               <tr>
                 <th className="px-3 py-2">#</th>
                 {EXPECTED_HEADERS.map((h) => (
-                  <th key={h} className="px-3 py-2 font-medium">{h}</th>
+                  <th key={h} className="px-3 py-2 font-medium">
+                    {h}
+                  </th>
                 ))}
                 <th className="px-3 py-2">Errors</th>
                 <th className="px-3 py-2">Action</th>
@@ -327,13 +488,25 @@ export default function BulkTransactionUpload() {
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={EXPECTED_HEADERS.length + 3} className="px-3 py-6 text-center text-gray-500">No rows parsed yet.</td></tr>
+                <tr>
+                  <td
+                    colSpan={EXPECTED_HEADERS.length + 3}
+                    className="px-3 py-6 text-center text-gray-500"
+                  >
+                    No rows parsed yet.
+                  </td>
+                </tr>
               ) : null}
               {rows.map((rec, ix) => {
                 const { row, errors, isValid } = rec;
                 return (
-                  <tr key={ix} className={isValid ? "bg-white" : "bg-red-50/40"}>
-                    <td className="whitespace-nowrap px-3 py-2 text-gray-500">{ix + 1}</td>
+                  <tr
+                    key={ix}
+                    className={isValid ? "bg-white" : "bg-red-50/40"}
+                  >
+                    <td className="whitespace-nowrap px-3 py-2 text-gray-500">
+                      {ix + 1}
+                    </td>
                     {EXPECTED_HEADERS.map((key) => {
                       const hasError = !!errors[key];
                       return (
@@ -341,7 +514,11 @@ export default function BulkTransactionUpload() {
                           <input
                             value={row[key] ?? ""}
                             onChange={(e) => updateCell(ix, key, e.target.value)}
-                            className={`w-full rounded-md border px-2 py-1 text-sm outline-none ${hasError ? "border-red-400 bg-red-50" : "border-gray-300"}`}
+                            className={`w-full rounded-md border px-2 py-1 text-sm outline-none ${
+                              hasError
+                                ? "border-red-400 bg-red-50"
+                                : "border-gray-300"
+                            }`}
                           />
                         </td>
                       );
@@ -358,7 +535,7 @@ export default function BulkTransactionUpload() {
                     <td className="px-3 py-2">
                       <button
                         onClick={() => removeRow(ix)}
-                        className="rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                        className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-100"
                       >
                         Remove
                       </button>
@@ -371,37 +548,30 @@ export default function BulkTransactionUpload() {
         </div>
 
         <ActionBar>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <span>Expected headers:</span>
-            <code className="rounded bg-gray-100 px-1.5 py-0.5">{EXPECTED_HEADERS.join(", ")}</code>
-          </div>
-          <div className="flex items-center gap-2">
+          <div className="flex gap-2">
             <button
               onClick={removeInvalid}
-              className="rounded-2xl border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50"
+              type="button"
+              className="rounded-md bg-yellow-100 px-3 py-1.5 text-sm text-yellow-700 hover:bg-yellow-200"
             >
-              Remove invalid rows
-            </button>
-            <button
-              onClick={() => setRows([])}
-              className="rounded-2xl border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50"
-            >
-              Clear all
+              Remove Invalid
             </button>
             <button
               onClick={submitValid}
-              disabled={counts.valid === 0}
-              className={`rounded-2xl px-3 py-2 text-sm text-white ${counts.valid === 0 ? "cursor-not-allowed bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}
+              type="button"
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
             >
-              Add valid transactions
+              Upload Valid Transactions
             </button>
           </div>
+          <button
+            onClick={() => setOpen(false)}
+            className="text-sm text-gray-600 hover:underline"
+          >
+            Cancel
+          </button>
         </ActionBar>
       </Modal>
-
-      {parsing ? (
-        <div className="ml-2 text-sm text-gray-600">Parsing CSV…</div>
-      ) : null}
     </div>
   );
 }

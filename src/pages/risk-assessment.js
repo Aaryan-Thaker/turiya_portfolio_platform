@@ -46,7 +46,11 @@ const LIFE_STAGE_OPTIONS = [
   { value: 'f', label: 'Other' }
 ];
 
-export default function RiskAssessment({ currentUser, errorMessage }) {
+export default function RiskAssessment({
+  currentUser = {},
+  existingAssessment: existingAssessmentProp = null,
+  errorMessage = null
+}) {
   const router = useRouter();
   const applicantSigRef = useRef(null);
   const advisorSigRef = useRef(null);
@@ -54,7 +58,8 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   // useSession for reactive client-side auth state
   const { data: session, status } = useSession();
 
-  const [formData, setFormData] = useState({
+  // Build initial form state with dynamic keys for investment experience
+  const initialFormData = {
     // Client Information
     applicantName: '',
     applicantAddress: '',
@@ -86,14 +91,23 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
     advisorDesignation: '',
     assessmentDate: new Date().toISOString().split('T')[0],
     assessmentPlace: ''
-  });
+  };
 
+  const [formData, setFormData] = useState(initialFormData);
   const [totalScore, setTotalScore] = useState(0);
   const [riskProfile, setRiskProfile] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [existingAssessment, setExistingAssessment] = useState(null);
+  const [existingAssessment, setExistingAssessment] = useState(existingAssessmentProp || null);
   const [checkingAssessment, setCheckingAssessment] = useState(true);
+
+  // If server provided an existing assessment prop, reflect that immediately
+  useEffect(() => {
+    if (existingAssessmentProp) {
+      setExistingAssessment(existingAssessmentProp);
+      setCheckingAssessment(false);
+    }
+  }, [existingAssessmentProp]);
 
   // Calculate score whenever answers change
   useEffect(() => {
@@ -101,7 +115,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData]);
 
-  // Fetch existing risk assessment ONCE when authenticated
+  // Fetch existing risk assessment ONCE when authenticated (client-side fallback)
   useEffect(() => {
     async function loadAssessment() {
       // If not authenticated, skip calling protected endpoint
@@ -144,7 +158,12 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
       }
     }
 
-    loadAssessment();
+    // if we already have server-side prop, don't call again
+    if (!existingAssessmentProp) {
+      loadAssessment();
+    } else {
+      setCheckingAssessment(false);
+    }
     // run when status (auth) changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
@@ -257,7 +276,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
     setError('');
 
     try {
-      // Prefer reactive session from useSession()
+      // Prefer reactive session from useSession
       const s = session || (await getSession());
       if (!s) {
         // Prompt sign in (NextAuth) — uses Google provider
@@ -300,6 +319,14 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
 
       // success
       try { localStorage.setItem('riskAssessmentCompleted', 'true'); } catch (e) {}
+      // Try to warm risk profile endpoint (non-critical)
+      try {
+        await fetch('/api/risk/profile', { headers: { Authorization: `Bearer ${token}` } });
+      } catch (e) {
+        // ignore
+      }
+
+      // Redirect back to homepage where Nav can show updated profile
       router.push('/');
     } catch (err) {
       setError(err.message || 'Failed to submit assessment');
@@ -973,7 +1000,7 @@ export default function RiskAssessment({ currentUser, errorMessage }) {
   );
 }
 
-/* Server-side props (unchanged) */
+/* Server-side props (updated to include currentUser + existingAssessment) */
 
 export async function getServerSideProps(context) {
   const session = await getSession(context);
@@ -988,7 +1015,7 @@ export async function getServerSideProps(context) {
     };
   }
 
-  // Use the relative API route — your next.config.mjs rewrites should forward this to Flask
+  // Use the relative API route — your next.config.mjs rewrites should forward this to backend
   const backendUrl = "/api/risk/check";
 
   let existingAssessment = null;
@@ -1002,10 +1029,11 @@ export async function getServerSideProps(context) {
 
     if (res.status === 401) {
       return {
-    props: {
-      currentUser: null,   // show loading UI on client
-    }
-  };
+        props: {
+          currentUser: null,   // show loading UI on client
+          existingAssessment: null,
+        }
+      };
     }
 
     const data = await res.json().catch(() => ({}));
@@ -1017,8 +1045,15 @@ export async function getServerSideProps(context) {
     // don't block: just show empty form client-side
   }
 
+  const currentUser = {
+    id: session.user?.id || "guest",
+    email: session.user?.email || "",
+    is_authenticated: !!session,
+  };
+
   return {
     props: {
+      currentUser,
       existingAssessment,
     },
   };
