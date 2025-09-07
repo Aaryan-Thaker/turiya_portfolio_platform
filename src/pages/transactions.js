@@ -28,8 +28,34 @@ export default function TransactionsPage({
 
   const txApiPath = "/api/transactions";
   const clearApiPath = "/api/clear_transactions";
+  const validateTickerPath = "/api/stock/validate"; // backend endpoint to implement
 
   const getClientToken = () => session?.accessToken || "";
+
+  // --- Validate ticker exists (server-side lookup)
+  async function validateTicker(ticker) {
+    if (!ticker) return false;
+    try {
+      const token = getClientToken();
+      const url = `${validateTickerPath}?ticker=${encodeURIComponent(ticker)}`;
+      const res = await fetch(url, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!res.ok) {
+        // If endpoint missing or 4xx/5xx, treat as invalid (safe default)
+        return false;
+      }
+      const data = await res.json().catch(() => ({}));
+      // Expect JSON like { valid: true, info: {...} }
+      return !!data?.valid;
+    } catch (err) {
+      // network error -> return false to avoid inserting unknown tickers
+      console.warn("Ticker validation failed:", err);
+      return false;
+    }
+  }
 
   // --- Manual Add Transaction ---
   async function handleAddTransaction(e) {
@@ -46,6 +72,15 @@ export default function TransactionsPage({
 
     if (isNaN(qtyNum) || isNaN(priceNum) || qtyNum <= 0 || priceNum <= 0) {
       setError("Quantity and price must be positive numbers.");
+      return;
+    }
+
+    // Validate ticker exists via backend
+    const symbol = stock.toUpperCase();
+    setError("Validating ticker...");
+    const validTicker = await validateTicker(symbol);
+    if (!validTicker) {
+      setError(`Ticker "${symbol}" not found. Please check the symbol and try again.`);
       return;
     }
 
@@ -73,7 +108,7 @@ export default function TransactionsPage({
         },
         body: JSON.stringify({
           type,
-          stock: stock.toUpperCase(),
+          stock: symbol,
           quantity: qtyNum,
           price: priceNum,
           date,
@@ -183,26 +218,54 @@ export default function TransactionsPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- CSV Download ---
+  // --- CSV Download: Transactions ---
   function handleDownloadCSV() {
-    const headers = ["Date", "Stock", "Type", "Quantity", "Price"];
+    const headers = ["Date", "Stock", "Type", "Quantity", "Price", "Value"];
     const rows = transactions.map((tx) => [
       tx.date,
       tx.stock,
       tx.type,
       tx.quantity,
       tx.price,
+      tx.value ?? tx.quantity * tx.price,
     ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const csv = [headers.join(","), ...rows.map((r) => r.map(escapeCsv).join(","))].join("\n");
 
-    const blob = new Blob([csv], { type: "text/csv" });
+    downloadBlob(csv, "transactions.csv", "text/csv");
+  }
+
+  // --- CSV Download: Performance Metrics ---
+  function handleDownloadPerformanceCSV() {
+    const headers = ["Ticker", "Name", "Realized Gain/Loss", "IRR (%)"];
+    const rows = stockPerformance.map((s) => [
+      s.ticker,
+      s.name,
+      s.realizedGain,
+      s.irr,
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.map(escapeCsv).join(","))].join("\n");
+
+    downloadBlob(csv, "performance_metrics.csv", "text/csv");
+  }
+
+  function escapeCsv(val) {
+    if (val === null || val === undefined) return "";
+    const s = String(val);
+    if (s.includes(",") || s.includes('"')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  }
+
+  function downloadBlob(content, filename, type) {
+    const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
-
     const link = document.createElement("a");
     link.href = url;
-    link.download = "transactions.csv";
+    link.download = filename;
+    document.body.appendChild(link);
     link.click();
-
+    document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }
 
@@ -289,6 +352,12 @@ export default function TransactionsPage({
                 </tbody>
               </table>
             </div>
+
+            <div style={{ marginTop: 10 }}>
+              <button className="button" onClick={handleDownloadPerformanceCSV}>
+                Download Performance Metrics CSV
+              </button>
+            </div>
           </>
         )}
       </section>
@@ -358,7 +427,11 @@ export default function TransactionsPage({
         </section>
 
         <div className="mb-4 flex items-center gap-3">
-          <BulkTransactionUpload onUploaded={fetchTransactions} />
+          {/* 
+            Pass prop to BulkTransactionUpload so it doesn't render an extra manual form.
+            If BulkTransactionUpload doesn't support this prop it's harmless — backend CSV still works.
+          */}
+          <BulkTransactionUpload onUploaded={fetchTransactions} hideManualAdd={true} />
         </div>
 
         {/* Past Transactions */}
@@ -523,6 +596,11 @@ export default function TransactionsPage({
           font-size: 11px;
           color: #666;
           text-align: center;
+        }
+
+        /* Heuristic: hide a possible duplicate manual form inside BulkTransactionUpload if it uses this class */
+        .bulk-manual-form {
+          display: none !important;
         }
       `}</style>
     </div>

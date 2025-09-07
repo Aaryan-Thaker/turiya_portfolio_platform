@@ -1,5 +1,5 @@
 // pages/risk-assessment.js
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import dynamic from 'next/dynamic';
 import Nav from './Nav';
@@ -395,6 +395,41 @@ export default function RiskAssessment({
     isAuthenticated: currentUser?.is_authenticated ?? currentUser?.isAuthenticated ?? false,
   };
 
+  // Helper: extract displayable summary from the assessment object
+  const getSummaryFromAssessment = (assessment) => {
+    if (!assessment) return null;
+
+    // Many backends wrap values under `payload`; prefer that
+    const payload = assessment.payload || assessment;
+
+    const applicantName = payload.applicantName || payload.applicant_name || assessment.applicantName || assessment.applicant_name || '';
+    const applicantAddress = payload.applicantAddress || payload.applicant_address || '';
+    // prefer payload.totalScore (camel) then payload.total_score, then top-level
+    const totalScoreVal = payload.totalScore ?? payload.total_score ?? assessment.totalScore ?? assessment.total_score ?? null;
+    const riskProfileVal = payload.riskProfile || payload.risk_profile || assessment.riskProfile || assessment.risk_profile || '';
+    const interestedInvestmentsVal = payload.interestedInvestments || payload.interested_investments || [];
+    const advisorNameVal = payload.advisorName || payload.advisor_name || assessment.advisorName || assessment.advisor_name || '';
+    const assessmentPlaceVal = payload.assessmentPlace || payload.assessment_place || assessment.assessmentPlace || assessment.assessment_place || '';
+    const assessmentDateVal = payload.assessmentDate || payload.assessment_date || assessment.assessmentDate || assessment.assessment_date || payload.submitted_at || assessment.submitted_at || '';
+    const submittedAtVal = assessment.submitted_at || payload.submitted_at || '';
+
+    return {
+      applicantName,
+      applicantAddress,
+      totalScore: totalScoreVal,
+      riskProfile: riskProfileVal,
+      interestedInvestments: Array.isArray(interestedInvestmentsVal) ? interestedInvestmentsVal : [],
+      advisorName: advisorNameVal,
+      assessmentPlace: assessmentPlaceVal,
+      assessmentDate: assessmentDateVal,
+      submitted_at: submittedAtVal
+    };
+  };
+
+  const displayedAssessment = useMemo(() => {
+    return existingAssessment ? getSummaryFromAssessment(existingAssessment) : null;
+  }, [existingAssessment]);
+
   return (
     <div className="risk-assessment-container">
       <Nav user={normalizedCurrentUser} />
@@ -408,10 +443,20 @@ export default function RiskAssessment({
 
       {checkingAssessment ? (
         <p>Checking previous assessment...</p>
-      ) : existingAssessment ? (
+      ) : displayedAssessment ? (
         <div className="form-section">
           <h3>You already completed a risk assessment</h3>
-          <pre style={{ whiteSpace: 'pre-wrap' }}>{JSON.stringify(existingAssessment, null, 2)}</pre>
+
+          <div className="existing-summary">
+            <p><strong>Applicant:</strong> {displayedAssessment.applicantName || '—'}</p>
+            <p><strong>Address:</strong> {displayedAssessment.applicantAddress || '—'}</p>
+            <p><strong>Assessment date:</strong> {displayedAssessment.assessmentDate || displayedAssessment.submitted_at || '—'}</p>
+            <p><strong>Risk profile:</strong> {displayedAssessment.riskProfile || '—'}</p>
+            <p><strong>Total score:</strong> {displayedAssessment.totalScore ?? '—'}</p>
+            <p><strong>Interested investments:</strong> {(displayedAssessment.interestedInvestments && displayedAssessment.interestedInvestments.length) ? displayedAssessment.interestedInvestments.join(', ') : '—'}</p>
+            <p><strong>Advisor:</strong> {displayedAssessment.advisorName || '—'}</p>
+            <p><strong>Assessment place:</strong> {displayedAssessment.assessmentPlace || '—'}</p>
+          </div>
         </div>
       ) : null}
 
@@ -994,6 +1039,10 @@ export default function RiskAssessment({
         .submit-button:disabled {
           background-color: #d9d9d9;
           cursor: not-allowed;
+        }
+
+        .existing-summary p {
+          margin: 8px 0;
         }
       `}</style>
     </div>

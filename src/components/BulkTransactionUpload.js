@@ -1,10 +1,9 @@
-// components/BulkTransactionUpload.js 
+// components/BulkTransactionUpload.js
 // CSV bulk upload for transactions with validation
 // Updated: 
+//  - Removed manual transaction form
 //  - Removed success popup
 //  - Calls parent callback to refresh transactions table
-//  - Prevents incorrect manual transactions from submitting
-//  - Adds manual transaction entry form with validation
 
 import React, { useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
@@ -51,55 +50,26 @@ function validateRow(raw, index) {
   const row = { ...raw };
   const errors = {};
 
-  // date
-  if (!row.date || !isValidISODate(row.date)) {
-    errors.date = "Date must be YYYY-MM-DD";
-  }
-
-  // stock
-  if (!row.stock || String(row.stock).trim().length === 0) {
-    errors.stock = "Stock/ticker is required";
-  } else {
-    row.stock = String(row.stock).trim();
-  }
-
-  // type
+  if (!row.date || !isValidISODate(row.date)) errors.date = "Date must be YYYY-MM-DD";
+  if (!row.stock || String(row.stock).trim().length === 0) row.stock = String(row.stock || "").trim();
   if (!row.type) {
     errors.type = "Type is required (buy/sell)";
   } else {
     const t = String(row.type).trim().toLowerCase();
-    if (t !== "buy" && t !== "sell")
-      errors.type = "Type must be 'buy' or 'sell' (lowercase)";
+    if (t !== "buy" && t !== "sell") errors.type = "Type must be 'buy' or 'sell'";
     row.type = t;
   }
 
-  // quantity
   const qty = parseIntStrict(row.quantity);
-  if (!Number.isFinite(qty) || qty <= 0) {
-    errors.quantity = "Quantity must be an integer > 0";
-  } else {
-    row.quantity = qty;
-  }
+  if (!Number.isFinite(qty) || qty <= 0) errors.quantity = "Quantity must be an integer > 0";
+  else row.quantity = qty;
 
-  // price
   const price = parseNumber(row.price);
-  if (!Number.isFinite(price) || price <= 0) {
-    errors.price = "Price must be a number > 0";
-  } else {
-    row.price = Number(price.toFixed(6));
-  }
+  if (!Number.isFinite(price) || price <= 0) errors.price = "Price must be a number > 0";
+  else row.price = Number(price.toFixed(6));
 
-  // source
-  if (!row.source || String(row.source).trim().length === 0) {
-    row.source = "manual";
-  } else {
-    row.source = String(row.source).trim();
-  }
-
-  // notes
-  if (row.notes === undefined || row.notes === null) row.notes = "";
-  row.notes = String(row.notes);
-
+  row.source = row.source && String(row.source).trim().length ? String(row.source).trim() : "manual";
+  row.notes = String(row.notes || "");
   row.__index = index;
 
   return { row, errors, isValid: Object.keys(errors).length === 0 };
@@ -110,21 +80,9 @@ function HeaderMismatch({ missing, extra }) {
   return (
     <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
       <div className="font-medium">CSV header mismatch</div>
-      {missing?.length ? (
-        <div>
-          Missing columns:{" "}
-          <span className="font-mono">{missing.join(", ")}</span>
-        </div>
-      ) : null}
-      {extra?.length ? (
-        <div>
-          Unexpected columns:{" "}
-          <span className="font-mono">{extra.join(", ")}</span>
-        </div>
-      ) : null}
-      <div className="mt-1 text-xs text-red-600">
-        Expected exactly: {EXPECTED_HEADERS.join(", ")}
-      </div>
+      {missing?.length && <div>Missing columns: <span className="font-mono">{missing.join(", ")}</span></div>}
+      {extra?.length && <div>Unexpected columns: <span className="font-mono">{extra.join(", ")}</span></div>}
+      <div className="mt-1 text-xs text-red-600">Expected exactly: {EXPECTED_HEADERS.join(", ")}</div>
     </div>
   );
 }
@@ -142,11 +100,7 @@ function Modal({ open, onClose, children }) {
 }
 
 function ActionBar({ children }) {
-  return (
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-      {children}
-    </div>
-  );
+  return <div className="mt-4 flex flex-wrap items-center justify-between gap-3">{children}</div>;
 }
 
 function Badge({ children, tone = "gray" }) {
@@ -157,44 +111,23 @@ function Badge({ children, tone = "gray" }) {
     yellow: "bg-yellow-100 text-yellow-700",
     blue: "bg-blue-100 text-blue-700",
   };
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${tones[tone]}`}
-    >
-      {children}
-    </span>
-  );
+  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${tones[tone]}`}>{children}</span>;
 }
 
 export default function BulkTransactionUpload({ onTransactionsUploaded }) {
-  const [rows, setRows] = useState([]); // {row, errors, isValid}
+  const [rows, setRows] = useState([]);
   const [headerIssue, setHeaderIssue] = useState(null);
   const [open, setOpen] = useState(false);
   const [parsing, setParsing] = useState(false);
   const fileRef = useRef(null);
 
-  // manual form state
-  const [manual, setManual] = useState({
-    date: "",
-    stock: "",
-    type: "buy",
-    quantity: "",
-    price: "",
-    notes: "",
-  });
-  const [manualError, setManualError] = useState(null);
-
   const counts = useMemo(() => {
-    let valid = 0,
-      invalid = 0;
+    let valid = 0, invalid = 0;
     rows.forEach((r) => (r.isValid ? valid++ : invalid++));
     return { valid, invalid, total: rows.length };
   }, [rows]);
 
-  function triggerFile() {
-    fileRef.current?.click();
-  }
-
+  function triggerFile() { fileRef.current?.click(); }
   function downloadTemplate() {
     const blob = new Blob([CSV_TEMPLATE], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -220,15 +153,9 @@ export default function BulkTransactionUpload({ onTransactionsUploaded }) {
         const headers = results.meta.fields || [];
         const missing = EXPECTED_HEADERS.filter((h) => !headers.includes(h));
         const extra = headers.filter((h) => !EXPECTED_HEADERS.includes(h));
-        if (missing.length || extra.length) {
-          setHeaderIssue({ missing, extra });
-        } else {
-          setHeaderIssue(null);
-        }
+        setHeaderIssue(missing.length || extra.length ? { missing, extra } : null);
 
-        const validated = (results.data || []).map((rec, idx) =>
-          validateRow(rec, idx)
-        );
+        const validated = (results.data || []).map((rec, idx) => validateRow(rec, idx));
         setRows(validated);
         setOpen(true);
         setParsing(false);
@@ -245,43 +172,27 @@ export default function BulkTransactionUpload({ onTransactionsUploaded }) {
     setRows((prev) => {
       const next = [...prev];
       const current = next[ix];
-      const updated = { ...current.row, [key]: value };
-      const revalidated = validateRow(updated, current.row.__index);
+      const revalidated = validateRow({ ...current.row, [key]: value }, current.row.__index);
       next[ix] = revalidated;
       return next;
     });
   }
 
-  function removeRow(ix) {
-    setRows((prev) => prev.filter((_, i) => i !== ix));
-  }
-
-  function removeInvalid() {
-    setRows((prev) => prev.filter((r) => r.isValid));
-  }
+  function removeRow(ix) { setRows((prev) => prev.filter((_, i) => i !== ix)); }
+  function removeInvalid() { setRows((prev) => prev.filter((r) => r.isValid)); }
 
   async function submitValid() {
     const validRows = rows.filter((r) => r.isValid).map((r) => r.row);
-    if (validRows.length === 0) {
-      alert("No valid transactions to upload.");
-      return;
-    }
+    if (!validRows.length) return alert("No valid transactions to upload.");
 
     try {
       const session = await getSession();
       const token = session?.accessToken;
-
-      if (!token) {
-        alert("You must be logged in to upload transactions.");
-        return;
-      }
+      if (!token) return alert("You must be logged in to upload transactions.");
 
       const res = await fetch("/api/transactions/bulk", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ transactions: validRows }),
       });
 
@@ -290,66 +201,12 @@ export default function BulkTransactionUpload({ onTransactionsUploaded }) {
         throw new Error(err.error || "Failed to upload transactions");
       }
 
-      // Instead of popup, refresh parent
-      if (onTransactionsUploaded) {
-        onTransactionsUploaded();
-      }
-
+      onTransactionsUploaded?.();
       setOpen(false);
       setRows([]);
     } catch (err) {
       console.error(err);
       alert("Error uploading transactions: " + err.message);
-    }
-  }
-
-  async function submitManual(e) {
-    e.preventDefault();
-    setManualError(null);
-
-    const { row, errors, isValid } = validateRow(manual, -1);
-    if (!isValid) {
-      setManualError("Please correct errors: " + Object.values(errors).join(", "));
-      return;
-    }
-
-    try {
-      const session = await getSession();
-      const token = session?.accessToken;
-      if (!token) {
-        alert("You must be logged in to add transactions.");
-        return;
-      }
-
-      const res = await fetch("/api/transactions/bulk", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ transactions: [row] }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to add transaction");
-      }
-
-      if (onTransactionsUploaded) {
-        onTransactionsUploaded();
-      }
-
-      setManual({
-        date: "",
-        stock: "",
-        type: "buy",
-        quantity: "",
-        price: "",
-        notes: "",
-      });
-    } catch (err) {
-      console.error(err);
-      setManualError(err.message);
     }
   }
 
@@ -373,80 +230,8 @@ export default function BulkTransactionUpload({ onTransactionsUploaded }) {
           Download CSV template
         </button>
 
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-
-        {parsing ? (
-          <div className="ml-2 text-sm text-gray-600">Parsing CSV…</div>
-        ) : null}
-      </div>
-
-      {/* Manual Entry Section */}
-      <div className="rounded-xl border p-4">
-        <h3 className="mb-3 font-semibold">Add Transaction Manually</h3>
-        <form onSubmit={submitManual} className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <input
-            type="date"
-            value={manual.date}
-            onChange={(e) => setManual({ ...manual, date: e.target.value })}
-            required
-            className="rounded-md border px-2 py-1 text-sm"
-          />
-          <input
-            type="text"
-            placeholder="Stock (e.g. AAPL)"
-            value={manual.stock}
-            onChange={(e) => setManual({ ...manual, stock: e.target.value })}
-            required
-            className="rounded-md border px-2 py-1 text-sm"
-          />
-          <select
-            value={manual.type}
-            onChange={(e) => setManual({ ...manual, type: e.target.value })}
-            className="rounded-md border px-2 py-1 text-sm"
-          >
-            <option value="buy">Buy</option>
-            <option value="sell">Sell</option>
-          </select>
-          <input
-            type="number"
-            placeholder="Quantity"
-            value={manual.quantity}
-            onChange={(e) => setManual({ ...manual, quantity: e.target.value })}
-            required
-            className="rounded-md border px-2 py-1 text-sm"
-          />
-          <input
-            type="number"
-            placeholder="Price"
-            step="0.01"
-            value={manual.price}
-            onChange={(e) => setManual({ ...manual, price: e.target.value })}
-            required
-            className="rounded-md border px-2 py-1 text-sm"
-          />
-          <input
-            type="text"
-            placeholder="Notes (optional)"
-            value={manual.notes}
-            onChange={(e) => setManual({ ...manual, notes: e.target.value })}
-            className="rounded-md border px-2 py-1 text-sm col-span-2 md:col-span-4"
-          />
-          <button
-            type="submit"
-            className="col-span-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 md:col-span-1"
-          >
-            Add Transaction
-          </button>
-        </form>
-        {manualError && (
-          <div className="mt-2 text-sm text-red-600">{manualError}</div>
-        )}
+        <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleFileChange} />
+        {parsing && <div className="ml-2 text-sm text-gray-600">Parsing CSV…</div>}
       </div>
 
       {/* CSV Modal */}
@@ -468,20 +253,14 @@ export default function BulkTransactionUpload({ onTransactionsUploaded }) {
           </button>
         </div>
 
-        {headerIssue ? (
-          <HeaderMismatch missing={headerIssue.missing} extra={headerIssue.extra} />
-        ) : null}
+        {headerIssue && <HeaderMismatch missing={headerIssue.missing} extra={headerIssue.extra} />}
 
         <div className="max-h-[55vh] overflow-auto rounded-lg border">
           <table className="min-w-full text-left text-sm">
             <thead className="sticky top-0 bg-gray-50 text-xs uppercase text-gray-600">
               <tr>
                 <th className="px-3 py-2">#</th>
-                {EXPECTED_HEADERS.map((h) => (
-                  <th key={h} className="px-3 py-2 font-medium">
-                    {h}
-                  </th>
-                ))}
+                {EXPECTED_HEADERS.map((h) => <th key={h} className="px-3 py-2 font-medium">{h}</th>)}
                 <th className="px-3 py-2">Errors</th>
                 <th className="px-3 py-2">Action</th>
               </tr>
@@ -489,24 +268,15 @@ export default function BulkTransactionUpload({ onTransactionsUploaded }) {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={EXPECTED_HEADERS.length + 3}
-                    className="px-3 py-6 text-center text-gray-500"
-                  >
+                  <td colSpan={EXPECTED_HEADERS.length + 3} className="px-3 py-6 text-center text-gray-500">
                     No rows parsed yet.
                   </td>
                 </tr>
-              ) : null}
-              {rows.map((rec, ix) => {
+              ) : rows.map((rec, ix) => {
                 const { row, errors, isValid } = rec;
                 return (
-                  <tr
-                    key={ix}
-                    className={isValid ? "bg-white" : "bg-red-50/40"}
-                  >
-                    <td className="whitespace-nowrap px-3 py-2 text-gray-500">
-                      {ix + 1}
-                    </td>
+                  <tr key={ix} className={isValid ? "bg-white" : "bg-red-50/40"}>
+                    <td className="whitespace-nowrap px-3 py-2 text-gray-500">{ix + 1}</td>
                     {EXPECTED_HEADERS.map((key) => {
                       const hasError = !!errors[key];
                       return (
@@ -515,22 +285,14 @@ export default function BulkTransactionUpload({ onTransactionsUploaded }) {
                             value={row[key] ?? ""}
                             onChange={(e) => updateCell(ix, key, e.target.value)}
                             className={`w-full rounded-md border px-2 py-1 text-sm outline-none ${
-                              hasError
-                                ? "border-red-400 bg-red-50"
-                                : "border-gray-300"
+                              hasError ? "border-red-400 bg-red-50" : "border-gray-300"
                             }`}
                           />
                         </td>
                       );
                     })}
                     <td className="px-3 py-2 text-xs text-red-600">
-                      {!isValid && (
-                        <ul className="list-disc pl-4">
-                          {Object.entries(errors).map(([k, v]) => (
-                            <li key={k}>{String(v)}</li>
-                          ))}
-                        </ul>
-                      )}
+                      {!isValid && <ul className="list-disc pl-4">{Object.entries(errors).map(([k, v]) => <li key={k}>{String(v)}</li>)}</ul>}
                     </td>
                     <td className="px-3 py-2">
                       <button

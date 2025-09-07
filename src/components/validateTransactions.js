@@ -79,3 +79,5 @@ export function validateRow(raw, index) {
 
   return { row, errors, isValid: Object.keys(errors).length === 0 };
 }
+
+export default validateRow;
