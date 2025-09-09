@@ -32,13 +32,13 @@ export default function TransactionsPage({
 
   const txApiPath = "/api/transactions";
   const clearApiPath = "/api/clear_transactions";
-  const validateTickerPath = "/api/stock/validate"; // backend endpoint to implement
+  const validateTickerPath = "/api/stock/validate";
 
   const gridRef = useRef(null);
 
   const getClientToken = () => session?.accessToken || "";
 
-  // --- Validate ticker exists (server-side lookup)
+  // --- Validate ticker exists
   async function validateTicker(ticker) {
     if (!ticker) return false;
     try {
@@ -80,6 +80,7 @@ export default function TransactionsPage({
     setError("Validating ticker...");
     const validTicker = await validateTicker(symbol);
     if (!validTicker) {
+      // This message is in JS (not JSX), so quotes are fine
       setError(`Ticker "${symbol}" not found. Please check the symbol and try again.`);
       return;
     }
@@ -125,7 +126,7 @@ export default function TransactionsPage({
         return;
       }
 
-      await fetchTransactions(); // auto-refresh table
+      await fetchTransactions();
       setType("Buy");
       setStock("");
       setQuantity("");
@@ -167,7 +168,7 @@ export default function TransactionsPage({
         setTransactions(data.transactions || []);
         setError("");
       } else {
-        setTransactions(data.transactions || []); // still show whatever we have
+        setTransactions(data.transactions || []);
         setError(data.error || "");
       }
     } catch (err) {
@@ -216,7 +217,7 @@ export default function TransactionsPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---------- Helpers for formatting and CSV ----------
+  // ---------- Helpers ----------
   function formatCurrency(value) {
     if (value == null || value === "N/A") return "N/A";
     const n = Number(value);
@@ -228,13 +229,6 @@ export default function TransactionsPage({
         maximumFractionDigits: 2,
       })
     );
-  }
-
-  function formatPercentage(value) {
-    if (value == null || value === "N/A") return "N/A";
-    const n = Number(value);
-    if (!Number.isFinite(n)) return "N/A";
-    return n.toFixed(2) + "%";
   }
 
   function escapeCsv(val) {
@@ -258,8 +252,8 @@ export default function TransactionsPage({
     URL.revokeObjectURL(url);
   }
 
-  // --- CSV downloads (fallback/manual) ---
-  function handleDownloadCSVFallback() {
+  // --- CSV Downloads (fallbacks) ---
+  const handleDownloadCSVFallback = useCallback(() => {
     const headers = ["Date", "Stock", "Type", "Quantity", "Price", "Value"];
     const rows = transactions.map((tx) => [
       tx.date,
@@ -269,11 +263,14 @@ export default function TransactionsPage({
       tx.price,
       tx.value ?? tx.quantity * tx.price,
     ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.map((c) => escapeCsv(c)).join(","))].join("\n");
+    const csv = [
+      headers.join(","),
+      ...rows.map((r) => r.map((c) => escapeCsv(c)).join(",")),
+    ].join("\n");
     downloadBlob(csv, "transactions.csv", "text/csv");
-  }
+  }, [transactions]);
 
-  function handleDownloadPerformanceCSVFallback() {
+  const handleDownloadPerformanceCSVFallback = useCallback(() => {
     const headers = ["Ticker", "Name", "Realized Gain/Loss", "IRR (%)"];
     const rows = (stockPerformanceData || []).map((s) => [
       s.ticker,
@@ -281,51 +278,117 @@ export default function TransactionsPage({
       s.realizedGain,
       s.irr,
     ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.map((c) => escapeCsv(c)).join(","))].join("\n");
+    const csv = [
+      headers.join(","),
+      ...rows.map((r) => r.map((c) => escapeCsv(c)).join(",")),
+    ].join("\n");
     downloadBlob(csv, "performance_metrics.csv", "text/csv");
-  }
+  }, [stockPerformanceData]);
 
-  // ---------- AG Grid config for Transactions ----------
-  // Date comparator: expects YYYY-MM-DD or Date string compatible with Date.parse
+  // ---------- AG Grid ----------
   const dateComparator = useCallback((filterLocalDateAtMidnight, cellValue) => {
     if (!cellValue) return 0;
     const cellDate = new Date(cellValue);
-    // compare only dates
     if (cellDate < filterLocalDateAtMidnight) return -1;
     if (cellDate > filterLocalDateAtMidnight) return 1;
     return 0;
   }, []);
 
-  const transactionColumnDefs = useMemo(() => [
-    { headerName: "Date", field: "date", sortable: true, filter: "agDateColumnFilter", filterParams: { comparator: dateComparator }, resizable: true, width: 140 },
-    { headerName: "Ticker", field: "stock", sortable: true, filter: true, resizable: true, width: 120 },
-    { headerName: "Name", field: "name", sortable: true, filter: true, resizable: true, flex: 1 },
-    { headerName: "Type", field: "type", sortable: true, filter: true, resizable: true, width: 100 },
-    { headerName: "Quantity", field: "quantity", sortable: true, filter: "agNumberColumnFilter", resizable: true, width: 120, valueFormatter: (p) => (Number.isFinite(Number(p.value)) ? Math.round(Number(p.value)) : p.value) },
-    { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter", resizable: true, width: 120, valueFormatter: (p) => formatCurrency(p.value) },
-    { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter", resizable: true, width: 140, valueFormatter: (p) => formatCurrency(p.value) },
-  ], [dateComparator]);
+  const transactionColumnDefs = useMemo(
+    () => [
+      {
+        headerName: "Date",
+        field: "date",
+        sortable: true,
+        filter: "agDateColumnFilter",
+        filterParams: { comparator: dateComparator },
+        resizable: true,
+        width: 140,
+      },
+      {
+        headerName: "Ticker",
+        field: "stock",
+        sortable: true,
+        filter: true,
+        resizable: true,
+        width: 120,
+      },
+      {
+        headerName: "Name",
+        field: "name",
+        sortable: true,
+        filter: true,
+        resizable: true,
+        flex: 1,
+      },
+      {
+        headerName: "Type",
+        field: "type",
+        sortable: true,
+        filter: true,
+        resizable: true,
+        width: 100,
+      },
+      {
+        headerName: "Quantity",
+        field: "quantity",
+        sortable: true,
+        filter: "agNumberColumnFilter",
+        resizable: true,
+        width: 120,
+        valueFormatter: (p) =>
+          Number.isFinite(Number(p.value)) ? Math.round(Number(p.value)) : p.value,
+      },
+      {
+        headerName: "Price",
+        field: "price",
+        sortable: true,
+        filter: "agNumberColumnFilter",
+        resizable: true,
+        width: 120,
+        valueFormatter: (p) => formatCurrency(p.value),
+      },
+      {
+        headerName: "Value",
+        field: "value",
+        sortable: true,
+        filter: "agNumberColumnFilter",
+        resizable: true,
+        width: 140,
+        valueFormatter: (p) => formatCurrency(p.value),
+      },
+    ],
+    [dateComparator]
+  );
 
-  const defaultColDef = useMemo(() => ({
-    sortable: true,
-    filter: true,
-    resizable: true,
-    floatingFilter: true,
-  }), []);
+  const defaultColDef = useMemo(
+    () => ({
+      sortable: true,
+      filter: true,
+      resizable: true,
+      floatingFilter: true,
+    }),
+    []
+  );
 
-  const rowData = useMemo(() => {
-    return (transactions || []).map((tx) => ({
-      date: tx.date,
-      stock: tx.stock,
-      name: tx.name || "",
-      type: tx.type,
-      quantity: Number(tx.quantity) || 0,
-      price: tx.price == null ? 0 : Number(tx.price),
-      value: tx.value == null ? (Number(tx.quantity || 0) * Number(tx.price || 0)) : Number(tx.value),
-    }));
-  }, [transactions]);
+  const rowData = useMemo(
+    () =>
+      (transactions || []).map((tx) => ({
+        date: tx.date,
+        stock: tx.stock,
+        name: tx.name || "",
+        type: tx.type,
+        quantity: Number(tx.quantity) || 0,
+        price: tx.price == null ? 0 : Number(tx.price),
+        value:
+          tx.value == null
+            ? Number(tx.quantity || 0) * Number(tx.price || 0)
+            : Number(tx.value),
+      })),
+    [transactions]
+  );
 
-  // AG Grid CSV export (preferred)
+  // AG Grid CSV export (preferred) - includes fallback
   const handleExportCSV = useCallback(() => {
     try {
       if (gridRef.current && gridRef.current.api) {
@@ -337,28 +400,25 @@ export default function TransactionsPage({
       console.warn("Grid export failed, falling back to manual CSV", err);
       handleDownloadCSVFallback();
     }
-  }, [gridRef, transactions]);
+  }, [handleDownloadCSVFallback]);
 
-  // Performance CSV export uses fallback if stockPerformanceData not present
+  // Performance CSV export (fallback for now)
   const handleExportPerformanceCSV = useCallback(() => {
     try {
-      // If you later add a grid for performance metrics you can call its export.
       handleDownloadPerformanceCSVFallback();
     } catch {
       handleDownloadPerformanceCSVFallback();
     }
-  }, [stockPerformanceData]);
+  }, [handleDownloadPerformanceCSVFallback]);
 
-  // ---------- Download CSV template for transactions ----------
+  // Template download
   const handleDownloadTemplate = useCallback(() => {
-    // simple template header row
     const headers = ["date", "stock", "type", "quantity", "price"];
-    // example row
     const rows = [
       ["2025-09-01", "AAPL", "Buy", "10", "175.00"],
       ["2025-09-02", "INFY.NS", "Buy", "100", "1500.00"],
     ];
-    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     downloadBlob(csv, "transactions_template.csv", "text/csv");
   }, []);
 
@@ -367,51 +427,91 @@ export default function TransactionsPage({
       <Nav user={user} />
       <h1>Transaction Management</h1>
 
-      {/* Manual Add Form + Bulk Upload */}
       <div className="transaction-container">
         <section className="transaction-form">
           <h2>Add Transaction</h2>
           <form onSubmit={handleAddTransaction} className="form">
             <div className="form-group">
               <label>Type:</label>
-              <select value={type} onChange={(e) => setType(e.target.value)} className="input">
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+                className="input"
+              >
                 <option value="Buy">Buy</option>
                 <option value="Sell">Sell</option>
               </select>
             </div>
 
             <div className="form-group">
-              <input type="text" placeholder="Ticker" value={stock} onChange={(e) => setStock(e.target.value.toUpperCase())} required className="input" />
+              <input
+                type="text"
+                placeholder="Ticker"
+                value={stock}
+                onChange={(e) => setStock(e.target.value.toUpperCase())}
+                required
+                className="input"
+              />
             </div>
 
             <div className="form-group">
-              <input type="number" step="1" placeholder="Quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} required className="input" />
+              <input
+                type="number"
+                step="1"
+                placeholder="Quantity"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                required
+                className="input"
+              />
             </div>
 
             <div className="form-group">
-              <input type="number" step="0.01" placeholder="Price" value={price} onChange={(e) => setPrice(e.target.value)} required className="input" />
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Price"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                required
+                className="input"
+              />
             </div>
 
             <div className="form-group">
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="input" />
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+                className="input"
+              />
             </div>
 
-            <button type="submit" className="button">Add Transaction</button>
+            <button type="submit" className="button">
+              Add Transaction
+            </button>
             {error && <div className="alert">{error}</div>}
           </form>
 
           <div style={{ marginTop: 12 }}>
-            <BulkTransactionUpload onUploaded={fetchTransactions} hideManualAdd={true} />
+            <BulkTransactionUpload
+              onUploaded={fetchTransactions}
+              hideManualAdd={true}
+            />
           </div>
 
           <div style={{ marginTop: 12 }}>
-            <button className="button" onClick={handleDownloadTemplate} style={{ background: "#0070f3", marginRight: 8 }}>
+            <button
+              className="button"
+              onClick={handleDownloadTemplate}
+              style={{ background: "#0070f3", marginRight: 8 }}
+            >
               Download CSV Template
             </button>
           </div>
         </section>
 
-        {/* Past Transactions (AG Grid) */}
         <section className="transaction-history" style={{ flex: 2 }}>
           <h2>Past Transactions</h2>
 
@@ -420,9 +520,19 @@ export default function TransactionsPage({
           ) : (
             <>
               <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-                <button onClick={handleExportCSV} className="button">Download Transactions CSV</button>
-                <button onClick={handleClearTransactions} className="button clear">Clear All Transactions</button>
-                <button onClick={handleExportPerformanceCSV} className="button" style={{ background: "#2196F3" }}>Download Performance CSV</button>
+                <button onClick={handleExportCSV} className="button">
+                  Download Transactions CSV
+                </button>
+                <button onClick={handleClearTransactions} className="button clear">
+                  Clear All Transactions
+                </button>
+                <button
+                  onClick={handleExportPerformanceCSV}
+                  className="button"
+                  style={{ background: "#2196F3" }}
+                >
+                  Download Performance CSV
+                </button>
               </div>
 
               <div className="ag-theme-alpine" style={{ height: 520, width: "100%" }}>
@@ -442,7 +552,9 @@ export default function TransactionsPage({
       </div>
 
       <footer className="footer">
-        <p>This site is for educational use only. Financial data is provided "as is".</p>
+        <p>
+          This site is for educational use only. Financial data is provided &quot;as is&quot;.
+        </p>
       </footer>
 
       <style jsx>{`
