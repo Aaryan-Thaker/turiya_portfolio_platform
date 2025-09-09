@@ -1,6 +1,6 @@
 // pages/index.js
 import React, { useState, useEffect } from "react";
-import Nav from "../components/Nav";
+import Nav from "../Nav";
 import { getSession } from "next-auth/react";
 
 // Import tab components
