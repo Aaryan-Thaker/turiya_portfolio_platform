@@ -1,10 +1,13 @@
 // components/Nav.js
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/router";
 
 export default function Nav({ user: propUser }) {
   const { data: session, status } = useSession();
+  const router = useRouter();
   const user = session?.user || propUser || {};
   const isLoggedIn =
     status === "authenticated" ||
@@ -28,9 +31,7 @@ export default function Nav({ user: propUser }) {
         console.error("Failed to fetch risk profile", err);
       }
     }
-    if (isLoggedIn) {
-      fetchRisk();
-    }
+    if (isLoggedIn) fetchRisk();
   }, [isLoggedIn]);
 
   // Close dropdown when clicking outside
@@ -48,70 +49,92 @@ export default function Nav({ user: propUser }) {
     await signOut({ callbackUrl: "/auth/signin" });
   }
 
+  const navLinks = [
+    { href: "/", label: "Portfolio" },
+    { href: "/valuation", label: "Valuation" },
+    { href: "/transactions", label: "Transactions" },
+    { href: "/risk-assessment", label: "Risk Assessment" },
+  ];
+
   return (
     <nav style={styles.nav}>
-      <div style={styles.navTitle}>Portfolio Tracker</div>
-      {isLoggedIn ? (
-        <>
-          <Link href="/" style={styles.navLink}>
-            Portfolio
-          </Link>
-          <Link href="/valuation" style={styles.navLink}>
-            Valuation
-          </Link>
-          <Link href="/transactions" style={styles.navLink}>
-            Transactions
-          </Link>
+      {/* Logo + Brand */}
+      <div style={styles.brand}>
+        <Image
+          src="/logo.png"
+          alt="Turiya Advisory Logo"
+          width={32}
+          height={32}
+          style={{ marginRight: 10 }}
+        />
+        <span style={styles.brandName}>Turiya Advisory Services</span>
+      </div>
 
-          {/* User Dropdown */}
-          <div style={{ position: "relative" }} ref={dropdownRef}>
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
+      {/* Links */}
+      <div style={styles.links}>
+        {isLoggedIn &&
+          navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
               style={{
                 ...styles.navLink,
-                cursor: "pointer",
-                userSelect: "none",
-                background: "#f7f7f7",
-                border: "1px solid #ddd",
+                ...(router.pathname === link.href ? styles.activeLink : {}),
               }}
             >
-              {user?.email || user?.id || "me"}{" "}
-              {riskProfile ? `(${riskProfile})` : ""}
-              <span style={{ marginLeft: 5 }}>▼</span>
-            </button>
+              {link.label}
+            </Link>
+          ))}
+      </div>
 
-            {menuOpen && (
-              <div style={styles.dropdownMenu}>
-                <Link
-                  href="/risk-assessment"
-                  style={styles.dropdownItem}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Redo Risk Assessment
-                </Link>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={handleLogout}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleLogout();
-                    }
-                  }}
-                  style={styles.dropdownItem}
-                >
-                  Logout
-                </div>
+      {/* Right-aligned user dropdown */}
+      <div style={{ marginLeft: "auto", position: "relative" }} ref={dropdownRef}>
+        {isLoggedIn ? (
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            style={styles.userButton}
+          >
+            {user?.email || user?.id || "me"}
+            {riskProfile ? ` (Score: ${riskProfile})` : ""}
+            <span style={{ marginLeft: 5 }}>▼</span>
+          </button>
+        ) : (
+          <Link href="/auth/signin" style={styles.navLink}>
+            Login
+          </Link>
+        )}
+
+        {menuOpen && (
+          <div style={styles.dropdownMenu}>
+            {riskProfile && (
+              <div style={styles.dropdownHeader}>
+                Previous Risk Score: <strong>{riskProfile}</strong>
               </div>
             )}
+            <Link
+              href="/risk-assessment"
+              style={styles.dropdownItem}
+              onClick={() => setMenuOpen(false)}
+            >
+              Redo Risk Assessment
+            </Link>
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={handleLogout}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleLogout();
+                }
+              }}
+              style={styles.dropdownItem}
+            >
+              Logout
+            </div>
           </div>
-        </>
-      ) : (
-        <Link href="/auth/signin" style={styles.navLink}>
-          Login
-        </Link>
-      )}
+        )}
+      </div>
     </nav>
   );
 }
@@ -120,23 +143,43 @@ const styles = {
   nav: {
     display: "flex",
     alignItems: "center",
-    marginBottom: 25,
-    paddingBottom: 15,
-    borderBottom: "1px solid #eee",
+    padding: "10px 20px",
+    background: "#00264d", // Dark blue AG Grid style
+    color: "#fff",
   },
-  navTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
+  brand: {
+    display: "flex",
+    alignItems: "center",
     marginRight: 30,
-    color: "#2c3e50",
+  },
+  brandName: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  links: {
+    display: "flex",
+    alignItems: "center",
+    gap: 15,
   },
   navLink: {
-    marginRight: 15,
+    color: "#fff",
     textDecoration: "none",
-    color: "#333",
-    padding: "8px 15px",
-    borderRadius: 4,
+    padding: "8px 12px",
     fontSize: 15,
+  },
+  activeLink: {
+    borderBottom: "2px solid #fff",
+    fontWeight: "bold",
+  },
+  userButton: {
+    background: "transparent",
+    border: "1px solid #fff",
+    color: "#fff",
+    padding: "6px 12px",
+    borderRadius: 4,
+    cursor: "pointer",
+    fontSize: 14,
   },
   dropdownMenu: {
     position: "absolute",
@@ -146,9 +189,16 @@ const styles = {
     border: "1px solid #ddd",
     borderRadius: 4,
     marginTop: 5,
-    minWidth: 180,
+    minWidth: 200,
     boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
     zIndex: 100,
+  },
+  dropdownHeader: {
+    padding: "10px 15px",
+    borderBottom: "1px solid #eee",
+    fontSize: 14,
+    fontWeight: "bold",
+    background: "#f9f9f9",
   },
   dropdownItem: {
     display: "block",
