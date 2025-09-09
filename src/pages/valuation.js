@@ -1,98 +1,113 @@
 // pages/valuation.js
-import React from 'react';
-import Nav from './Nav';
-import { getSession } from 'next-auth/react';
+import React, { useMemo, useRef, useCallback } from "react";
+import Nav from "./Nav";
+import { getSession } from "next-auth/react";
+import { AgGridReact } from "ag-grid-react";
+
+// Import AG Grid CSS
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-alpine.css";
 
 export default function ValuationPage({ currentUser, tickers = [], valuationData = {}, error }) {
-  function formatLargeCurrency(value, currency = 'USD') {
-    if (value == null || value === 'N/A') return 'N/A';
-    const absVal = Math.abs(value);
-    let formatted = value;
-    if (absVal >= 1e12) formatted = (value / 1e12).toFixed(2) + 'T';
-    else if (absVal >= 1e9) formatted = (value / 1e9).toFixed(2) + 'B';
-    else if (absVal >= 1e6) formatted = (value / 1e6).toFixed(2) + 'M';
-    else if (absVal >= 1e3) formatted = (value / 1e3).toFixed(2) + 'K';
-    else formatted = value.toFixed(2);
-    const numberPart = Number(String(formatted).replace(/[TMBK]$/, ''));
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 2,
-    }).format(numberPart) + (formatted.match(/[TMBK]/)?.[0] ?? '');
-  }
+  const gridRef = useRef();
 
-  function formatCurrency(value, currency = 'USD') {
-    if (value == null || value === 'N/A') return 'N/A';
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(value);
-  }
+  // ---- format helpers ----
+  const fmt = useMemo(() => ({
+    largeCurrency: (value, currency = "USD") => {
+      if (value == null || value === "N/A" || isNaN(value)) return "N/A";
+      const absVal = Math.abs(value);
+      let formatted;
+      if (absVal >= 1e12) formatted = (value / 1e12).toFixed(2) + "T";
+      else if (absVal >= 1e9) formatted = (value / 1e9).toFixed(2) + "B";
+      else if (absVal >= 1e6) formatted = (value / 1e6).toFixed(2) + "M";
+      else if (absVal >= 1e3) formatted = (value / 1e3).toFixed(2) + "K";
+      else formatted = value.toFixed(2);
+      return `${new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency,
+        maximumFractionDigits: 2,
+      }).format(Number(String(formatted).replace(/[TMBK]$/, "")))}${formatted.match(/[TMBK]/)?.[0] ?? ""}`;
+    },
+    currency: (value, currency = "USD") =>
+      value == null || value === "N/A" || isNaN(value)
+        ? "N/A"
+        : new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value),
+    percent: (value) => {
+      if (value == null || value === "N/A" || isNaN(value)) return "N/A";
+      const v = (Math.abs(value) > 1 && Math.abs(value) <= 100) ? value / 100 : value;
+      return (v * 100).toFixed(2) + "%";
+    },
+    ratio: (value) =>
+      value == null || value === "N/A" || isNaN(value) ? "N/A" : Number(value).toFixed(2) + "x",
+  }), []);
 
-  function formatPercentage(value) {
-    if (value == null || value === 'N/A') return 'N/A';
-    const v = (Math.abs(value) > 1 && Math.abs(value) <= 100) ? (value / 100) : value;
-    return (v * 100).toFixed(2) + '%';
-  }
+  // ---- Column definitions for AG Grid ----
+  const columnDefs = useMemo(() => [
+    { headerName: "Stock", field: "stock", sortable: true, filter: true, pinned: "left" },
+    { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter" },
+    { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter" },
+    { headerName: "Alloc %", field: "alloc", sortable: true, filter: "agNumberColumnFilter" },
+    { headerName: "52w High", field: "high52", sortable: true },
+    { headerName: "52w Low", field: "low52", sortable: true },
+    { headerName: "Mkt Cap", field: "mktCap", sortable: true },
+    { headerName: "P/E (TTM)", field: "peTTM", sortable: true },
+    { headerName: "P/E (Fwd)", field: "peFwd", sortable: true },
+    { headerName: "PEG", field: "peg", sortable: true },
+    { headerName: "P/S", field: "ps", sortable: true },
+    { headerName: "P/B", field: "pb", sortable: true },
+    { headerName: "EV/Rev", field: "evRev", sortable: true },
+    { headerName: "EV/EBITDA", field: "evEbitda", sortable: true },
+    { headerName: "Profit Margin", field: "margin", sortable: true },
+    { headerName: "ROA", field: "roa", sortable: true },
+    { headerName: "ROE", field: "roe", sortable: true },
+    { headerName: "Revenue", field: "revenue", sortable: true },
+    { headerName: "Net Income", field: "netIncome", sortable: true },
+    { headerName: "EPS", field: "eps", sortable: true },
+    { headerName: "Cash", field: "cash", sortable: true },
+    { headerName: "Debt/Eq", field: "debtEq", sortable: true },
+    { headerName: "FCF", field: "fcf", sortable: true },
+  ], []);
 
-  function formatRatio(value) {
-    if (value == null || value === 'N/A') return 'N/A';
-    return Number(value).toFixed(2) + 'x';
-  }
-
-  function handleDownloadCSV() {
-    if (!tickers.length) {
-      alert("No data available to download.");
-      return;
-    }
-
-    const headers = [
-      "Stock", "Price", "Value", "Alloc%", "52w High", "52w Low", "Mkt Cap", "P/E (TTM)", "P/E (Fwd)",
-      "PEGRatio", "P/S", "P/B", "EV/Rev", "EV/EBITDA", "Profit Margin", "ROA", "ROE", "Revenue",
-      "Net Income", "EPS", "Cash", "Debt/Eq", "FCF"
-    ];
-
-    const rows = tickers.map(symbol => {
+  // ---- Row data ----
+  const rowData = useMemo(() =>
+    tickers.map(symbol => {
       const v = valuationData[symbol] || {};
-      const c = v.Currency || 'USD';
-      return [
-        `${symbol} (${c})`,
-        v.CurrentPrice ?? "",
-        v.CurrentValue ?? "",
-        v.AllocationPercent ?? "",
-        v['52wHigh'] ?? "",
-        v['52wLow'] ?? "",
-        v.MarketCap ?? "",
-        v.TrailingPE ?? "",
-        v.ForwardPE ?? "",
-        v.PEGRatio ?? "",
-        v.PriceToSales ?? "",
-        v.PriceToBook ?? "",
-        v['EV/Revenue'] ?? v['EV/Rev'] ?? "",
-        v['EV/EBITDA'] ?? "",
-        v.ProfitMargin ?? "",
-        v.ROA ?? "",
-        v.ROE ?? "",
-        v.Revenue ?? "",
-        v.NetIncome ?? "",
-        v.EPS ?? "",
-        v.TotalCash ?? "",
-        v.DebtEquity ?? "",
-        v.FreeCashFlow ?? "",
-      ];
-    });
+      const c = v.Currency || "USD";
+      return {
+        stock: `${symbol} (${c})`,
+        price: fmt.currency(v.CurrentPrice, c),
+        value: fmt.currency(v.CurrentValue, c),
+        alloc: fmt.percent(v.AllocationPercent),
+        high52: fmt.currency(v["52wHigh"], c),
+        low52: fmt.currency(v["52wLow"], c),
+        mktCap: fmt.largeCurrency(v.MarketCap, c),
+        peTTM: fmt.ratio(v.TrailingPE),
+        peFwd: fmt.ratio(v.ForwardPE),
+        peg: fmt.ratio(v.PEGRatio),
+        ps: fmt.ratio(v.PriceToSales),
+        pb: fmt.ratio(v.PriceToBook),
+        evRev: fmt.ratio(v["EV/Revenue"] ?? v["EV/Rev"]),
+        evEbitda: fmt.ratio(v["EV/EBITDA"]),
+        margin: fmt.percent(v.ProfitMargin),
+        roa: fmt.percent(v.ROA),
+        roe: fmt.percent(v.ROE),
+        revenue: fmt.largeCurrency(v.Revenue, c),
+        netIncome: fmt.largeCurrency(v.NetIncome, c),
+        eps: fmt.currency(v.EPS, c),
+        cash: fmt.largeCurrency(v.TotalCash, c),
+        debtEq: fmt.ratio(v.DebtEquity),
+        fcf: fmt.largeCurrency(v.FreeCashFlow, c),
+      };
+    }), [tickers, valuationData, fmt]
+  );
 
-    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "valuation_data.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
+  // ---- CSV Export ----
+  const handleExportCSV = useCallback(() => {
+    gridRef.current.api.exportDataAsCsv();
+  }, []);
 
   if (error) {
-    return <div style={{ padding: 20, color: 'red' }}>Error loading valuation data: {error}</div>;
+    return <div style={{ padding: 20, color: "red" }}>Error loading valuation data: {error}</div>;
   }
 
   const normalizedUser = {
@@ -107,79 +122,25 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
       <h2>Valuation Dashboard</h2>
 
       {!tickers.length ? (
-        <p style={{ fontStyle: 'italic', color: '#666' }}>Start by adding Transactions in the Transactions page.</p>
+        <p style={{ fontStyle: "italic", color: "#666" }}>
+          Start by adding Transactions in the Transactions page.
+        </p>
       ) : (
         <>
-          <div style={styles.scrollContainer}>
-            <table style={styles.valuationTable}>
-              <thead>
-                <tr>
-                  <th style={{ ...styles.tableHeaderCell, ...styles.tickerCell, textAlign: 'left' }}>
-                    Stock (Currency)
-                  </th>
-                  <th style={styles.tableHeaderCell}>Price</th>
-                  <th style={styles.tableHeaderCell}>Value</th>
-                  <th style={styles.tableHeaderCell}>Alloc %</th>
-                  <th style={styles.tableHeaderCell}>52w High</th>
-                  <th style={styles.tableHeaderCell}>52w Low</th>
-                  <th style={styles.tableHeaderCell}>Mkt Cap</th>
-                  <th style={styles.tableHeaderCell}>P/E (TTM)</th>
-                  <th style={styles.tableHeaderCell}>P/E (Fwd)</th>
-                  <th style={styles.tableHeaderCell}>PEGRatio</th>
-                  <th style={styles.tableHeaderCell}>P/S</th>
-                  <th style={styles.tableHeaderCell}>P/B</th>
-                  <th style={styles.tableHeaderCell}>EV/Rev</th>
-                  <th style={styles.tableHeaderCell}>EV/EBITDA</th>
-                  <th style={styles.tableHeaderCell}>Profit Marg</th>
-                  <th style={styles.tableHeaderCell}>ROA</th>
-                  <th style={styles.tableHeaderCell}>ROE</th>
-                  <th style={styles.tableHeaderCell}>Revenue</th>
-                  <th style={styles.tableHeaderCell}>Net Income</th>
-                  <th style={styles.tableHeaderCell}>EPS</th>
-                  <th style={styles.tableHeaderCell}>Cash</th>
-                  <th style={styles.tableHeaderCell}>Debt/Eq</th>
-                  <th style={styles.tableHeaderCell}>FCF</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tickers.map((symbol) => {
-                  const v = valuationData[symbol] || {};
-                  const c = v.Currency || 'USD';
-                  return (
-                    <tr key={symbol}>
-                      <td style={{ ...styles.tableBodyCell, ...styles.tickerCell, textAlign: 'left' }}>
-                        {symbol} ({c})
-                      </td>
-                      <td style={styles.tableBodyCell}>{formatCurrency(v.CurrentPrice ?? 0, c)}</td>
-                      <td style={styles.tableBodyCell}>{formatCurrency(v.CurrentValue ?? 0, c)}</td>
-                      <td style={styles.tableBodyCell}>{formatPercentage(v.AllocationPercent ?? 0)}</td>
-                      <td style={styles.tableBodyCell}>{formatCurrency(v['52wHigh'] ?? 0, c)}</td>
-                      <td style={styles.tableBodyCell}>{formatCurrency(v['52wLow'] ?? 0, c)}</td>
-                      <td style={styles.tableBodyCell}>{formatLargeCurrency(v.MarketCap ?? 0, c)}</td>
-                      <td style={styles.tableBodyCell}>{formatRatio(v.TrailingPE ?? 'N/A')}</td>
-                      <td style={styles.tableBodyCell}>{formatRatio(v.ForwardPE ?? 'N/A')}</td>
-                      <td style={styles.tableBodyCell}>{formatRatio(v.PEGRatio ?? 'N/A')}</td>
-                      <td style={styles.tableBodyCell}>{formatRatio(v.PriceToSales ?? 'N/A')}</td>
-                      <td style={styles.tableBodyCell}>{formatRatio(v.PriceToBook ?? 'N/A')}</td>
-                      <td style={styles.tableBodyCell}>{formatRatio(v['EV/Revenue'] ?? v['EV/Rev'] ?? 'N/A')}</td>
-                      <td style={styles.tableBodyCell}>{formatRatio(v['EV/EBITDA'] ?? 'N/A')}</td>
-                      <td style={styles.tableBodyCell}>{formatPercentage(v.ProfitMargin ?? 'N/A')}</td>
-                      <td style={styles.tableBodyCell}>{formatPercentage(v.ROA ?? 'N/A')}</td>
-                      <td style={styles.tableBodyCell}>{formatPercentage(v.ROE ?? 'N/A')}</td>
-                      <td style={styles.tableBodyCell}>{formatLargeCurrency(v.Revenue ?? 0, c)}</td>
-                      <td style={styles.tableBodyCell}>{formatLargeCurrency(v.NetIncome ?? 0, c)}</td>
-                      <td style={styles.tableBodyCell}>{formatCurrency(v.EPS ?? 0, c)}</td>
-                      <td style={styles.tableBodyCell}>{formatLargeCurrency(v.TotalCash ?? 0, c)}</td>
-                      <td style={styles.tableBodyCell}>{formatRatio(v.DebtEquity ?? 'N/A')}</td>
-                      <td style={styles.tableBodyCell}>{formatLargeCurrency(v.FreeCashFlow ?? 0, c)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="ag-theme-alpine" style={{ height: 600, width: "100%" }}>
+            <AgGridReact
+              ref={gridRef}
+              rowData={rowData}
+              columnDefs={columnDefs}
+              defaultColDef={{ resizable: true, sortable: true, filter: true, flex: 1 }}
+              pagination={true}
+              paginationPageSize={20}
+            />
           </div>
 
-          <button onClick={handleDownloadCSV} style={styles.downloadBtn}>Download Valuation Data (CSV)</button>
+          <button onClick={handleExportCSV} style={styles.downloadBtn}>
+            Download Valuation Data (CSV)
+          </button>
         </>
       )}
 
@@ -193,56 +154,30 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
   );
 }
 
+// ---- Styles ----
 const styles = {
-  body: { fontFamily: 'Arial, sans-serif', maxWidth: 1400, margin: '0 auto', padding: 20, fontSize: 13 },
-  scrollContainer: {
-    overflowX: 'auto',
-    maxWidth: '100%',
-    border: '1px solid #eee',
-    borderRadius: 5,
-    background: '#fff',
+  body: { fontFamily: "Arial, sans-serif", maxWidth: 1400, margin: "0 auto", padding: 20, fontSize: 13 },
+  footer: {
+    marginTop: 40,
+    padding: 20,
+    backgroundColor: "#f8f8f8",
+    borderTop: "1px solid #eee",
+    fontSize: 11,
+    color: "#666",
   },
-  valuationTable: {
-    borderCollapse: 'collapse',
-    width: '100%',
-    minWidth: 1200,
-    fontSize: 13,
-    whiteSpace: 'nowrap',
-  },
-  tickerCell: {
-    position: 'sticky',
-    left: 0,
-    backgroundColor: '#f2f2f2',
-    zIndex: 2,
-    fontWeight: 'bold',
-    borderRight: '1px solid #ccc',
-    padding: '8px 12px',
-  },
-  tableHeaderCell: {
-    backgroundColor: '#f8f8f8',
-    fontWeight: 'bold',
-    borderBottom: '1px solid #ccc',
-    padding: '8px 12px',
-    textAlign: 'center',
-  },
-  tableBodyCell: {
-    borderBottom: '1px solid #eee',
-    padding: '8px 12px',
-    textAlign: 'center',
-  },
-  footer: { marginTop: 40, padding: 20, backgroundColor: '#f8f8f8', borderTop: '1px solid #eee', fontSize: 11, color: '#666' },
   downloadBtn: {
     marginTop: 20,
-    background: '#0070f3',
-    color: '#fff',
-    border: 'none',
-    padding: '10px 15px',
+    background: "#0070f3",
+    color: "#fff",
+    border: "none",
+    padding: "10px 15px",
     borderRadius: 4,
-    cursor: 'pointer',
+    cursor: "pointer",
     fontSize: 14,
   },
 };
 
+// ---- Server-side props ----
 export async function getServerSideProps(context) {
   const session = await getSession(context);
   const token = session?.accessToken || "";
@@ -265,18 +200,11 @@ export async function getServerSideProps(context) {
   try {
     const res = await fetch(backendUrl, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     if (res.status === 401) {
-      return {
-        redirect: {
-          destination: "/auth/signin",
-          permanent: false,
-        },
-      };
+      return { redirect: { destination: "/auth/signin", permanent: false } };
     }
 
     data = await res.json().catch(() => ({}));
@@ -284,14 +212,12 @@ export async function getServerSideProps(context) {
     console.error("Error fetching valuation data:", err);
   }
 
-  const currentUser = data.current_user || { id: session.user?.id || "guest", is_authenticated: !!session };
-
   return {
     props: {
-      currentUser,
+      currentUser: session?.user || {},
       tickers: data.tickers || [],
       valuationData: data.valuationData || {},
-      error: data?.error || "",
+      error: data.error || null,
     },
   };
 }

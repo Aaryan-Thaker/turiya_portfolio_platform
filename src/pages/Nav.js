@@ -25,7 +25,7 @@ export default function Nav({ user: propUser }) {
         const res = await fetch("/api/risk/profile");
         if (res.ok) {
           const data = await res.json();
-          setRiskProfile(data?.profile || null);
+          setRiskProfile(data?.profile?.score || data?.profile || null);
         }
       } catch (err) {
         console.error("Failed to fetch risk profile", err);
@@ -53,7 +53,7 @@ export default function Nav({ user: propUser }) {
     { href: "/", label: "Portfolio" },
     { href: "/valuation", label: "Valuation" },
     { href: "/transactions", label: "Transactions" },
-    // ❌ removed risk-assessment from here
+    // ❌ Risk Assessment intentionally left out of nav
   ];
 
   return (
@@ -61,10 +61,11 @@ export default function Nav({ user: propUser }) {
       {/* Logo + Brand */}
       <div style={styles.brand}>
         <Image
-          src="/logo.png" // make sure /public/logo.png exists
+          src="/logo.png" // ensure /public/logo.png exists
           alt="Turiya Advisory Logo"
           width={32}
           height={32}
+          priority
           style={{ marginRight: 10 }}
         />
         <span style={styles.brandName}>Turiya Advisory Services</span>
@@ -144,16 +145,16 @@ const styles = {
     alignItems: "center",
     justifyContent: "flex-start",
     padding: "10px 20px",
-    background: "#00264d", // dark blue
+    background: "#003264", // dark AG Grid blue
     color: "#fff",
     position: "fixed",
     top: 0,
     left: 0,
     right: 0,
     zIndex: 1000,
-    margin: 0,
-    width: "100%",
     height: 60,
+    width: "100%",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
   },
   brand: {
     display: "flex",
@@ -164,6 +165,7 @@ const styles = {
     fontSize: 20,
     fontWeight: "bold",
     color: "#fff",
+    whiteSpace: "nowrap",
   },
   links: {
     display: "flex",
@@ -175,10 +177,12 @@ const styles = {
     textDecoration: "none",
     padding: "8px 12px",
     fontSize: 15,
+    borderRadius: 4,
+    transition: "background 0.3s ease",
   },
   activeLink: {
-    borderBottom: "2px solid #fff",
-    fontWeight: "bold",
+    borderBottom: "2px solid #55b4c8",
+    fontWeight: "600",
   },
   userButton: {
     background: "transparent",
@@ -188,6 +192,7 @@ const styles = {
     borderRadius: 4,
     cursor: "pointer",
     fontSize: 14,
+    transition: "background 0.3s ease",
   },
   dropdownMenu: {
     position: "absolute",
@@ -198,7 +203,7 @@ const styles = {
     borderRadius: 4,
     marginTop: 5,
     minWidth: 200,
-    boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
     zIndex: 100,
   },
   dropdownHeader: {
@@ -216,5 +221,27 @@ const styles = {
     color: "#333",
     cursor: "pointer",
     fontSize: 14,
+    transition: "background 0.2s ease",
   },
 };
+
+// Ensure body has no margin (fix blue bar gaps)
+if (typeof window !== "undefined") {
+  const styleTag = document.createElement("style");
+  styleTag.innerHTML = `
+    body, html {
+      margin: 0;
+      padding: 0;
+    }
+    a:hover {
+      background: rgba(85, 180, 200, 0.15);
+    }
+    button:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    div[role="button"]:hover {
+      background: #f1f1f1;
+    }
+  `;
+  document.head.appendChild(styleTag);
+}

@@ -1,8 +1,17 @@
 // pages/transactions.js
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Nav from "./Nav";
 import { getSession, useSession, signIn } from "next-auth/react";
 import BulkTransactionUpload from "@/components/BulkTransactionUpload";
+
+// AG Grid (client-only)
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-alpine.css";
+const AgGridReact = dynamic(
+  () => import("ag-grid-react").then((m) => m.AgGridReact),
+  { ssr: false }
+);
 
 export default function TransactionsPage({
   user,
@@ -20,15 +29,12 @@ export default function TransactionsPage({
   const [date, setDate] = useState("");
   const [error, setError] = useState(initialError || "");
   const [transactions, setTransactions] = useState(transactionsData || []);
-  const [stockPerformance, setStockPerformance] = useState(
-    stockPerformanceData || []
-  );
-  const [realizedGains, setRealizedGains] = useState(realizedGainsTotal || 0);
-  const [portfolioIRR, setPortfolioIRR] = useState(portfolioIrr || 0);
 
   const txApiPath = "/api/transactions";
   const clearApiPath = "/api/clear_transactions";
   const validateTickerPath = "/api/stock/validate"; // backend endpoint to implement
+
+  const gridRef = useRef(null);
 
   const getClientToken = () => session?.accessToken || "";
 
@@ -43,15 +49,10 @@ export default function TransactionsPage({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
-      if (!res.ok) {
-        // If endpoint missing or 4xx/5xx, treat as invalid (safe default)
-        return false;
-      }
+      if (!res.ok) return false;
       const data = await res.json().catch(() => ({}));
-      // Expect JSON like { valid: true, info: {...} }
       return !!data?.valid;
     } catch (err) {
-      // network error -> return false to avoid inserting unknown tickers
       console.warn("Ticker validation failed:", err);
       return false;
     }
@@ -75,7 +76,6 @@ export default function TransactionsPage({
       return;
     }
 
-    // Validate ticker exists via backend
     const symbol = stock.toUpperCase();
     setError("Validating ticker...");
     const validTicker = await validateTicker(symbol);
@@ -165,12 +165,10 @@ export default function TransactionsPage({
 
       if (res.ok && data.success) {
         setTransactions(data.transactions || []);
-        setStockPerformance(data.stockPerformance || []);
-        setRealizedGains(data.realizedGainsTotal || 0);
-        setPortfolioIRR(data.portfolioIRR || 0);
         setError("");
       } else {
-        setError(data.error || "Failed to load transactions.");
+        setTransactions(data.transactions || []); // still show whatever we have
+        setError(data.error || "");
       }
     } catch (err) {
       console.error("fetchTransactions error", err);
@@ -218,34 +216,25 @@ export default function TransactionsPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // --- CSV Download: Transactions ---
-  function handleDownloadCSV() {
-    const headers = ["Date", "Stock", "Type", "Quantity", "Price", "Value"];
-    const rows = transactions.map((tx) => [
-      tx.date,
-      tx.stock,
-      tx.type,
-      tx.quantity,
-      tx.price,
-      tx.value ?? tx.quantity * tx.price,
-    ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.map(escapeCsv).join(","))].join("\n");
-
-    downloadBlob(csv, "transactions.csv", "text/csv");
+  // ---------- Helpers for formatting and CSV ----------
+  function formatCurrency(value) {
+    if (value == null || value === "N/A") return "N/A";
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "N/A";
+    return (
+      "$" +
+      n.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    );
   }
 
-  // --- CSV Download: Performance Metrics ---
-  function handleDownloadPerformanceCSV() {
-    const headers = ["Ticker", "Name", "Realized Gain/Loss", "IRR (%)"];
-    const rows = stockPerformance.map((s) => [
-      s.ticker,
-      s.name,
-      s.realizedGain,
-      s.irr,
-    ]);
-    const csv = [headers.join(","), ...rows.map((r) => r.map(escapeCsv).join(","))].join("\n");
-
-    downloadBlob(csv, "performance_metrics.csv", "text/csv");
+  function formatPercentage(value) {
+    if (value == null || value === "N/A") return "N/A";
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "N/A";
+    return n.toFixed(2) + "%";
   }
 
   function escapeCsv(val) {
@@ -269,98 +258,114 @@ export default function TransactionsPage({
     URL.revokeObjectURL(url);
   }
 
-  function formatCurrency(value) {
-    if (value == null || value === "N/A") return value;
-    return (
-      "$" +
-      Number(value).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
-    );
+  // --- CSV downloads (fallback/manual) ---
+  function handleDownloadCSVFallback() {
+    const headers = ["Date", "Stock", "Type", "Quantity", "Price", "Value"];
+    const rows = transactions.map((tx) => [
+      tx.date,
+      tx.stock,
+      tx.type,
+      tx.quantity,
+      tx.price,
+      tx.value ?? tx.quantity * tx.price,
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.map((c) => escapeCsv(c)).join(","))].join("\n");
+    downloadBlob(csv, "transactions.csv", "text/csv");
   }
 
-  function formatPercentage(value) {
-    if (value == null || value === "N/A") return value;
-    return value.toFixed(2) + "%";
+  function handleDownloadPerformanceCSVFallback() {
+    const headers = ["Ticker", "Name", "Realized Gain/Loss", "IRR (%)"];
+    const rows = (stockPerformanceData || []).map((s) => [
+      s.ticker,
+      s.name,
+      s.realizedGain,
+      s.irr,
+    ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.map((c) => escapeCsv(c)).join(","))].join("\n");
+    downloadBlob(csv, "performance_metrics.csv", "text/csv");
   }
+
+  // ---------- AG Grid config for Transactions ----------
+  // Date comparator: expects YYYY-MM-DD or Date string compatible with Date.parse
+  const dateComparator = useCallback((filterLocalDateAtMidnight, cellValue) => {
+    if (!cellValue) return 0;
+    const cellDate = new Date(cellValue);
+    // compare only dates
+    if (cellDate < filterLocalDateAtMidnight) return -1;
+    if (cellDate > filterLocalDateAtMidnight) return 1;
+    return 0;
+  }, []);
+
+  const transactionColumnDefs = useMemo(() => [
+    { headerName: "Date", field: "date", sortable: true, filter: "agDateColumnFilter", filterParams: { comparator: dateComparator }, resizable: true, width: 140 },
+    { headerName: "Ticker", field: "stock", sortable: true, filter: true, resizable: true, width: 120 },
+    { headerName: "Name", field: "name", sortable: true, filter: true, resizable: true, flex: 1 },
+    { headerName: "Type", field: "type", sortable: true, filter: true, resizable: true, width: 100 },
+    { headerName: "Quantity", field: "quantity", sortable: true, filter: "agNumberColumnFilter", resizable: true, width: 120, valueFormatter: (p) => (Number.isFinite(Number(p.value)) ? Math.round(Number(p.value)) : p.value) },
+    { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter", resizable: true, width: 120, valueFormatter: (p) => formatCurrency(p.value) },
+    { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter", resizable: true, width: 140, valueFormatter: (p) => formatCurrency(p.value) },
+  ], [dateComparator]);
+
+  const defaultColDef = useMemo(() => ({
+    sortable: true,
+    filter: true,
+    resizable: true,
+    floatingFilter: true,
+  }), []);
+
+  const rowData = useMemo(() => {
+    return (transactions || []).map((tx) => ({
+      date: tx.date,
+      stock: tx.stock,
+      name: tx.name || "",
+      type: tx.type,
+      quantity: Number(tx.quantity) || 0,
+      price: tx.price == null ? 0 : Number(tx.price),
+      value: tx.value == null ? (Number(tx.quantity || 0) * Number(tx.price || 0)) : Number(tx.value),
+    }));
+  }, [transactions]);
+
+  // AG Grid CSV export (preferred)
+  const handleExportCSV = useCallback(() => {
+    try {
+      if (gridRef.current && gridRef.current.api) {
+        gridRef.current.api.exportDataAsCsv({ fileName: "transactions.csv" });
+      } else {
+        handleDownloadCSVFallback();
+      }
+    } catch (err) {
+      console.warn("Grid export failed, falling back to manual CSV", err);
+      handleDownloadCSVFallback();
+    }
+  }, [gridRef, transactions]);
+
+  // Performance CSV export uses fallback if stockPerformanceData not present
+  const handleExportPerformanceCSV = useCallback(() => {
+    try {
+      // If you later add a grid for performance metrics you can call its export.
+      handleDownloadPerformanceCSVFallback();
+    } catch {
+      handleDownloadPerformanceCSVFallback();
+    }
+  }, [stockPerformanceData]);
+
+  // ---------- Download CSV template for transactions ----------
+  const handleDownloadTemplate = useCallback(() => {
+    // simple template header row
+    const headers = ["date", "stock", "type", "quantity", "price"];
+    // example row
+    const rows = [
+      ["2025-09-01", "AAPL", "Buy", "10", "175.00"],
+      ["2025-09-02", "INFY.NS", "Buy", "100", "1500.00"],
+    ];
+    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    downloadBlob(csv, "transactions_template.csv", "text/csv");
+  }, []);
 
   return (
     <div className="container">
       <Nav user={user} />
       <h1>Transaction Management</h1>
-
-      {/* Performance Summary */}
-      <section className="performance-summary">
-        <h2>Performance Metrics</h2>
-        {transactions.length === 0 ? (
-          <p className="empty-msg">
-            Start by adding Transactions in the Transactions page.
-          </p>
-        ) : (
-          <>
-            <div className="performance-metrics">
-              <div className="metric">
-                <div>Total Realized Gain/Loss</div>
-                <div
-                  className={`metric-value ${
-                    realizedGains >= 0 ? "green" : "red"
-                  }`}
-                >
-                  {formatCurrency(realizedGains)}
-                </div>
-              </div>
-              <div className="metric">
-                <div>Portfolio IRR</div>
-                <div
-                  className={`metric-value ${
-                    portfolioIRR >= 0 ? "green" : "red"
-                  }`}
-                >
-                  {formatPercentage(portfolioIRR)}
-                </div>
-              </div>
-            </div>
-
-            <div className="table-wrapper">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Stock</th>
-                    <th>Name</th>
-                    <th>Realized Gain/Loss</th>
-                    <th>IRR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stockPerformance.map((stock) => (
-                    <tr key={stock.ticker}>
-                      <td>{stock.ticker}</td>
-                      <td>{stock.name}</td>
-                      <td
-                        className={
-                          stock.realizedGain >= 0 ? "green" : "red"
-                        }
-                      >
-                        {formatCurrency(stock.realizedGain)}
-                      </td>
-                      <td className={stock.irr >= 0 ? "green" : "red"}>
-                        {formatPercentage(stock.irr)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div style={{ marginTop: 10 }}>
-              <button className="button" onClick={handleDownloadPerformanceCSV}>
-                Download Performance Metrics CSV
-              </button>
-            </div>
-          </>
-        )}
-      </section>
 
       {/* Manual Add Form + Bulk Upload */}
       <div className="transaction-container">
@@ -369,131 +374,75 @@ export default function TransactionsPage({
           <form onSubmit={handleAddTransaction} className="form">
             <div className="form-group">
               <label>Type:</label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="input"
-              >
+              <select value={type} onChange={(e) => setType(e.target.value)} className="input">
                 <option value="Buy">Buy</option>
                 <option value="Sell">Sell</option>
               </select>
             </div>
+
             <div className="form-group">
-              <input
-                type="text"
-                placeholder="Ticker"
-                value={stock}
-                onChange={(e) => setStock(e.target.value.toUpperCase())}
-                required
-                className="input"
-              />
+              <input type="text" placeholder="Ticker" value={stock} onChange={(e) => setStock(e.target.value.toUpperCase())} required className="input" />
             </div>
+
             <div className="form-group">
-              <input
-                type="number"
-                step="1"
-                placeholder="Quantity"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                required
-                className="input"
-              />
+              <input type="number" step="1" placeholder="Quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} required className="input" />
             </div>
+
             <div className="form-group">
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Price"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                required
-                className="input"
-              />
+              <input type="number" step="0.01" placeholder="Price" value={price} onChange={(e) => setPrice(e.target.value)} required className="input" />
             </div>
+
             <div className="form-group">
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                className="input"
-              />
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="input" />
             </div>
-            <button type="submit" className="button">
-              Add Transaction
-            </button>
+
+            <button type="submit" className="button">Add Transaction</button>
+            {error && <div className="alert">{error}</div>}
           </form>
-          {error && <div className="alert">{error}</div>}
+
+          <div style={{ marginTop: 12 }}>
+            <BulkTransactionUpload onUploaded={fetchTransactions} hideManualAdd={true} />
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            <button className="button" onClick={handleDownloadTemplate} style={{ background: "#0070f3", marginRight: 8 }}>
+              Download CSV Template
+            </button>
+          </div>
         </section>
 
-        <div className="mb-4 flex items-center gap-3">
-          {/* 
-            Pass prop to BulkTransactionUpload so it doesn't render an extra manual form.
-            If BulkTransactionUpload doesn't support this prop it's harmless — backend CSV still works.
-          */}
-          <BulkTransactionUpload onUploaded={fetchTransactions} hideManualAdd={true} />
-        </div>
-
-        {/* Past Transactions */}
-        <section className="transaction-history">
+        {/* Past Transactions (AG Grid) */}
+        <section className="transaction-history" style={{ flex: 2 }}>
           <h2>Past Transactions</h2>
+
           {transactions.length === 0 ? (
-            <p className="empty-msg">
-              No transactions yet. Add some to get started.
-            </p>
+            <p className="empty-msg">No transactions yet. Add some to get started.</p>
           ) : (
             <>
-              <button
-                onClick={handleClearTransactions}
-                className="button clear"
-              >
-                Clear All Transactions
-              </button>
-              <div className="table-wrapper">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Ticker</th>
-                      <th>Name</th>
-                      <th>Date</th>
-                      <th>Type</th>
-                      <th>Quantity</th>
-                      <th>Price</th>
-                      <th>Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((tx, idx) => (
-                      <tr key={idx}>
-                        <td>{tx.stock}</td>
-                        <td>{tx.name}</td>
-                        <td>{tx.date}</td>
-                        <td>{tx.type}</td>
-                        <td>{tx.quantity}</td>
-                        <td>{formatCurrency(tx.price)}</td>
-                        <td>{formatCurrency(tx.value)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                <button onClick={handleExportCSV} className="button">Download Transactions CSV</button>
+                <button onClick={handleClearTransactions} className="button clear">Clear All Transactions</button>
+                <button onClick={handleExportPerformanceCSV} className="button" style={{ background: "#2196F3" }}>Download Performance CSV</button>
               </div>
-              <button
-                onClick={handleDownloadCSV}
-                className="button"
-                style={{ marginTop: "10px" }}
-              >
-                Download Transactions CSV
-              </button>
+
+              <div className="ag-theme-alpine" style={{ height: 520, width: "100%" }}>
+                <AgGridReact
+                  ref={gridRef}
+                  rowData={rowData}
+                  columnDefs={transactionColumnDefs}
+                  defaultColDef={defaultColDef}
+                  pagination={true}
+                  paginationPageSize={25}
+                  animateRows
+                />
+              </div>
             </>
           )}
         </section>
       </div>
 
       <footer className="footer">
-        <p>
-          This site is for educational use only. Financial data is provided
-          &quot;as is&quot; and not to be construed as financial advice.
-        </p>
+        <p>This site is for educational use only. Financial data is provided "as is".</p>
       </footer>
 
       <style jsx>{`
@@ -503,46 +452,30 @@ export default function TransactionsPage({
           margin: 0 auto;
           padding: 20px;
         }
-        .performance-summary {
-          background: #f8f8f8;
-          padding: 15px;
-          border-radius: 5px;
-          margin: 20px 0;
-        }
-        .performance-metrics {
-          display: flex;
-          gap: 20px;
-          flex-wrap: wrap;
-        }
-        .metric {
-          min-width: 150px;
-        }
-        .metric-value {
-          font-size: 16px;
-          font-weight: bold;
-        }
-        .green {
-          color: #006400;
-        }
-        .red {
-          color: #8b0000;
-        }
         .transaction-container {
           display: flex;
           gap: 20px;
+          align-items: flex-start;
           flex-wrap: wrap;
         }
-        .transaction-form,
-        .transaction-history {
+        .transaction-form {
           flex: 1;
-          min-width: 300px;
+          min-width: 320px;
+          background: #fff;
+          padding: 16px;
+          border-radius: 8px;
+          border: 1px solid #eee;
+        }
+        .transaction-history {
+          flex: 2;
+          min-width: 500px;
         }
         .form-group {
-          margin-bottom: 15px;
+          margin-bottom: 12px;
         }
         .input {
           width: 100%;
-          padding: 6px;
+          padding: 8px;
           border: 1px solid #ddd;
           border-radius: 4px;
           font-size: 14px;
@@ -558,7 +491,6 @@ export default function TransactionsPage({
         }
         .clear {
           background: #f44336;
-          margin-top: 10px;
         }
         .alert {
           color: #8b0000;
@@ -573,21 +505,6 @@ export default function TransactionsPage({
           color: #666;
           margin: 10px 0;
         }
-        .table-wrapper {
-          overflow-x: auto;
-        }
-        .table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-top: 20px;
-          font-size: 12px;
-        }
-        .table th,
-        .table td {
-          border: 1px solid #ddd;
-          padding: 6px 8px;
-          text-align: center;
-        }
         .footer {
           margin-top: 40px;
           padding: 20px;
@@ -598,7 +515,7 @@ export default function TransactionsPage({
           text-align: center;
         }
 
-        /* Heuristic: hide a possible duplicate manual form inside BulkTransactionUpload if it uses this class */
+        /* Heuristic: hide a possible duplicate manual form inside BulkTransactionUpload */
         .bulk-manual-form {
           display: none !important;
         }
