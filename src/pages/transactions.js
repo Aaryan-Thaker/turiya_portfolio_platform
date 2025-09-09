@@ -30,35 +30,27 @@ export default function TransactionsPage({
   const [error, setError] = useState(initialError || "");
   const [transactions, setTransactions] = useState(transactionsData || []);
 
-  const txApiPath = "/api/transactions";
-  const clearApiPath = "/api/clear_transactions";
-  const validateTickerPath = "/api/stock/validate";
-
   const gridRef = useRef(null);
 
   const getClientToken = () => session?.accessToken || "";
 
-  // --- Validate ticker exists
+  // ---- Validate ticker exists
   async function validateTicker(ticker) {
     if (!ticker) return false;
     try {
       const token = getClientToken();
-      const url = `${validateTickerPath}?ticker=${encodeURIComponent(ticker)}`;
-      const res = await fetch(url, {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+      const res = await fetch(`/api/stock/validate?ticker=${encodeURIComponent(ticker)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) return false;
       const data = await res.json().catch(() => ({}));
       return !!data?.valid;
-    } catch (err) {
-      console.warn("Ticker validation failed:", err);
+    } catch {
       return false;
     }
   }
 
-  // --- Manual Add Transaction ---
+  // ---- Manual Add Transaction
   async function handleAddTransaction(e) {
     e.preventDefault();
     setError("");
@@ -70,7 +62,6 @@ export default function TransactionsPage({
 
     const qtyNum = parseInt(quantity, 10);
     const priceNum = parseFloat(price);
-
     if (isNaN(qtyNum) || isNaN(priceNum) || qtyNum <= 0 || priceNum <= 0) {
       setError("Quantity and price must be positive numbers.");
       return;
@@ -80,8 +71,7 @@ export default function TransactionsPage({
     setError("Validating ticker...");
     const validTicker = await validateTicker(symbol);
     if (!validTicker) {
-      // This message is in JS (not JSX), so quotes are fine
-      setError(`Ticker "${symbol}" not found. Please check the symbol and try again.`);
+      setError(`Ticker "${symbol}" not found. Please check the symbol.`);
       return;
     }
 
@@ -90,38 +80,19 @@ export default function TransactionsPage({
         await signIn("google", { callbackUrl: window.location.href });
         return;
       }
-
       const token = getClientToken();
-      if (!token) {
-        const s = await getSession();
-        if (!s?.accessToken) {
-          await signIn("google", { callbackUrl: window.location.href });
-          return;
-        }
-      }
-
-      const res = await fetch(txApiPath, {
-        credentials: "include",
+      const res = await fetch("/api/transactions", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({
-          type,
-          stock: symbol,
-          quantity: qtyNum,
-          price: priceNum,
-          date,
-        }),
+        body: JSON.stringify({ type, stock: symbol, quantity: qtyNum, price: priceNum, date }),
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (res.status === 401) {
-          await signIn("google", { callbackUrl: window.location.href });
-          return;
-        }
         setError(data.error || "Failed to add transaction.");
         return;
       }
@@ -132,38 +103,27 @@ export default function TransactionsPage({
       setQuantity("");
       setPrice("");
       setDate("");
-    } catch (err) {
-      console.error("Add transaction error", err);
+    } catch {
       setError("An unexpected error occurred.");
     }
   }
 
-  // --- Fetch Transactions ---
+  // ---- Fetch Transactions
   async function fetchTransactions() {
+    if (status === "loading") return;
+    if (status === "unauthenticated") {
+      await signIn("google", { callbackUrl: window.location.href });
+      return;
+    }
+
+    const token = getClientToken() || (await (await getSession())?.accessToken) || "";
+
     try {
-      if (status === "unauthenticated") {
-        await signIn("google", { callbackUrl: window.location.href });
-        return;
-      }
-      if (status === "loading") return;
-
-      const token =
-        getClientToken() || (await (await getSession())?.accessToken) || "";
-
-      const res = await fetch(txApiPath, {
+      const res = await fetch("/api/transactions", {
         credentials: "include",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-
-      if (res.status === 401) {
-        await signIn("google", { callbackUrl: window.location.href });
-        return;
-      }
-
       const data = await res.json().catch(() => ({}));
-
       if (res.ok && data.success) {
         setTransactions(data.transactions || []);
         setError("");
@@ -171,256 +131,95 @@ export default function TransactionsPage({
         setTransactions(data.transactions || []);
         setError(data.error || "");
       }
-    } catch (err) {
-      console.error("fetchTransactions error", err);
+    } catch {
       setError("Failed to load transactions.");
     }
   }
 
-  // --- Clear Transactions ---
+  // ---- Clear Transactions
   async function handleClearTransactions() {
     if (!confirm("Are you sure you want to clear all transactions?")) return;
-
     try {
-      if (status !== "authenticated") {
-        await signIn("google", { callbackUrl: window.location.href });
-        return;
-      }
       const token = getClientToken();
-      const res = await fetch(clearApiPath, {
+      const res = await fetch("/api/clear_transactions", {
         method: "POST",
         credentials: "include",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-
-      if (res.status === 401) {
-        await signIn("google", { callbackUrl: window.location.href });
-        return;
-      }
-
       if (res.ok) {
         await fetchTransactions();
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || "Failed to clear transactions.");
       }
-    } catch (err) {
-      console.error("clearTransactions error", err);
+    } catch {
       setError("Failed to clear transactions.");
     }
   }
 
-  useEffect(() => {
-    fetchTransactions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { fetchTransactions(); }, []);
 
-  // ---------- Helpers ----------
-  function formatCurrency(value) {
+  // ---- Format helpers
+  const formatCurrency = (value) => {
     if (value == null || value === "N/A") return "N/A";
     const n = Number(value);
-    if (!Number.isFinite(n)) return "N/A";
-    return (
-      "$" +
-      n.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })
-    );
-  }
+    return Number.isFinite(n) ? "$" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A";
+  };
 
-  function escapeCsv(val) {
-    if (val === null || val === undefined) return "";
-    const s = String(val);
-    if (s.includes(",") || s.includes('"')) {
-      return `"${s.replace(/"/g, '""')}"`;
-    }
-    return s;
-  }
-
-  function downloadBlob(content, filename, type) {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
+  // ---- CSV download helpers
+  const downloadCsv = (headers, rows, filename) => {
+    const escape = (v) => (v == null ? "" : `"${String(v).replace(/"/g, '""')}"`);
+    const csv = [headers.join(","), ...rows.map((r) => r.map(escape).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
     const link = document.createElement("a");
-    link.href = url;
+    link.href = URL.createObjectURL(blob);
     link.download = filename;
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
+  };
 
-  // --- CSV Downloads (fallbacks) ---
-  const handleDownloadCSVFallback = useCallback(() => {
+  const handleDownloadTransactionsCSV = useCallback(() => {
     const headers = ["Date", "Stock", "Type", "Quantity", "Price", "Value"];
-    const rows = transactions.map((tx) => [
-      tx.date,
-      tx.stock,
-      tx.type,
-      tx.quantity,
-      tx.price,
-      tx.value ?? tx.quantity * tx.price,
-    ]);
-    const csv = [
-      headers.join(","),
-      ...rows.map((r) => r.map((c) => escapeCsv(c)).join(",")),
-    ].join("\n");
-    downloadBlob(csv, "transactions.csv", "text/csv");
+    const rows = transactions.map((tx) => [tx.date, tx.stock, tx.type, tx.quantity, tx.price, tx.value ?? tx.quantity * tx.price]);
+    downloadCsv(headers, rows, "transactions.csv");
   }, [transactions]);
 
-  const handleDownloadPerformanceCSVFallback = useCallback(() => {
+  const handleDownloadPerformanceCSV = useCallback(() => {
     const headers = ["Ticker", "Name", "Realized Gain/Loss", "IRR (%)"];
-    const rows = (stockPerformanceData || []).map((s) => [
-      s.ticker,
-      s.name,
-      s.realizedGain,
-      s.irr,
-    ]);
-    const csv = [
-      headers.join(","),
-      ...rows.map((r) => r.map((c) => escapeCsv(c)).join(",")),
-    ].join("\n");
-    downloadBlob(csv, "performance_metrics.csv", "text/csv");
+    const rows = (stockPerformanceData || []).map((s) => [s.ticker, s.name, s.realizedGain, s.irr]);
+    downloadCsv(headers, rows, "performance_metrics.csv");
   }, [stockPerformanceData]);
 
-  // ---------- AG Grid ----------
-  const dateComparator = useCallback((filterLocalDateAtMidnight, cellValue) => {
-    if (!cellValue) return 0;
-    const cellDate = new Date(cellValue);
-    if (cellDate < filterLocalDateAtMidnight) return -1;
-    if (cellDate > filterLocalDateAtMidnight) return 1;
-    return 0;
-  }, []);
-
-  const transactionColumnDefs = useMemo(
-    () => [
-      {
-        headerName: "Date",
-        field: "date",
-        sortable: true,
-        filter: "agDateColumnFilter",
-        filterParams: { comparator: dateComparator },
-        resizable: true,
-        width: 140,
-      },
-      {
-        headerName: "Ticker",
-        field: "stock",
-        sortable: true,
-        filter: true,
-        resizable: true,
-        width: 120,
-      },
-      {
-        headerName: "Name",
-        field: "name",
-        sortable: true,
-        filter: true,
-        resizable: true,
-        flex: 1,
-      },
-      {
-        headerName: "Type",
-        field: "type",
-        sortable: true,
-        filter: true,
-        resizable: true,
-        width: 100,
-      },
-      {
-        headerName: "Quantity",
-        field: "quantity",
-        sortable: true,
-        filter: "agNumberColumnFilter",
-        resizable: true,
-        width: 120,
-        valueFormatter: (p) =>
-          Number.isFinite(Number(p.value)) ? Math.round(Number(p.value)) : p.value,
-      },
-      {
-        headerName: "Price",
-        field: "price",
-        sortable: true,
-        filter: "agNumberColumnFilter",
-        resizable: true,
-        width: 120,
-        valueFormatter: (p) => formatCurrency(p.value),
-      },
-      {
-        headerName: "Value",
-        field: "value",
-        sortable: true,
-        filter: "agNumberColumnFilter",
-        resizable: true,
-        width: 140,
-        valueFormatter: (p) => formatCurrency(p.value),
-      },
-    ],
-    [dateComparator]
-  );
-
-  const defaultColDef = useMemo(
-    () => ({
-      sortable: true,
-      filter: true,
-      resizable: true,
-      floatingFilter: true,
-    }),
-    []
-  );
-
-  const rowData = useMemo(
-    () =>
-      (transactions || []).map((tx) => ({
-        date: tx.date,
-        stock: tx.stock,
-        name: tx.name || "",
-        type: tx.type,
-        quantity: Number(tx.quantity) || 0,
-        price: tx.price == null ? 0 : Number(tx.price),
-        value:
-          tx.value == null
-            ? Number(tx.quantity || 0) * Number(tx.price || 0)
-            : Number(tx.value),
-      })),
-    [transactions]
-  );
-
-  // AG Grid CSV export (preferred) - includes fallback
-  const handleExportCSV = useCallback(() => {
-    try {
-      if (gridRef.current && gridRef.current.api) {
-        gridRef.current.api.exportDataAsCsv({ fileName: "transactions.csv" });
-      } else {
-        handleDownloadCSVFallback();
-      }
-    } catch (err) {
-      console.warn("Grid export failed, falling back to manual CSV", err);
-      handleDownloadCSVFallback();
-    }
-  }, [handleDownloadCSVFallback]);
-
-  // Performance CSV export (fallback for now)
-  const handleExportPerformanceCSV = useCallback(() => {
-    try {
-      handleDownloadPerformanceCSVFallback();
-    } catch {
-      handleDownloadPerformanceCSVFallback();
-    }
-  }, [handleDownloadPerformanceCSVFallback]);
-
-  // Template download
   const handleDownloadTemplate = useCallback(() => {
     const headers = ["date", "stock", "type", "quantity", "price"];
     const rows = [
       ["2025-09-01", "AAPL", "Buy", "10", "175.00"],
       ["2025-09-02", "INFY.NS", "Buy", "100", "1500.00"],
     ];
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    downloadBlob(csv, "transactions_template.csv", "text/csv");
+    downloadCsv(headers, rows, "transactions_template.csv");
   }, []);
+
+  // ---- AG Grid columns
+  const transactionColumnDefs = useMemo(() => [
+    { headerName: "Date", field: "date", sortable: true, filter: "agDateColumnFilter", resizable: true, width: 140 },
+    { headerName: "Ticker", field: "stock", sortable: true, filter: true, resizable: true, width: 120 },
+    { headerName: "Name", field: "name", sortable: true, filter: true, resizable: true, flex: 1 },
+    { headerName: "Type", field: "type", sortable: true, filter: true, resizable: true, width: 100 },
+    { headerName: "Quantity", field: "quantity", sortable: true, filter: "agNumberColumnFilter", valueFormatter: (p) => Number(p.value).toLocaleString(), resizable: true, width: 120 },
+    { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter", valueFormatter: (p) => formatCurrency(p.value), resizable: true, width: 120 },
+    { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter", valueFormatter: (p) => formatCurrency(p.value), resizable: true, width: 140 },
+  ], []);
+
+  const defaultColDef = useMemo(() => ({ sortable: true, filter: true, resizable: true, floatingFilter: true }), []);
+
+  const rowData = useMemo(() => transactions.map((tx) => ({
+    date: tx.date,
+    stock: tx.stock,
+    name: tx.name || "",
+    type: tx.type,
+    quantity: Number(tx.quantity) || 0,
+    price: Number(tx.price || 0),
+    value: Number(tx.value ?? tx.quantity * tx.price),
+  })), [transactions]);
 
   return (
     <div className="container">
@@ -430,118 +229,49 @@ export default function TransactionsPage({
       <div className="transaction-container">
         <section className="transaction-form">
           <h2>Add Transaction</h2>
-          <form onSubmit={handleAddTransaction} className="form">
+          <form onSubmit={handleAddTransaction}>
             <div className="form-group">
               <label>Type:</label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className="input"
-              >
+              <select value={type} onChange={(e) => setType(e.target.value)}>
                 <option value="Buy">Buy</option>
                 <option value="Sell">Sell</option>
               </select>
             </div>
-
-            <div className="form-group">
-              <input
-                type="text"
-                placeholder="Ticker"
-                value={stock}
-                onChange={(e) => setStock(e.target.value.toUpperCase())}
-                required
-                className="input"
-              />
-            </div>
-
-            <div className="form-group">
-              <input
-                type="number"
-                step="1"
-                placeholder="Quantity"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                required
-                className="input"
-              />
-            </div>
-
-            <div className="form-group">
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Price"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                required
-                className="input"
-              />
-            </div>
-
-            <div className="form-group">
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                className="input"
-              />
-            </div>
-
-            <button type="submit" className="button">
-              Add Transaction
-            </button>
+            <div className="form-group"><input placeholder="Ticker" value={stock} onChange={(e) => setStock(e.target.value.toUpperCase())} required /></div>
+            <div className="form-group"><input type="number" placeholder="Quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} required /></div>
+            <div className="form-group"><input type="number" step="0.01" placeholder="Price" value={price} onChange={(e) => setPrice(e.target.value)} required /></div>
+            <div className="form-group"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></div>
+            <button type="submit">Add Transaction</button>
             {error && <div className="alert">{error}</div>}
           </form>
 
           <div style={{ marginTop: 12 }}>
-            <BulkTransactionUpload
-              onUploaded={fetchTransactions}
-              hideManualAdd={true}
-            />
+            <BulkTransactionUpload onUploaded={fetchTransactions} hideManualAdd={true} />
           </div>
 
           <div style={{ marginTop: 12 }}>
-            <button
-              className="button"
-              onClick={handleDownloadTemplate}
-              style={{ background: "#0070f3", marginRight: 8 }}
-            >
-              Download CSV Template
-            </button>
+            <button onClick={handleDownloadTemplate} className="button blue">Download CSV Template</button>
           </div>
         </section>
 
-        <section className="transaction-history" style={{ flex: 2 }}>
+        <section className="transaction-history">
           <h2>Past Transactions</h2>
-
           {transactions.length === 0 ? (
             <p className="empty-msg">No transactions yet. Add some to get started.</p>
           ) : (
             <>
               <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-                <button onClick={handleExportCSV} className="button">
-                  Download Transactions CSV
-                </button>
-                <button onClick={handleClearTransactions} className="button clear">
-                  Clear All Transactions
-                </button>
-                <button
-                  onClick={handleExportPerformanceCSV}
-                  className="button"
-                  style={{ background: "#2196F3" }}
-                >
-                  Download Performance CSV
-                </button>
+                <button onClick={handleDownloadTransactionsCSV}>Download Transactions CSV</button>
+                <button onClick={handleClearTransactions} className="button clear">Clear All Transactions</button>
+                <button onClick={handleDownloadPerformanceCSV} className="button blue">Download Performance CSV</button>
               </div>
-
               <div className="ag-theme-alpine" style={{ height: 520, width: "100%" }}>
                 <AgGridReact
                   ref={gridRef}
                   rowData={rowData}
                   columnDefs={transactionColumnDefs}
                   defaultColDef={defaultColDef}
-                  pagination={true}
+                  pagination
                   paginationPageSize={25}
                   animateRows
                 />
@@ -551,101 +281,33 @@ export default function TransactionsPage({
         </section>
       </div>
 
-      <footer className="footer">
-        <p>
-          This site is for educational use only. Financial data is provided &quot;as is&quot;.
-        </p>
+      <footer>
+        <p>This site is for educational use only. Financial data is provided &quot;as is&quot;.</p>
       </footer>
 
       <style jsx>{`
-        .container {
-          font-family: Arial;
-          max-width: 1400px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-        .transaction-container {
-          display: flex;
-          gap: 20px;
-          align-items: flex-start;
-          flex-wrap: wrap;
-        }
-        .transaction-form {
-          flex: 1;
-          min-width: 320px;
-          background: #fff;
-          padding: 16px;
-          border-radius: 8px;
-          border: 1px solid #eee;
-        }
-        .transaction-history {
-          flex: 2;
-          min-width: 500px;
-        }
-        .form-group {
-          margin-bottom: 12px;
-        }
-        .input {
-          width: 100%;
-          padding: 8px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 14px;
-        }
-        .button {
-          background: #4caf50;
-          color: white;
-          border: none;
-          padding: 8px 12px;
-          border-radius: 4px;
-          cursor: pointer;
-          font-size: 14px;
-        }
-        .clear {
-          background: #f44336;
-        }
-        .alert {
-          color: #8b0000;
-          background: #ffdddd;
-          padding: 8px;
-          border-radius: 4px;
-          margin-top: 10px;
-          font-size: 14px;
-        }
-        .empty-msg {
-          font-style: italic;
-          color: #666;
-          margin: 10px 0;
-        }
-        .footer {
-          margin-top: 40px;
-          padding: 20px;
-          background: #f8f8f8;
-          border-top: 1px solid #eee;
-          font-size: 11px;
-          color: #666;
-          text-align: center;
-        }
-
-        /* Heuristic: hide a possible duplicate manual form inside BulkTransactionUpload */
-        .bulk-manual-form {
-          display: none !important;
-        }
+        .container { font-family: Arial; max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .transaction-container { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+        .transaction-form { flex: 1; min-width: 320px; background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #eee; }
+        .transaction-history { flex: 2; min-width: 500px; }
+        .form-group { margin-bottom: 12px; }
+        input, select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 14px; }
+        button { padding: 8px 12px; border-radius: 4px; cursor: pointer; background: #4caf50; color: #fff; border: none; }
+        .button.blue { background: #0070f3; }
+        .button.clear { background: #f44336; }
+        .alert { color: #8b0000; background: #ffdddd; padding: 8px; border-radius: 4px; margin-top: 10px; font-size: 14px; }
+        .empty-msg { font-style: italic; color: #666; margin: 10px 0; }
+        footer { margin-top: 40px; padding: 20px; background: #f8f8f8; border-top: 1px solid #eee; font-size: 11px; color: #666; text-align: center; }
       `}</style>
     </div>
   );
 }
 
-// --- Server Side Props ---
+// ---- Server Side Props ----
 export async function getServerSideProps(context) {
   const session = await getSession(context);
   const token = session?.accessToken || "";
-
-  if (!token) {
-    return {
-      redirect: { destination: "/auth/signin", permanent: false },
-    };
-  }
+  if (!token) return { redirect: { destination: "/auth/signin", permanent: false } };
 
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
   const host = context.req.headers.host;
@@ -653,28 +315,9 @@ export async function getServerSideProps(context) {
   const backendUrl = `${backendBase}/api/transactions`;
 
   let data = {};
-  try {
-    const res = await fetch(backendUrl, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-    });
+  try { const res = await fetch(backendUrl, { headers: { Authorization: `Bearer ${token}` } }); data = await res.json().catch(() => ({})); } catch {}
 
-    if (res.status === 401) {
-      return {
-        redirect: { destination: "/auth/signin", permanent: false },
-      };
-    }
-
-    data = await res.json().catch(() => ({}));
-  } catch (err) {
-    console.error("Error fetching transactions:", err);
-  }
-
-  const user = {
-    id: data?.current_user?.id || session.user?.id || "guest",
-    isAuthenticated: !!session,
-  };
-
+  const user = { id: data?.current_user?.id || session.user?.id || "guest", isAuthenticated: !!session };
   return {
     props: {
       user,

@@ -3,15 +3,13 @@ import React, { useMemo, useRef, useCallback } from "react";
 import Nav from "./Nav";
 import { getSession } from "next-auth/react";
 import { AgGridReact } from "ag-grid-react";
-
-// Import AG Grid CSS
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
 export default function ValuationPage({ currentUser, tickers = [], valuationData = {}, error }) {
   const gridRef = useRef();
 
-  // ---- format helpers ----
+  // ---- Format helpers ----
   const fmt = useMemo(() => ({
     largeCurrency: (value, currency = "USD") => {
       if (value == null || value === "N/A" || isNaN(value)) return "N/A";
@@ -22,11 +20,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
       else if (absVal >= 1e6) formatted = (value / 1e6).toFixed(2) + "M";
       else if (absVal >= 1e3) formatted = (value / 1e3).toFixed(2) + "K";
       else formatted = value.toFixed(2);
-      return `${new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 2,
-      }).format(Number(String(formatted).replace(/[TMBK]$/, "")))}${formatted.match(/[TMBK]/)?.[0] ?? ""}`;
+      return `${new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number(String(formatted).replace(/[TMBK]$/, "")))}${formatted.match(/[TMBK]/)?.[0] ?? ""}`;
     },
     currency: (value, currency = "USD") =>
       value == null || value === "N/A" || isNaN(value)
@@ -41,9 +35,9 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
       value == null || value === "N/A" || isNaN(value) ? "N/A" : Number(value).toFixed(2) + "x",
   }), []);
 
-  // ---- Column definitions for AG Grid ----
+  // ---- Column definitions ----
   const columnDefs = useMemo(() => [
-    { headerName: "Stock", field: "stock", sortable: true, filter: true, pinned: "left" },
+    { headerName: "Stock", field: "stock", pinned: "left", sortable: true, filter: true, flex: 1 },
     { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter" },
     { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter" },
     { headerName: "Alloc %", field: "alloc", sortable: true, filter: "agNumberColumnFilter" },
@@ -101,7 +95,6 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
     }), [tickers, valuationData, fmt]
   );
 
-  // ---- CSV Export ----
   const handleExportCSV = useCallback(() => {
     gridRef.current.api.exportDataAsCsv();
   }, []);
@@ -133,7 +126,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
               rowData={rowData}
               columnDefs={columnDefs}
               defaultColDef={{ resizable: true, sortable: true, filter: true, flex: 1 }}
-              pagination={true}
+              pagination
               paginationPageSize={20}
             />
           </div>
@@ -146,49 +139,26 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
 
       <footer style={styles.footer}>
         <p>
-          This website is a non-commercial project and is intended for educational and informational purposes only.
-          Financial data is retrieved via the Yahoo Finance API (yFinance) and is provided &quot;as is&quot; without any representations or warranties.
+          This website is a non-commercial project and is intended for educational purposes.
+          Financial data is retrieved via Yahoo Finance API (yFinance) and provided &quot;as is&quot;.
         </p>
       </footer>
     </div>
   );
 }
 
-// ---- Styles ----
 const styles = {
   body: { fontFamily: "Arial, sans-serif", maxWidth: 1400, margin: "0 auto", padding: 20, fontSize: 13 },
-  footer: {
-    marginTop: 40,
-    padding: 20,
-    backgroundColor: "#f8f8f8",
-    borderTop: "1px solid #eee",
-    fontSize: 11,
-    color: "#666",
-  },
-  downloadBtn: {
-    marginTop: 20,
-    background: "#0070f3",
-    color: "#fff",
-    border: "none",
-    padding: "10px 15px",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontSize: 14,
-  },
+  footer: { marginTop: 40, padding: 20, backgroundColor: "#f8f8f8", borderTop: "1px solid #eee", fontSize: 11, color: "#666" },
+  downloadBtn: { marginTop: 20, background: "#0070f3", color: "#fff", border: "none", padding: "10px 15px", borderRadius: 4, cursor: "pointer", fontSize: 14 },
 };
 
-// ---- Server-side props ----
 export async function getServerSideProps(context) {
   const session = await getSession(context);
   const token = session?.accessToken || "";
 
   if (!token) {
-    return {
-      redirect: {
-        destination: "/auth/signin",
-        permanent: false,
-      },
-    };
+    return { redirect: { destination: "/auth/signin", permanent: false } };
   }
 
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
@@ -202,11 +172,7 @@ export async function getServerSideProps(context) {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
     });
-
-    if (res.status === 401) {
-      return { redirect: { destination: "/auth/signin", permanent: false } };
-    }
-
+    if (res.status === 401) return { redirect: { destination: "/auth/signin", permanent: false } };
     data = await res.json().catch(() => ({}));
   } catch (err) {
     console.error("Error fetching valuation data:", err);

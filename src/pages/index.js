@@ -1,9 +1,9 @@
 // pages/index.js
 import React, { useState, useEffect } from "react";
-import Nav from "./Nav";
+import Nav from "../components/Nav";
 import { getSession } from "next-auth/react";
 
-// Import tab components (to be created)
+// Import tab components
 import SummaryTab from "../components/tabs/SummaryTab";
 import PortfolioOverviewTab from "../components/tabs/PortfolioOverviewTab";
 import CapitalGainsTab from "../components/tabs/CapitalGainsTab";
@@ -26,7 +26,7 @@ export default function PortfolioPage({
 
   if (errorMessage) {
     return (
-      <div style={{ padding: "20px", color: "red" }}>
+      <div style={{ padding: 20, color: "red" }}>
         <h1>Error</h1>
         <p>{errorMessage}</p>
       </div>
@@ -56,12 +56,11 @@ export default function PortfolioPage({
   };
 
   return (
-    <div style={{ fontFamily: "Arial, sans-serif", maxWidth: 1400, margin: "0 auto", padding: 20, fontSize: 13 }}>
+    <div style={{ fontFamily: "Arial, sans-serif", maxWidth: 1400, margin: "0 auto", padding: 20, fontSize: 14 }}>
       <Nav user={currentUser} />
-      <h1>Portfolio</h1>
 
       {/* Tabs */}
-      <div style={{ display: "flex", marginBottom: 20 }}>
+      <div style={{ display: "flex", marginBottom: 25 }}>
         {[
           { key: "summary", label: "Summary" },
           { key: "overview", label: "Portfolio Overview" },
@@ -72,12 +71,15 @@ export default function PortfolioPage({
             onClick={() => setActiveTab(key)}
             style={{
               marginRight: 10,
-              padding: "8px 16px",
+              padding: "10px 18px",
               background: activeTab === key ? "#0b7dda" : "#2196F3",
               color: "#fff",
               border: "none",
-              borderRadius: 4,
+              borderRadius: 5,
               cursor: "pointer",
+              fontWeight: activeTab === key ? "600" : "500",
+              fontSize: 14,
+              transition: "background 0.3s ease",
             }}
           >
             {label}
@@ -97,9 +99,7 @@ export async function getServerSideProps(context) {
   const token = session?.accessToken || "";
 
   if (!token) {
-    return {
-      redirect: { destination: "/auth/signin", permanent: false },
-    };
+    return { redirect: { destination: "/auth/signin", permanent: false } };
   }
 
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";

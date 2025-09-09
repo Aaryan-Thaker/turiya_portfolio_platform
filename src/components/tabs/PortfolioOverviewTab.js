@@ -6,61 +6,67 @@ import "ag-grid-community/styles/ag-theme-alpine.css";
 import { exportToCSV } from "../exportCSV";
 
 export default function PortfolioOverviewTab({ portfolioTableData }) {
-  // format helpers
+  // --- Format helpers ---
   const fmt = useMemo(() => ({
     currency: (num) => (typeof num === "number" ? num.toFixed(2) : "N/A"),
     quantity: (num) => (typeof num === "number" ? Math.round(num) : "N/A"),
     percent: (num) => (typeof num === "number" ? num.toFixed(2) + "%" : "N/A"),
   }), []);
 
+  // --- AG Grid columns ---
   const columnDefs = useMemo(() => [
-    { headerName: "Ticker", field: "Ticker", sortable: true, filter: true, resizable: true },
-    { headerName: "Name", field: "Name", sortable: true, filter: true, resizable: true },
-    { headerName: "Quantity", field: "Quantity", valueFormatter: p => fmt.quantity(p.value), sortable: true, resizable: true },
-    { headerName: "Currency", field: "Currency", sortable: true, filter: true, resizable: true },
-    { headerName: "Avg Cost/Share", field: "Avg Cost/Share", valueFormatter: p => fmt.currency(p.value), resizable: true },
-    { headerName: "CMP", field: "CMP", valueFormatter: p => fmt.currency(p.value), resizable: true },
-    { headerName: "Current Value", field: "Current Value", valueFormatter: p => fmt.currency(p.value), resizable: true },
-    { headerName: "Total Cost", field: "Total Cost", valueFormatter: p => fmt.currency(p.value), resizable: true },
-    { headerName: "Gain/Loss", field: "Gain/Loss", valueFormatter: p => fmt.currency(p.value), resizable: true },
-    { headerName: "Gain/Loss %", field: "Gain/Loss %", valueFormatter: p => fmt.percent(p.value), resizable: true },
-    { headerName: "AllocationPercent", field: "AllocationPercent", valueFormatter: p => fmt.percent(p.value), resizable: true },
-    { headerName: "Investment Date", field: "Investment Date", sortable: true, filter: true, resizable: true },
-    { headerName: "Exchange", field: "Exchange", sortable: true, filter: true, resizable: true },
-    { headerName: "52w High", field: "52w High", valueFormatter: p => fmt.currency(p.value), resizable: true },
-    { headerName: "52w Low", field: "52w Low", valueFormatter: p => fmt.currency(p.value), resizable: true },
-    { headerName: "Unrealized Gains", field: "Unrealized Gains", valueFormatter: p => fmt.currency(p.value), resizable: true },
-    { headerName: "Sector", field: "Sector", sortable: true, filter: true, resizable: true },
+    { headerName: "Ticker", field: "Ticker", sortable: true, filter: true, resizable: true, width: 100 },
+    { headerName: "Name", field: "Name", sortable: true, filter: true, resizable: true, flex: 1 },
+    { headerName: "Quantity", field: "Quantity", valueFormatter: p => fmt.quantity(p.value), resizable: true, width: 120 },
+    { headerName: "Currency", field: "Currency", sortable: true, filter: true, resizable: true, width: 100 },
+    { headerName: "Avg Cost/Share", field: "Avg Cost/Share", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
+    { headerName: "CMP", field: "CMP", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
+    { headerName: "Current Value", field: "Current Value", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
+    { headerName: "Total Cost", field: "Total Cost", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
+    { headerName: "Gain/Loss", field: "Gain/Loss", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
+    { headerName: "Gain/Loss %", field: "Gain/Loss %", valueFormatter: p => fmt.percent(p.value), resizable: true, width: 130 },
+    { headerName: "Allocation %", field: "AllocationPercent", valueFormatter: p => fmt.percent(p.value), resizable: true, width: 120 },
+    { headerName: "Investment Date", field: "Investment Date", sortable: true, filter: true, resizable: true, width: 130 },
+    { headerName: "Exchange", field: "Exchange", sortable: true, filter: true, resizable: true, width: 100 },
+    { headerName: "52w High", field: "52w High", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
+    { headerName: "52w Low", field: "52w Low", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
+    { headerName: "Unrealized Gains", field: "Unrealized Gains", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
+    { headerName: "Sector", field: "Sector", sortable: true, filter: true, resizable: true, width: 120 },
   ], [fmt]);
 
   return (
-    <div>
-      <h2>Portfolio Overview</h2>
+    <div style={{ padding: "20px" }}>
+      <h2 style={{ marginBottom: 15 }}>Portfolio Overview</h2>
 
       {portfolioTableData?.length > 0 ? (
         <>
+          {/* AG Grid Table */}
           <div className="ag-theme-alpine" style={{ height: 500, width: "100%", marginBottom: 20 }}>
             <AgGridReact
               rowData={portfolioTableData}
               columnDefs={columnDefs}
+              defaultColDef={{ sortable: true, filter: true, resizable: true }}
               pagination={true}
               paginationPageSize={20}
-              domLayout="autoHeight"
+              animateRows={true}
             />
           </div>
 
-          <button
-            onClick={() =>
-              exportToCSV(
-                "portfolio_full.csv",
-                columnDefs.map(col => col.field),
-                portfolioTableData
-              )
-            }
-            style={styles.csvBtn}
-          >
-            Download Full Portfolio CSV
-          </button>
+          {/* CSV Download Button */}
+          <div style={{ textAlign: "center", marginBottom: 30 }}>
+            <button
+              onClick={() =>
+                exportToCSV(
+                  "portfolio_full.csv",
+                  columnDefs.map(col => col.field),
+                  portfolioTableData
+                )
+              }
+              style={styles.csvBtn}
+            >
+              Download Full Portfolio CSV
+            </button>
+          </div>
         </>
       ) : (
         <div style={{ padding: 20, color: "#666", fontStyle: "italic" }}>
@@ -74,11 +80,13 @@ export default function PortfolioOverviewTab({ portfolioTableData }) {
 // ---- Styles ----
 const styles = {
   csvBtn: {
-    padding: "6px 12px",
-    background: "#4CAF50",
+    padding: "8px 16px",
+    background: "#0070f3",
     color: "white",
     border: "none",
-    borderRadius: 4,
+    borderRadius: 5,
     cursor: "pointer",
+    fontSize: 14,
+    transition: "background 0.3s ease",
   },
 };

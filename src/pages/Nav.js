@@ -53,89 +53,93 @@ export default function Nav({ user: propUser }) {
     { href: "/", label: "Portfolio" },
     { href: "/valuation", label: "Valuation" },
     { href: "/transactions", label: "Transactions" },
-    // ❌ Risk Assessment intentionally left out of nav
   ];
 
   return (
-    <nav style={styles.nav}>
-      {/* Logo + Brand */}
-      <div style={styles.brand}>
-        <Image
-          src="/logo.png" // ensure /public/logo.png exists
-          alt="Turiya Advisory Logo"
-          width={32}
-          height={32}
-          priority
-          style={{ marginRight: 10 }}
-        />
-        <span style={styles.brandName}>Turiya Advisory Services</span>
-      </div>
+    <>
+      <nav style={styles.nav}>
+        {/* Logo + Brand */}
+        <div style={styles.brand}>
+          <Image
+            src="/logo.png"
+            alt="Turiya Advisory Logo"
+            width={36}
+            height={36}
+            priority
+            style={{ marginRight: 10 }}
+          />
+          <span style={styles.brandName}>Turiya Advisory Services</span>
+        </div>
 
-      {/* Links */}
-      <div style={styles.links}>
-        {isLoggedIn &&
-          navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              style={{
-                ...styles.navLink,
-                ...(router.pathname === link.href ? styles.activeLink : {}),
-              }}
+        {/* Links */}
+        <div style={styles.links}>
+          {isLoggedIn &&
+            navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                style={{
+                  ...styles.navLink,
+                  ...(router.pathname === link.href ? styles.activeLink : {}),
+                }}
+              >
+                {link.label}
+              </Link>
+            ))}
+        </div>
+
+        {/* Right-aligned user dropdown */}
+        <div style={{ marginLeft: "auto", position: "relative" }} ref={dropdownRef}>
+          {isLoggedIn ? (
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              style={styles.userButton}
             >
-              {link.label}
+              {user?.email || user?.id || "me"}
+              <span style={{ marginLeft: 5 }}>▼</span>
+            </button>
+          ) : (
+            <Link href="/auth/signin" style={styles.navLink}>
+              Login
             </Link>
-          ))}
-      </div>
+          )}
 
-      {/* Right-aligned user dropdown */}
-      <div style={{ marginLeft: "auto", position: "relative" }} ref={dropdownRef}>
-        {isLoggedIn ? (
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            style={styles.userButton}
-          >
-            {user?.email || user?.id || "me"}
-            <span style={{ marginLeft: 5 }}>▼</span>
-          </button>
-        ) : (
-          <Link href="/auth/signin" style={styles.navLink}>
-            Login
-          </Link>
-        )}
-
-        {menuOpen && (
-          <div style={styles.dropdownMenu}>
-            {riskProfile && (
-              <div style={styles.dropdownHeader}>
-                Risk Score: <strong>{riskProfile}</strong>
+          {menuOpen && (
+            <div style={styles.dropdownMenu}>
+              {riskProfile && (
+                <div style={styles.dropdownHeader}>
+                  Risk Score: <strong>{riskProfile}</strong>
+                </div>
+              )}
+              <Link
+                href="/risk-assessment"
+                style={styles.dropdownItem}
+                onClick={() => setMenuOpen(false)}
+              >
+                Redo Risk Assessment
+              </Link>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={handleLogout}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleLogout();
+                  }
+                }}
+                style={styles.dropdownItem}
+              >
+                Logout
               </div>
-            )}
-            <Link
-              href="/risk-assessment"
-              style={styles.dropdownItem}
-              onClick={() => setMenuOpen(false)}
-            >
-              Redo Risk Assessment
-            </Link>
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={handleLogout}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  handleLogout();
-                }
-              }}
-              style={styles.dropdownItem}
-            >
-              Logout
             </div>
-          </div>
-        )}
-      </div>
-    </nav>
+          )}
+        </div>
+      </nav>
+
+      {/* Spacer to prevent content overlap with fixed navbar */}
+      <div style={{ height: 70 }} />
+    </>
   );
 }
 
@@ -143,18 +147,16 @@ const styles = {
   nav: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "flex-start",
     padding: "10px 20px",
-    background: "#003264", // dark AG Grid blue
-    color: "#fff",
+    background: "#f5f5f5",
+    color: "#222",
     position: "fixed",
     top: 0,
     left: 0,
     right: 0,
     zIndex: 1000,
     height: 60,
-    width: "100%",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
   },
   brand: {
     display: "flex",
@@ -164,7 +166,7 @@ const styles = {
   brandName: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#fff",
+    color: "#222",
     whiteSpace: "nowrap",
   },
   links: {
@@ -173,7 +175,7 @@ const styles = {
     gap: 15,
   },
   navLink: {
-    color: "#fff",
+    color: "#222",
     textDecoration: "none",
     padding: "8px 12px",
     fontSize: 15,
@@ -181,13 +183,13 @@ const styles = {
     transition: "background 0.3s ease",
   },
   activeLink: {
-    borderBottom: "2px solid #55b4c8",
+    borderBottom: "2px solid #0070f3",
     fontWeight: "600",
   },
   userButton: {
     background: "transparent",
-    border: "1px solid #fff",
-    color: "#fff",
+    border: "1px solid #222",
+    color: "#222",
     padding: "6px 12px",
     borderRadius: 4,
     cursor: "pointer",
@@ -203,7 +205,7 @@ const styles = {
     borderRadius: 4,
     marginTop: 5,
     minWidth: 200,
-    boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
     zIndex: 100,
   },
   dropdownHeader: {
@@ -225,7 +227,7 @@ const styles = {
   },
 };
 
-// Ensure body has no margin (fix blue bar gaps)
+// Hover & body reset
 if (typeof window !== "undefined") {
   const styleTag = document.createElement("style");
   styleTag.innerHTML = `
@@ -234,10 +236,10 @@ if (typeof window !== "undefined") {
       padding: 0;
     }
     a:hover {
-      background: rgba(85, 180, 200, 0.15);
+      background: rgba(0,112,243,0.1);
     }
     button:hover {
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(0,0,0,0.05);
     }
     div[role="button"]:hover {
       background: #f1f1f1;
