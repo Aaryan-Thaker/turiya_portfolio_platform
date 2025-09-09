@@ -53,7 +53,7 @@ export default function Nav({ user: propUser }) {
     { href: "/", label: "Portfolio" },
     { href: "/valuation", label: "Valuation" },
     { href: "/transactions", label: "Transactions" },
-    { href: "/risk-assessment", label: "Risk Assessment" },
+    // ❌ removed risk-assessment from here
   ];
 
   return (
@@ -61,7 +61,7 @@ export default function Nav({ user: propUser }) {
       {/* Logo + Brand */}
       <div style={styles.brand}>
         <Image
-          src="/logo.png"
+          src="/logo.png" // make sure /public/logo.png exists
           alt="Turiya Advisory Logo"
           width={32}
           height={32}
@@ -95,7 +95,6 @@ export default function Nav({ user: propUser }) {
             style={styles.userButton}
           >
             {user?.email || user?.id || "me"}
-            {riskProfile ? ` (Score: ${riskProfile})` : ""}
             <span style={{ marginLeft: 5 }}>▼</span>
           </button>
         ) : (
@@ -108,7 +107,7 @@ export default function Nav({ user: propUser }) {
           <div style={styles.dropdownMenu}>
             {riskProfile && (
               <div style={styles.dropdownHeader}>
-                Previous Risk Score: <strong>{riskProfile}</strong>
+                Risk Score: <strong>{riskProfile}</strong>
               </div>
             )}
             <Link
@@ -143,9 +142,18 @@ const styles = {
   nav: {
     display: "flex",
     alignItems: "center",
+    justifyContent: "flex-start",
     padding: "10px 20px",
-    background: "#00264d", // Dark blue AG Grid style
+    background: "#00264d", // dark blue
     color: "#fff",
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    margin: 0,
+    width: "100%",
+    height: 60,
   },
   brand: {
     display: "flex",
@@ -199,6 +207,7 @@ const styles = {
     fontSize: 14,
     fontWeight: "bold",
     background: "#f9f9f9",
+    color: "#333",
   },
   dropdownItem: {
     display: "block",
