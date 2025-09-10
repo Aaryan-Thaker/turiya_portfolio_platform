@@ -1,21 +1,41 @@
-// components/tabs/PortfolioOverviewTab.js
-// --- Top portion for all tabs ---
-import React, { useMemo, useRef } from "react";
+import React, { useMemo } from "react";
 import { AgGridReact } from "ag-grid-react";
 import { ModuleRegistry } from "ag-grid-community";
 import { ClientSideRowModelModule } from "ag-grid-community";
 
-// AG Grid styles
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-// Register AG Grid modules
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
 import { exportToCSV } from "../exportCSV";
 
-export default function PortfolioOverviewTab({ portfolioTableData }) {
-  // --- Format helpers ---
+export default function PortfolioOverviewTab({ overviewTabData }) {
+  // Transform backend data if necessary
+  const portfolioTableData = useMemo(() => {
+    if (!overviewTabData) return [];
+    return overviewTabData.map((row) => ({
+      Ticker: row.Ticker,
+      Name: row.Name,
+      Quantity: row.Quantity,
+      Currency: row.Currency,
+      "Avg Cost/Share": row["Avg Cost/Share"],
+      CMP: row.CMP,
+      "Current Value": row["Current Value"],
+      "Total Cost": row["Total Cost"],
+      "Gain/Loss %": row["Gain/Loss %"],
+      AllocationPercent: row.AllocationPercent,
+      "Day Change (%)": row.DayChangePct,
+      "Day PnL": row.DayChange,
+      "Investment Date": row["Investment Date"],
+      Exchange: row.Exchange,
+      "52w High": row["52wHigh"],
+      "52w Low": row["52wLow"],
+      "Unrealized Gains": row.UnrealizedGains,
+      Sector: row.Sector,
+    }));
+  }, [overviewTabData]);
+
   const fmt = useMemo(
     () => ({
       currency: (num) => (typeof num === "number" ? num.toFixed(2) : "N/A"),
@@ -25,7 +45,6 @@ export default function PortfolioOverviewTab({ portfolioTableData }) {
     []
   );
 
-  // --- AG Grid columns ---
   const columnDefs = useMemo(
     () => [
       { headerName: "Ticker", field: "Ticker", sortable: true, filter: true, resizable: true, width: 100 },
@@ -54,9 +73,8 @@ export default function PortfolioOverviewTab({ portfolioTableData }) {
     <div style={{ padding: "20px" }}>
       <h2 style={{ marginBottom: 15 }}>Portfolio Overview</h2>
 
-      {portfolioTableData?.length > 0 ? (
+      {portfolioTableData.length > 0 ? (
         <>
-          {/* AG Grid Table */}
           <div className="ag-theme-alpine" style={{ height: 550, width: "100%", marginBottom: 20 }}>
             <AgGridReact
               rowData={portfolioTableData}
@@ -68,16 +86,9 @@ export default function PortfolioOverviewTab({ portfolioTableData }) {
             />
           </div>
 
-          {/* CSV Download Button */}
           <div style={{ textAlign: "center", marginBottom: 30 }}>
             <button
-              onClick={() =>
-                exportToCSV(
-                  "portfolio_full.csv",
-                  columnDefs.map((col) => col.field),
-                  portfolioTableData
-                )
-              }
+              onClick={() => exportToCSV("portfolio_full.csv", columnDefs.map((col) => col.field), portfolioTableData)}
               style={styles.csvBtn}
             >
               Download Full Portfolio CSV
@@ -93,7 +104,6 @@ export default function PortfolioOverviewTab({ portfolioTableData }) {
   );
 }
 
-// ---- Styles ----
 const styles = {
   csvBtn: {
     padding: "8px 16px",

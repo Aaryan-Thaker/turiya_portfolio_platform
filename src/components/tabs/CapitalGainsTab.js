@@ -1,26 +1,39 @@
-// --- Top portion for all tabs ---
-import React, { useMemo, useRef } from "react";
+import React, { useMemo } from "react";
 import { AgGridReact } from "ag-grid-react";
 import { ModuleRegistry } from "ag-grid-community";
 import { ClientSideRowModelModule } from "ag-grid-community";
 
-// AG Grid styles
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-// Register AG Grid modules
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
 import { exportToCSV } from "../exportCSV";
 
-export default function CapitalGainsTab({ portfolioTableData }) {
+export default function CapitalGainsTab({ capitalGainsData }) {
+  // Transform perStock object into an array
+  const portfolioTableData = useMemo(() => {
+    if (!capitalGainsData?.perStock) return [];
+    return Object.entries(capitalGainsData.perStock).map(([ticker, data]) => ({
+      Ticker: ticker,
+      Name: data.Name || ticker,
+      Quantity: data.Quantity || 0,
+      "Avg Cost/Share": data.AvgCost || 0,
+      "Total Cost": data.TotalCost || 0,
+      "Current Value": data.CurrentValue || 0,
+      "Gain/Loss": data.UnrealizedGain || 0,
+      "Gain/Loss %": data.UnrealizedGainPct || 0,
+      "Realized Gains": data.RealizedGain || 0,
+      Sector: data.Sector || "N/A",
+    }));
+  }, [capitalGainsData]);
+
   const fmt = useMemo(() => ({
     currency: (num) => (typeof num === "number" ? num.toFixed(2) : "N/A"),
     quantity: (num) => (typeof num === "number" ? Math.round(num) : "N/A"),
     percent: (num) => (typeof num === "number" ? num.toFixed(2) + "%" : "N/A"),
   }), []);
 
-  // --- Columns for AG Grid ---
   const columnDefs = useMemo(() => [
     { headerName: "Ticker", field: "Ticker", sortable: true, filter: true, resizable: true },
     { headerName: "Name", field: "Name", sortable: true, filter: true, resizable: true, flex: 1 },
@@ -34,7 +47,6 @@ export default function CapitalGainsTab({ portfolioTableData }) {
     { headerName: "Sector", field: "Sector", sortable: true, filter: true, resizable: true, width: 120 },
   ], [fmt]);
 
-  // --- Sum helper ---
   function sumField(data, field) {
     return data.reduce((sum, row) => {
       const val = Number(row[field]);
@@ -53,7 +65,6 @@ export default function CapitalGainsTab({ portfolioTableData }) {
 
       {portfolioTableData?.length > 0 ? (
         <>
-          {/* Metrics Box */}
           <div style={styles.metricsBox}>
             <h3 style={{ marginBottom: 10 }}>Performance Metrics</h3>
             <p>Total Unrealized P&L: <b>{fmt.currency(totalUnrealized)}</b></p>
@@ -62,7 +73,6 @@ export default function CapitalGainsTab({ portfolioTableData }) {
             <p>Total Investment Cost: <b>{fmt.currency(totalCost)}</b></p>
           </div>
 
-          {/* AG Grid Table */}
           <div className="ag-theme-alpine" style={{ height: 500, width: "100%", marginBottom: 15 }}>
             <AgGridReact
               rowData={portfolioTableData}
@@ -74,7 +84,6 @@ export default function CapitalGainsTab({ portfolioTableData }) {
             />
           </div>
 
-          {/* CSV Download */}
           <div style={{ textAlign: "center", marginBottom: 30 }}>
             <button
               onClick={() =>
@@ -99,7 +108,6 @@ export default function CapitalGainsTab({ portfolioTableData }) {
   );
 }
 
-// ---- Styles ----
 const styles = {
   metricsBox: {
     background: "#f8f8f8",

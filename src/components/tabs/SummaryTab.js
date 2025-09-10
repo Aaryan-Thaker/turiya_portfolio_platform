@@ -1,30 +1,22 @@
-// --- Top portion for all tabs ---
-import React, { useMemo, useRef } from "react";
+import React, { useMemo } from "react";
 import { AgGridReact } from "ag-grid-react";
 import { ModuleRegistry } from "ag-grid-community";
 import { ClientSideRowModelModule } from "ag-grid-community";
 import dynamic from "next/dynamic";
-// AG Grid styles
+
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-// Register AG Grid modules
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
 import { exportToCSV } from "../exportCSV";
 
+// Dynamic imports for charts
 const StockPie = dynamic(() => import("../Charts").then(mod => mod.StockPie), { ssr: false });
 const SectorPie = dynamic(() => import("../Charts").then(mod => mod.SectorPie), { ssr: false });
 const TreemapChart = dynamic(() => import("../Charts").then(mod => mod.TreemapChart), { ssr: false });
 
-export default function SummaryTab({
-  marketData,
-  totalValue,
-  totalCost,
-  totalGain,
-  totalGainPct,
-  portfolioTableData,
-}) {
+export default function SummaryTab({ marketData, totalValue, totalCost, totalGain, totalGainPct, portfolioTableData }) {
   const fmt = useMemo(() => ({
     currency: (num) => (typeof num === "number" ? num.toFixed(2) : "N/A"),
     quantity: (num) => (typeof num === "number" ? Math.round(num) : "N/A"),
@@ -40,7 +32,6 @@ export default function SummaryTab({
   const topAllTimeGainers = allTimeSorted.slice(0, 5);
   const topAllTimeLosers = allTimeSorted.slice(-5).reverse();
 
-  // --- AG Grid column definitions ---
   const columnDefs = useMemo(() => [
     { headerName: "Ticker", field: "Ticker", sortable: true, filter: true },
     { headerName: "Name", field: "Name", sortable: true, filter: true },
@@ -51,21 +42,19 @@ export default function SummaryTab({
   ], [fmt]);
 
   return (
-    <div>
+    <div style={{ padding: 20 }}>
       {/* Market Overview */}
       <div style={styles.section}>
         <h2>Market Overview</h2>
         <div style={styles.marketSummary}>
-          {["nasdaq", "sp500", "dow"].map((index) => {
+          {["nasdaq", "sp500", "dow"].map(index => {
             const data = marketData?.[index];
-            if (!data || data.price === undefined) {
-              return (
-                <div key={index} style={styles.marketIndicator}>
-                  <div style={{ fontWeight: "bold" }}>{index.toUpperCase()}</div>
-                  <div style={{ fontSize: 14, color: "#888" }}>Data unavailable</div>
-                </div>
-              );
-            }
+            if (!data || data.price === undefined) return (
+              <div key={index} style={styles.marketIndicator}>
+                <div style={{ fontWeight: "bold" }}>{index.toUpperCase()}</div>
+                <div style={{ fontSize: 14, color: "#888" }}>Data unavailable</div>
+              </div>
+            );
             const positive = data.change >= 0;
             return (
               <div key={index} style={styles.marketIndicator}>
@@ -98,17 +87,11 @@ export default function SummaryTab({
       {portfolioTableData?.length > 0 && (
         <div style={{ margin: "20px 0" }}>
           <button
-            onClick={() =>
-              exportToCSV(
-                "portfolio.csv",
-                [
-                  "Ticker", "Name", "Quantity", "Currency", "Avg Cost/Share", "CMP", "Current Value",
-                  "Total Cost", "Gain/Loss", "Gain/Loss %", "AllocationPercent", "Investment Date",
-                  "Exchange", "52w High", "52w Low", "Unrealized Gains", "Sector"
-                ],
-                portfolioTableData
-              )
-            }
+            onClick={() => exportToCSV(
+              "portfolio.csv",
+              ["Ticker","Name","Quantity","Currency","Avg Cost/Share","CMP","Current Value","Total Cost","Gain/Loss","Gain/Loss %","AllocationPercent","Investment Date","Exchange","52w High","52w Low","Unrealized Gains","Sector"],
+              portfolioTableData
+            )}
             style={styles.csvBtn}
           >
             Download CSV
@@ -138,7 +121,7 @@ export default function SummaryTab({
         </div>
       </div>
 
-      {/* Charts: all side by side */}
+      {/* Portfolio Charts */}
       <div style={styles.section}>
         <h2>Portfolio Charts</h2>
         <div style={styles.chartsGrid}>
@@ -151,7 +134,7 @@ export default function SummaryTab({
   );
 }
 
-// SummaryItem
+// SummaryItem component
 function SummaryItem({ label, value, positive }) {
   return (
     <div style={{ textAlign: "center", flex: 1 }}>

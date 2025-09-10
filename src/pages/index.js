@@ -1,5 +1,5 @@
 // pages/index.js
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Nav from "./Nav";
 import { getSession } from "next-auth/react";
 
@@ -22,14 +22,16 @@ export default function PortfolioPage({
   totalCost,
   totalGain,
   totalGainPct,
-  portfolioTableData,
+  overviewTabData,
+  summaryTabData,
+  top5GainersDaily,
+  top5LosersDaily,
+  portfolioXIRR,
+  latestRiskAssessment,
+  capitalGainsData,
   errorMessage,
 }) {
   const [activeTab, setActiveTab] = useState("summary");
-
-  useEffect(() => {
-    console.log("Market Data:", marketData);
-  }, [marketData]);
 
   if (errorMessage) {
     return (
@@ -56,13 +58,17 @@ export default function PortfolioPage({
             totalCost={totalCost}
             totalGain={totalGain}
             totalGainPct={totalGainPct}
-            portfolioTableData={portfolioTableData}
+            summaryData={summaryTabData}
+            topGainers={top5GainersDaily}
+            topLosers={top5LosersDaily}
+            portfolioXIRR={portfolioXIRR}
+            latestRiskAssessment={latestRiskAssessment}
           />
         );
       case "overview":
-        return <PortfolioOverviewTab portfolioTableData={portfolioTableData} />;
+        return <PortfolioOverviewTab overviewData={overviewTabData} />;
       case "capitalGains":
-        return <CapitalGainsTab portfolioTableData={portfolioTableData} />;
+        return <CapitalGainsTab capitalGainsData={capitalGainsData} />;
       default:
         return null;
     }
@@ -91,9 +97,7 @@ export default function PortfolioPage({
       </div>
 
       {/* Tab Content */}
-      <div style={styles.tabContent}>
-        {renderTabContent()}
-      </div>
+      <div style={styles.tabContent}>{renderTabContent()}</div>
     </div>
   );
 }
@@ -135,39 +139,52 @@ export async function getServerSideProps(context) {
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
   const host = context.req.headers.host;
   const backendBase = process.env.BACKEND_URL || `${protocol}://${host}`;
-  const backendUrl = `${backendBase}/api/portfolio`;
 
-  let data = {};
+  // ---- Portfolio API ----
+  const portfolioUrl = `${backendBase}/api/portfolio`;
+  let portfolioData = {};
   try {
-    const res = await fetch(backendUrl, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      return { props: { currentUser: null } };
-    }
-    data = await res.json();
+    const res = await fetch(portfolioUrl, { method: "GET", headers: { Authorization: `Bearer ${token}` } });
+    if (res.status === 401) return { props: { currentUser: null } };
+    portfolioData = await res.json();
   } catch (err) {
     console.error("Error fetching portfolio:", err);
-    data = {};
+    portfolioData = {};
+  }
+
+  // ---- Capital Gains API ----
+  const capitalGainsUrl = `${backendBase}/api/capital_gains`;
+  let capitalGainsData = {};
+  try {
+    const res = await fetch(capitalGainsUrl, { method: "GET", headers: { Authorization: `Bearer ${token}` } });
+    capitalGainsData = await res.json();
+  } catch (err) {
+    console.error("Error fetching capital gains:", err);
+    capitalGainsData = {};
   }
 
   const currentUser = {
-    id: data?.current_user?.id || "guest",
-    email: data?.current_user?.email || "",
-    is_authenticated: data?.current_user?.is_authenticated || false,
+    id: portfolioData?.current_user?.id || "guest",
+    email: portfolioData?.current_user?.email || "",
+    is_authenticated: portfolioData?.current_user?.is_authenticated || false,
   };
 
   return {
     props: {
       currentUser,
-      marketData: data.marketData || {},
-      totalValue: data.totalValue || 0,
-      totalCost: data.totalCost || 0,
-      totalGain: data.totalGain || 0,
-      totalGainPct: data.totalGainPercent || 0,
-      portfolioTableData: data.portfolioTableData || [],
-      errorMessage: data?.error || null,
+      marketData: portfolioData.marketData || {},
+      totalValue: portfolioData.totalValue || 0,
+      totalCost: portfolioData.totalCost || 0,
+      totalGain: portfolioData.totalGain || 0,
+      totalGainPct: portfolioData.totalGainPercent || 0,
+      overviewTabData: portfolioData.overviewTabData || [],
+      summaryTabData: portfolioData.summaryTabData || [],
+      top5GainersDaily: portfolioData.top5GainersDaily || [],
+      top5LosersDaily: portfolioData.top5LosersDaily || [],
+      portfolioXIRR: portfolioData.portfolioXIRR || 0,
+      latestRiskAssessment: portfolioData.latestRiskAssessment || null,
+      capitalGainsData: capitalGainsData.success ? capitalGainsData : {},
+      errorMessage: portfolioData.error || null,
     },
   };
 }

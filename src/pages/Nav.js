@@ -18,11 +18,14 @@ export default function Nav({ user: propUser }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Fetch user’s risk profile
+  // Fetch user's risk profile
   useEffect(() => {
     async function fetchRisk() {
       try {
-        const res = await fetch("/api/risk/profile");
+        const token = session?.accessToken;
+        const res = await fetch("/api/risk/profile", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (res.ok) {
           const data = await res.json();
           setRiskProfile(data?.profile?.score || data?.profile || null);
@@ -32,7 +35,7 @@ export default function Nav({ user: propUser }) {
       }
     }
     if (isLoggedIn) fetchRisk();
-  }, [isLoggedIn]);
+  }, [isLoggedIn, session]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -73,19 +76,18 @@ export default function Nav({ user: propUser }) {
 
         {/* Links */}
         <div style={styles.links}>
-          {isLoggedIn &&
-            navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                style={{
-                  ...styles.navLink,
-                  ...(router.pathname === link.href ? styles.activeLink : {}),
-                }}
-              >
-                {link.label}
-              </Link>
-            ))}
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              style={{
+                ...styles.navLink,
+                ...(router.pathname === link.href ? styles.activeLink : {}),
+              }}
+            >
+              {link.label}
+            </Link>
+          ))}
         </div>
 
         {/* Right-aligned user dropdown */}
@@ -95,8 +97,7 @@ export default function Nav({ user: propUser }) {
               onClick={() => setMenuOpen(!menuOpen)}
               style={styles.userButton}
             >
-              {user?.email || user?.id || "me"}
-              <span style={{ marginLeft: 5 }}>▼</span>
+              {user?.email || user?.id || "me"} <span style={{ marginLeft: 5 }}>▼</span>
             </button>
           ) : (
             <Link href="/auth/signin" style={styles.navLink}>
@@ -106,7 +107,7 @@ export default function Nav({ user: propUser }) {
 
           {menuOpen && (
             <div style={styles.dropdownMenu}>
-              {riskProfile && (
+              {riskProfile !== null && (
                 <div style={styles.dropdownHeader}>
                   Risk Score: <strong>{riskProfile}</strong>
                 </div>
@@ -148,7 +149,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     padding: "10px 20px",
-    background: "#4A90E2", // Light professional blue
+    background: "#4A90E2",
     color: "#fff",
     position: "fixed",
     top: 0,
@@ -231,19 +232,10 @@ const styles = {
 if (typeof window !== "undefined") {
   const styleTag = document.createElement("style");
   styleTag.innerHTML = `
-    body, html {
-      margin: 0;
-      padding: 0;
-    }
-    a:hover {
-      background: rgba(255,255,255,0.1);
-    }
-    button:hover {
-      background: rgba(255,255,255,0.15);
-    }
-    div[role="button"]:hover {
-      background: #f1f1f1;
-    }
+    body, html { margin: 0; padding: 0; }
+    a:hover { background: rgba(255,255,255,0.1); }
+    button:hover { background: rgba(255,255,255,0.15); }
+    div[role="button"]:hover { background: #f1f1f1; }
   `;
   document.head.appendChild(styleTag);
 }
