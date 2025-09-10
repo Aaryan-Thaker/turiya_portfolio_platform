@@ -33,6 +33,12 @@ export default function PortfolioPage({
     );
   }
 
+  const tabs = [
+    { key: "summary", label: "Summary" },
+    { key: "overview", label: "Portfolio Overview" },
+    { key: "capitalGains", label: "Capital Gains" },
+  ];
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "summary":
@@ -60,26 +66,16 @@ export default function PortfolioPage({
       <Nav user={currentUser} />
 
       {/* Tabs */}
-      <div style={{ display: "flex", marginBottom: 25 }}>
-        {[
-          { key: "summary", label: "Summary" },
-          { key: "overview", label: "Portfolio Overview" },
-          { key: "capitalGains", label: "Capital Gains" },
-        ].map(({ key, label }) => (
+      <div style={styles.tabContainer}>
+        {tabs.map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
             style={{
-              marginRight: 10,
-              padding: "10px 18px",
-              background: activeTab === key ? "#0b7dda" : "#2196F3",
-              color: "#fff",
-              border: "none",
-              borderRadius: 5,
-              cursor: "pointer",
-              fontWeight: activeTab === key ? "600" : "500",
-              fontSize: 14,
-              transition: "background 0.3s ease",
+              ...styles.tabButton,
+              background: activeTab === key ? "#0b7dda" : "#f0f0f0",
+              color: activeTab === key ? "#fff" : "#333",
+              fontWeight: activeTab === key ? 600 : 500,
             }}
           >
             {label}
@@ -87,11 +83,38 @@ export default function PortfolioPage({
         ))}
       </div>
 
-      {/* Active Tab Content */}
-      {renderTabContent()}
+      {/* Tab Content */}
+      <div style={styles.tabContent}>
+        {renderTabContent()}
+      </div>
     </div>
   );
 }
+
+// ---- Styles ----
+const styles = {
+  tabContainer: {
+    display: "flex",
+    borderRadius: 8,
+    boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+    overflow: "hidden",
+    marginBottom: 30,
+  },
+  tabButton: {
+    flex: 1,
+    padding: "12px 24px",
+    border: "none",
+    cursor: "pointer",
+    fontSize: 14,
+    transition: "background 0.3s ease, color 0.3s ease",
+  },
+  tabContent: {
+    padding: 10,
+    background: "#fff",
+    borderRadius: 8,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+  },
+};
 
 // ---- Server-side Props ----
 export async function getServerSideProps(context) {

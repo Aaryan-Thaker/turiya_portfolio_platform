@@ -19,12 +19,13 @@ export function StockPie({ data = [], title = "Stock Allocation" }) {
   const values = safeData.map((row) => Number(row["AllocationPercent"]) || 0);
   const labels = safeData.map((row) => row["Ticker"] || "");
 
-  if (!values.some((v) => v > 0)) return <div style={{ padding: 20 }}>No allocation data available.</div>;
+  if (!values.some((v) => v > 0)) 
+    return <div style={{ padding: 30, textAlign: "center" }}>No allocation data available.</div>;
 
   const colors = pickColors(labels.length);
 
   return (
-    <div style={{ width: "100%", maxWidth: 700, marginBottom: 30 }}>
+    <div style={{ width: "100%", maxWidth: 500, marginBottom: 30 }}>
       <h3 style={{ textAlign: "center" }}>{title}</h3>
       <Plot
         data={[{
@@ -49,21 +50,22 @@ export function StockPie({ data = [], title = "Stock Allocation" }) {
 export function SectorPie({ data = [], title = "Sector Allocation" }) {
   const safeData = Array.isArray(data) ? data : [];
   const sectorTotals = {};
-  for (const row of safeData) {
+  safeData.forEach((row) => {
     const sector = (row["Sector"] || "Other").trim() || "Other";
     const val = Number(row["Current Value"]) || 0;
     sectorTotals[sector] = (sectorTotals[sector] || 0) + val;
-  }
+  });
 
   const labels = Object.keys(sectorTotals);
   const values = Object.values(sectorTotals);
 
-  if (!values.some((v) => v > 0)) return <div style={{ padding: 20 }}>No sector data available.</div>;
+  if (!values.some((v) => v > 0))
+    return <div style={{ padding: 30, textAlign: "center" }}>No sector data available.</div>;
 
   const colors = pickColors(labels.length);
 
   return (
-    <div style={{ width: "100%", maxWidth: 700, marginBottom: 30 }}>
+    <div style={{ width: "100%", maxWidth: 500, marginBottom: 30 }}>
       <h3 style={{ textAlign: "center" }}>{title}</h3>
       <Plot
         data={[{
@@ -89,17 +91,18 @@ export function TreemapChart({ data = [], title = "Holdings Treemap" }) {
   const safeData = Array.isArray(data) ? data : [];
   const sectorMap = {};
 
-  for (const row of safeData) {
+  safeData.forEach((row) => {
     const ticker = row["Ticker"] || row["Symbol"] || "";
     const sector = (row["Sector"] || "Other").trim() || "Other";
     const val = Number(row["Current Value"]) || 0;
-    if (!ticker || val <= 0) continue;
+    if (!ticker || val <= 0) return;
     if (!sectorMap[sector]) sectorMap[sector] = [];
     sectorMap[sector].push({ ticker, value: val });
-  }
+  });
 
   const totalValues = Object.values(sectorMap).flat().reduce((s, it) => s + it.value, 0);
-  if (totalValues === 0) return <div style={{ padding: 20 }}>No treemap data available.</div>;
+  if (totalValues === 0) 
+    return <div style={{ padding: 30, textAlign: "center" }}>No treemap data available.</div>;
 
   const labels = [];
   const parents = [];

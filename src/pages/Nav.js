@@ -137,7 +137,7 @@ export default function Nav({ user: propUser }) {
         </div>
       </nav>
 
-      {/* Spacer to prevent content overlap with fixed navbar */}
+      {/* Spacer */}
       <div style={{ height: 70 }} />
     </>
   );
@@ -148,8 +148,8 @@ const styles = {
     display: "flex",
     alignItems: "center",
     padding: "10px 20px",
-    background: "#f5f5f5",
-    color: "#222",
+    background: "#4A90E2", // Light professional blue
+    color: "#fff",
     position: "fixed",
     top: 0,
     left: 0,
@@ -166,7 +166,7 @@ const styles = {
   brandName: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#222",
+    color: "#fff",
     whiteSpace: "nowrap",
   },
   links: {
@@ -175,7 +175,7 @@ const styles = {
     gap: 15,
   },
   navLink: {
-    color: "#222",
+    color: "#fff",
     textDecoration: "none",
     padding: "8px 12px",
     fontSize: 15,
@@ -183,13 +183,13 @@ const styles = {
     transition: "background 0.3s ease",
   },
   activeLink: {
-    borderBottom: "2px solid #0070f3",
+    borderBottom: "2px solid #fff",
     fontWeight: "600",
   },
   userButton: {
     background: "transparent",
-    border: "1px solid #222",
-    color: "#222",
+    border: "1px solid #fff",
+    color: "#fff",
     padding: "6px 12px",
     borderRadius: 4,
     cursor: "pointer",
@@ -236,10 +236,10 @@ if (typeof window !== "undefined") {
       padding: 0;
     }
     a:hover {
-      background: rgba(0,112,243,0.1);
+      background: rgba(255,255,255,0.1);
     }
     button:hover {
-      background: rgba(0,0,0,0.05);
+      background: rgba(255,255,255,0.15);
     }
     div[role="button"]:hover {
       background: #f1f1f1;

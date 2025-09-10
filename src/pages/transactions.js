@@ -1,26 +1,23 @@
-// pages/transactions.js
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Nav from "./Nav";
 import { getSession, useSession, signIn } from "next-auth/react";
 import BulkTransactionUpload from "@/components/BulkTransactionUpload";
 
-// AG Grid (client-only)
+// ---- AG Grid imports ----
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
+import { ModuleRegistry, AllCommunityModules } from "ag-grid-community";
+
+// Register all AG Grid community modules
+ModuleRegistry.registerModules(AllCommunityModules);
+
 const AgGridReact = dynamic(
   () => import("ag-grid-react").then((m) => m.AgGridReact),
   { ssr: false }
 );
 
-export default function TransactionsPage({
-  user,
-  transactionsData,
-  stockPerformanceData,
-  realizedGainsTotal,
-  portfolioIrr,
-  error: initialError,
-}) {
+export default function TransactionsPage({ user, transactionsData, error: initialError }) {
   const { data: session, status } = useSession();
   const [type, setType] = useState("Buy");
   const [stock, setStock] = useState("");
@@ -183,12 +180,6 @@ export default function TransactionsPage({
     downloadCsv(headers, rows, "transactions.csv");
   }, [transactions]);
 
-  const handleDownloadPerformanceCSV = useCallback(() => {
-    const headers = ["Ticker", "Name", "Realized Gain/Loss", "IRR (%)"];
-    const rows = (stockPerformanceData || []).map((s) => [s.ticker, s.name, s.realizedGain, s.irr]);
-    downloadCsv(headers, rows, "performance_metrics.csv");
-  }, [stockPerformanceData]);
-
   const handleDownloadTemplate = useCallback(() => {
     const headers = ["date", "stock", "type", "quantity", "price"];
     const rows = [
@@ -241,16 +232,12 @@ export default function TransactionsPage({
             <div className="form-group"><input type="number" placeholder="Quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} required /></div>
             <div className="form-group"><input type="number" step="0.01" placeholder="Price" value={price} onChange={(e) => setPrice(e.target.value)} required /></div>
             <div className="form-group"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></div>
-            <button type="submit">Add Transaction</button>
+            <button type="submit" className="button blue">Add Transaction</button>
             {error && <div className="alert">{error}</div>}
           </form>
 
           <div style={{ marginTop: 12 }}>
             <BulkTransactionUpload onUploaded={fetchTransactions} hideManualAdd={true} />
-          </div>
-
-          <div style={{ marginTop: 12 }}>
-            <button onClick={handleDownloadTemplate} className="button blue">Download CSV Template</button>
           </div>
         </section>
 
@@ -260,11 +247,12 @@ export default function TransactionsPage({
             <p className="empty-msg">No transactions yet. Add some to get started.</p>
           ) : (
             <>
-              <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
-                <button onClick={handleDownloadTransactionsCSV}>Download Transactions CSV</button>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+                <button onClick={handleDownloadTransactionsCSV} className="button blue">Download Transactions CSV</button>
                 <button onClick={handleClearTransactions} className="button clear">Clear All Transactions</button>
-                <button onClick={handleDownloadPerformanceCSV} className="button blue">Download Performance CSV</button>
+                <button onClick={handleDownloadTemplate} className="button blue">Download CSV Template</button>
               </div>
+
               <div className="ag-theme-alpine" style={{ height: 520, width: "100%" }}>
                 <AgGridReact
                   ref={gridRef}
@@ -292,9 +280,9 @@ export default function TransactionsPage({
         .transaction-history { flex: 2; min-width: 500px; }
         .form-group { margin-bottom: 12px; }
         input, select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 14px; }
-        button { padding: 8px 12px; border-radius: 4px; cursor: pointer; background: #4caf50; color: #fff; border: none; }
-        .button.blue { background: #0070f3; }
-        .button.clear { background: #f44336; }
+        button { padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; border: none; }
+        .button.blue { background: #0070f3; color: #fff; }
+        .button.clear { background: #f44336; color: #fff; }
         .alert { color: #8b0000; background: #ffdddd; padding: 8px; border-radius: 4px; margin-top: 10px; font-size: 14px; }
         .empty-msg { font-style: italic; color: #666; margin: 10px 0; }
         footer { margin-top: 40px; padding: 20px; background: #f8f8f8; border-top: 1px solid #eee; font-size: 11px; color: #666; text-align: center; }
@@ -315,16 +303,16 @@ export async function getServerSideProps(context) {
   const backendUrl = `${backendBase}/api/transactions`;
 
   let data = {};
-  try { const res = await fetch(backendUrl, { headers: { Authorization: `Bearer ${token}` } }); data = await res.json().catch(() => ({})); } catch {}
+  try { 
+    const res = await fetch(backendUrl, { headers: { Authorization: `Bearer ${token}` } }); 
+    data = await res.json().catch(() => ({})); 
+  } catch {}
 
   const user = { id: data?.current_user?.id || session.user?.id || "guest", isAuthenticated: !!session };
   return {
     props: {
       user,
       transactionsData: data.transactions || [],
-      stockPerformanceData: data.stockPerformance || [],
-      realizedGainsTotal: data.realizedGainsTotal || 0,
-      portfolioIrr: data.portfolioIRR || 0,
       error: data?.error || "",
     },
   };

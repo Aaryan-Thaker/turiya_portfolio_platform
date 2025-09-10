@@ -1,14 +1,17 @@
-// components/tabs/SummaryTab.js
 import React, { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { AgGridReact } from "ag-grid-react";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
+
+// ---- AG Grid modules ----
+import { ModuleRegistry, AllCommunityModules } from 'ag-grid-community';
+ModuleRegistry.registerModules(AllCommunityModules);
+
 import { exportToCSV } from "../exportCSV";
 
 const StockPie = dynamic(() => import("../Charts").then(mod => mod.StockPie), { ssr: false });
 const SectorPie = dynamic(() => import("../Charts").then(mod => mod.SectorPie), { ssr: false });
-const GainBar = dynamic(() => import("../Charts").then(mod => mod.GainBar), { ssr: false });
 const TreemapChart = dynamic(() => import("../Charts").then(mod => mod.TreemapChart), { ssr: false });
 
 export default function SummaryTab({
@@ -19,25 +22,22 @@ export default function SummaryTab({
   totalGainPct,
   portfolioTableData,
 }) {
-  const [activeGraph, setActiveGraph] = useState("stockPie");
-
-  // format helpers
   const fmt = useMemo(() => ({
     currency: (num) => (typeof num === "number" ? num.toFixed(2) : "N/A"),
     quantity: (num) => (typeof num === "number" ? Math.round(num) : "N/A"),
     percent: (num) => (typeof num === "number" ? num.toFixed(2) + "%" : "N/A"),
   }), []);
 
-  // Top 5 gainers/losers daily
+  // --- Daily / All-time gainers & losers ---
   const dailySorted = [...(portfolioTableData || [])].sort((a, b) => b["Gain/Loss %"] - a["Gain/Loss %"]);
   const topDailyGainers = dailySorted.slice(0, 5);
   const topDailyLosers = dailySorted.slice(-5).reverse();
 
-  // Top 5 gainers/losers all-time (Unrealized Gains)
   const allTimeSorted = [...(portfolioTableData || [])].sort((a, b) => b["Unrealized Gains"] - a["Unrealized Gains"]);
   const topAllTimeGainers = allTimeSorted.slice(0, 5);
   const topAllTimeLosers = allTimeSorted.slice(-5).reverse();
 
+  // --- AG Grid column definitions ---
   const columnDefs = useMemo(() => [
     { headerName: "Ticker", field: "Ticker", sortable: true, filter: true },
     { headerName: "Name", field: "Name", sortable: true, filter: true },
@@ -49,7 +49,7 @@ export default function SummaryTab({
 
   return (
     <div>
-      {/* ---- Market Overview ---- */}
+      {/* Market Overview */}
       <div style={styles.section}>
         <h2>Market Overview</h2>
         <div style={styles.marketSummary}>
@@ -77,7 +77,7 @@ export default function SummaryTab({
         </div>
       </div>
 
-      {/* ---- Portfolio Summary ---- */}
+      {/* Portfolio Summary */}
       <div style={styles.section}>
         <h2>Portfolio Summary</h2>
         <div style={styles.portfolioSummary}>
@@ -91,16 +91,16 @@ export default function SummaryTab({
         </div>
       </div>
 
-      {/* ---- Export CSV ---- */}
+      {/* CSV Export */}
       {portfolioTableData?.length > 0 && (
         <div style={{ margin: "20px 0" }}>
           <button
             onClick={() =>
               exportToCSV(
                 "portfolio.csv",
-                ["Ticker", "Name", "Quantity", "Currency", "Avg Cost/Share",
-                  "CMP", "Current Value", "Total Cost", "Gain/Loss",
-                  "Gain/Loss %", "AllocationPercent", "Investment Date",
+                [
+                  "Ticker", "Name", "Quantity", "Currency", "Avg Cost/Share", "CMP", "Current Value",
+                  "Total Cost", "Gain/Loss", "Gain/Loss %", "AllocationPercent", "Investment Date",
                   "Exchange", "52w High", "52w Low", "Unrealized Gains", "Sector"
                 ],
                 portfolioTableData
@@ -113,7 +113,7 @@ export default function SummaryTab({
         </div>
       )}
 
-      {/* ---- Gainers / Losers ---- */}
+      {/* Top Daily Gainers/Losers */}
       <div style={styles.section}>
         <h2>Top 5 Daily Gainers / Losers</h2>
         <div className="ag-theme-alpine" style={{ height: 200, marginBottom: 20 }}>
@@ -124,6 +124,7 @@ export default function SummaryTab({
         </div>
       </div>
 
+      {/* Top All-Time Gainers/Losers */}
       <div style={styles.section}>
         <h2>Top 5 All-Time Gainers / Losers</h2>
         <div className="ag-theme-alpine" style={{ height: 200, marginBottom: 20 }}>
@@ -134,84 +135,37 @@ export default function SummaryTab({
         </div>
       </div>
 
-      {/* ---- Charts ---- */}
+      {/* Charts: all side by side */}
       <div style={styles.section}>
         <h2>Portfolio Charts</h2>
-        <div style={{ marginBottom: 20 }}>
-          {[
-            { key: "stockPie", label: "Stock Pie" },
-            { key: "sectorPie", label: "Sector Pie" },
-            { key: "gainBar", label: "Gain/Loss Bar" },
-            { key: "treemap", label: "Treemap" },
-          ].map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setActiveGraph(key)}
-              style={{
-                marginRight: 10,
-                padding: "6px 12px",
-                background: activeGraph === key ? "#0b7dda" : "#2196F3",
-                color: "#fff",
-                border: "none",
-                borderRadius: 4,
-              }}
-            >
-              {label}
-            </button>
-          ))}
+        <div style={styles.chartsGrid}>
+          <StockPie data={portfolioTableData} />
+          <SectorPie data={portfolioTableData} />
+          <TreemapChart data={portfolioTableData} />
         </div>
-        {activeGraph === "stockPie" && <StockPie data={portfolioTableData} />}
-        {activeGraph === "sectorPie" && <SectorPie data={portfolioTableData} />}
-        {activeGraph === "gainBar" && <GainBar data={portfolioTableData} />}
-        {activeGraph === "treemap" && <TreemapChart data={portfolioTableData} />}
       </div>
     </div>
   );
 }
 
-// ---- SummaryItem component ----
+// SummaryItem
 function SummaryItem({ label, value, positive }) {
   return (
     <div style={{ textAlign: "center", flex: 1 }}>
       <div>{label}</div>
-      <div
-        style={{
-          fontWeight: "bold",
-          fontSize: 18,
-          color: positive ? "#006400" : positive === false ? "#8B0000" : "inherit",
-        }}
-      >
+      <div style={{ fontWeight: "bold", fontSize: 18, color: positive ? "#006400" : positive === false ? "#8B0000" : "inherit" }}>
         {value}
       </div>
     </div>
   );
 }
 
-// ---- Styles ----
+// Styles
 const styles = {
   section: { marginBottom: 40 },
-  marketSummary: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: 15,
-    background: "#f8f8f8",
-    borderRadius: 5,
-  },
+  marketSummary: { display: "flex", justifyContent: "space-between", padding: 15, background: "#f8f8f8", borderRadius: 5 },
   marketIndicator: { textAlign: "center", padding: "0 15px" },
-  portfolioSummary: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: 15,
-    background: "#f8f8f8",
-    borderRadius: 5,
-    fontSize: 15,
-  },
-  csvBtn: {
-    padding: "6px 12px",
-    background: "#4CAF50",
-    color: "white",
-    border: "none",
-    borderRadius: 4,
-    cursor: "pointer",
-  },
+  portfolioSummary: { display: "flex", justifyContent: "space-between", padding: 15, background: "#f8f8f8", borderRadius: 5, fontSize: 15 },
+  chartsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20 },
+  csvBtn: { padding: "6px 12px", background: "#4CAF50", color: "white", border: "none", borderRadius: 4, cursor: "pointer" },
 };

@@ -1,21 +1,24 @@
-// components/tabs/CapitalGainsTab.js
 import React, { useMemo } from "react";
 import { AgGridReact } from "ag-grid-react";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
+
+// ---- AG Grid modules ----
+import { ModuleRegistry, AllCommunityModules } from 'ag-grid-community';
+ModuleRegistry.registerModules(AllCommunityModules);
+
 import { exportToCSV } from "../exportCSV";
 
 export default function CapitalGainsTab({ portfolioTableData }) {
-  // --- Format helpers ---
   const fmt = useMemo(() => ({
     currency: (num) => (typeof num === "number" ? num.toFixed(2) : "N/A"),
     quantity: (num) => (typeof num === "number" ? Math.round(num) : "N/A"),
     percent: (num) => (typeof num === "number" ? num.toFixed(2) + "%" : "N/A"),
   }), []);
 
-  // --- AG Grid columns ---
+  // --- Columns for AG Grid ---
   const columnDefs = useMemo(() => [
-    { headerName: "Ticker", field: "Ticker", sortable: true, filter: true, resizable: true, width: 100 },
+    { headerName: "Ticker", field: "Ticker", sortable: true, filter: true, resizable: true },
     { headerName: "Name", field: "Name", sortable: true, filter: true, resizable: true, flex: 1 },
     { headerName: "Quantity", field: "Quantity", valueFormatter: p => fmt.quantity(p.value), resizable: true, width: 120 },
     { headerName: "Avg Cost/Share", field: "Avg Cost/Share", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
@@ -23,6 +26,7 @@ export default function CapitalGainsTab({ portfolioTableData }) {
     { headerName: "Current Value", field: "Current Value", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
     { headerName: "Unrealized P&L", field: "Gain/Loss", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
     { headerName: "Unrealized P&L %", field: "Gain/Loss %", valueFormatter: p => fmt.percent(p.value), resizable: true, width: 130 },
+    { headerName: "Realized Gains", field: "Realized Gains", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
     { headerName: "Sector", field: "Sector", sortable: true, filter: true, resizable: true, width: 120 },
   ], [fmt]);
 
@@ -34,6 +38,11 @@ export default function CapitalGainsTab({ portfolioTableData }) {
     }, 0);
   }
 
+  const totalUnrealized = sumField(portfolioTableData, "Gain/Loss");
+  const totalRealized = sumField(portfolioTableData, "Realized Gains");
+  const totalCurrentValue = sumField(portfolioTableData, "Current Value");
+  const totalCost = sumField(portfolioTableData, "Total Cost");
+
   return (
     <div style={{ padding: "20px" }}>
       <h2 style={{ marginBottom: 15 }}>Capital Gains</h2>
@@ -43,9 +52,10 @@ export default function CapitalGainsTab({ portfolioTableData }) {
           {/* Metrics Box */}
           <div style={styles.metricsBox}>
             <h3 style={{ marginBottom: 10 }}>Performance Metrics</h3>
-            <p>Total Unrealized P&L: <b>{fmt.currency(sumField(portfolioTableData, "Gain/Loss"))}</b></p>
-            <p>Total Current Value: <b>{fmt.currency(sumField(portfolioTableData, "Current Value"))}</b></p>
-            <p>Total Investment Cost: <b>{fmt.currency(sumField(portfolioTableData, "Total Cost"))}</b></p>
+            <p>Total Unrealized P&L: <b>{fmt.currency(totalUnrealized)}</b></p>
+            <p>Total Realized Gains: <b>{fmt.currency(totalRealized)}</b></p>
+            <p>Total Current Value: <b>{fmt.currency(totalCurrentValue)}</b></p>
+            <p>Total Investment Cost: <b>{fmt.currency(totalCost)}</b></p>
           </div>
 
           {/* AG Grid Table */}
@@ -60,7 +70,7 @@ export default function CapitalGainsTab({ portfolioTableData }) {
             />
           </div>
 
-          {/* CSV Button */}
+          {/* CSV Download */}
           <div style={{ textAlign: "center", marginBottom: 30 }}>
             <button
               onClick={() =>
