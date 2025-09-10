@@ -4,13 +4,14 @@ import Nav from "./Nav";
 import { getSession, useSession, signIn } from "next-auth/react";
 import BulkTransactionUpload from "@/components/BulkTransactionUpload";
 
-// ---- AG Grid imports ----
+// AG Grid (client-only)
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
-import { ModuleRegistry, AllCommunityModules } from "ag-grid-community";
+import { ModuleRegistry } from "ag-grid-community";
+import { ClientSideRowModelModule } from "ag-grid-community";
 
-// Register all AG Grid community modules
-ModuleRegistry.registerModules(AllCommunityModules);
+// Register AG Grid modules
+ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
 const AgGridReact = dynamic(
   () => import("ag-grid-react").then((m) => m.AgGridReact),

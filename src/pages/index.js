@@ -8,6 +8,13 @@ import SummaryTab from "../components/tabs/SummaryTab";
 import PortfolioOverviewTab from "../components/tabs/PortfolioOverviewTab";
 import CapitalGainsTab from "../components/tabs/CapitalGainsTab";
 
+// AG Grid setup for child tabs
+import { ModuleRegistry } from "ag-grid-community";
+import { ClientSideRowModelModule } from "ag-grid-community";
+
+// Register AG Grid modules
+ModuleRegistry.registerModules([ClientSideRowModelModule]);
+
 export default function PortfolioPage({
   currentUser,
   marketData,

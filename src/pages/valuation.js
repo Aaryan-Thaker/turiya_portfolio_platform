@@ -3,12 +3,15 @@ import React, { useMemo, useRef, useCallback } from "react";
 import Nav from "./Nav";
 import { getSession } from "next-auth/react";
 import { AgGridReact } from "ag-grid-react";
+import { ModuleRegistry } from "ag-grid-community";
+import { ClientSideRowModelModule } from "ag-grid-community";
+
+// AG Grid styles
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-// ---- AG Grid modules ----
-import { ModuleRegistry, AllCommunityModules } from 'ag-grid-community';
-ModuleRegistry.registerModules(AllCommunityModules);
+// Register required AG Grid modules
+ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
 export default function ValuationPage({ currentUser, tickers = [], valuationData = {}, error }) {
   const gridRef = useRef();
