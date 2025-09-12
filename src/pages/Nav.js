@@ -26,30 +26,47 @@ export default function Nav({ user: propUser }) {
         const res = await fetch("/api/risk/profile", {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
+
         if (res.ok) {
           const data = await res.json();
-          setRiskProfile(data?.profile?.score || data?.profile || null);
+          setRiskProfile(
+            data?.profile?.score ??
+              data?.profile ??
+              null
+          );
+        } else {
+          setRiskProfile(null);
         }
       } catch (err) {
         console.error("Failed to fetch risk profile", err);
+        setRiskProfile(null);
       }
     }
+
     if (isLoggedIn) fetchRisk();
   }, [isLoggedIn, session]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target)
+      ) {
         setMenuOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   async function handleLogout() {
-    await signOut({ callbackUrl: "/auth/signin" });
+    try {
+      await signOut({ callbackUrl: "/auth/signin" });
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
   }
 
   const navLinks = [
@@ -82,7 +99,9 @@ export default function Nav({ user: propUser }) {
               href={link.href}
               style={{
                 ...styles.navLink,
-                ...(router.pathname === link.href ? styles.activeLink : {}),
+                ...(router.pathname === link.href
+                  ? styles.activeLink
+                  : {}),
               }}
             >
               {link.label}
@@ -91,13 +110,17 @@ export default function Nav({ user: propUser }) {
         </div>
 
         {/* Right-aligned user dropdown */}
-        <div style={{ marginLeft: "auto", position: "relative" }} ref={dropdownRef}>
+        <div
+          style={{ marginLeft: "auto", position: "relative" }}
+          ref={dropdownRef}
+        >
           {isLoggedIn ? (
             <button
               onClick={() => setMenuOpen(!menuOpen)}
               style={styles.userButton}
             >
-              {user?.email || user?.id || "me"} <span style={{ marginLeft: 5 }}>▼</span>
+              {user?.email || user?.id || "Account"}{" "}
+              <span style={{ marginLeft: 5 }}>▼</span>
             </button>
           ) : (
             <Link href="/auth/signin" style={styles.navLink}>
@@ -228,9 +251,10 @@ const styles = {
   },
 };
 
-// Hover & body reset
-if (typeof window !== "undefined") {
+// Inject styles once (prevent duplicates on hot reload)
+if (typeof window !== "undefined" && !document.getElementById("nav-global-styles")) {
   const styleTag = document.createElement("style");
+  styleTag.id = "nav-global-styles";
   styleTag.innerHTML = `
     body, html { margin: 0; padding: 0; }
     a:hover { background: rgba(255,255,255,0.1); }

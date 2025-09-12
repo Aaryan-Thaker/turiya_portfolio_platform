@@ -1,18 +1,19 @@
 // pages/valuation.js
-import React, { useMemo, useRef, useCallback } from "react";
+import React from "react";
 import Nav from "./Nav";
 import { getSession } from "next-auth/react";
-import { AgGridReact } from "ag-grid-react";
 import { ModuleRegistry } from "ag-grid-community";
-import { ClientSideRowModelModule } from "ag-grid-community";
+import { ClientSideRowModelModule } from "ag-grid-community"; 
+// use ag-grid-enterprise for ValidationModule if needed
 
-// AG Grid styles
+// Register modules
+ModuleRegistry.registerModules([ClientSideRowModelModule]);
+
+// Import styles
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
 // Register required AG Grid modules
-ModuleRegistry.registerModules([ClientSideRowModelModule]);
-
 export default function ValuationPage({ currentUser, tickers = [], valuationData = {}, error }) {
   const gridRef = useRef();
 

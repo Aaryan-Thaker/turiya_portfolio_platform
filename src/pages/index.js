@@ -8,7 +8,11 @@ import SummaryTab from "../components/tabs/SummaryTab";
 import PortfolioOverviewTab from "../components/tabs/PortfolioOverviewTab";
 import CapitalGainsTab from "../components/tabs/CapitalGainsTab";
 
-// AG Grid setup for child tabs
+// ✅ AG Grid styles
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-alpine.css";
+
+// ✅ AG Grid modules
 import { ModuleRegistry } from "ag-grid-community";
 import { ClientSideRowModelModule } from "ag-grid-community";
 
