@@ -1,12 +1,21 @@
+// components/tabs/PortfolioOverviewTab.js
 import React, { useMemo } from "react";
-import { AgGridReact } from "ag-grid-react";
+import dynamic from "next/dynamic";
 import { ModuleRegistry } from "ag-grid-community";
 import { ClientSideRowModelModule } from "ag-grid-community";
 
+// AG Grid styles
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
+// Register AG Grid modules
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
+
+// SSR-safe import of AgGridReact
+const AgGridReact = dynamic(
+  () => import("ag-grid-react").then((mod) => mod.AgGridReact),
+  { ssr: false }
+);
 
 import { exportToCSV } from "../exportCSV";
 
@@ -88,7 +97,13 @@ export default function PortfolioOverviewTab({ overviewTabData }) {
 
           <div style={{ textAlign: "center", marginBottom: 30 }}>
             <button
-              onClick={() => exportToCSV("portfolio_full.csv", columnDefs.map((col) => col.field), portfolioTableData)}
+              onClick={() =>
+                exportToCSV(
+                  "portfolio_full.csv",
+                  columnDefs.map((col) => col.field),
+                  portfolioTableData
+                )
+              }
               style={styles.csvBtn}
             >
               Download Full Portfolio CSV

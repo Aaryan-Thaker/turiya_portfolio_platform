@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Nav from "./Nav";
 import { getSession, useSession, signIn } from "next-auth/react";
@@ -21,7 +15,7 @@ import { ClientSideRowModelModule } from "ag-grid-community";
 // Register AG Grid modules
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
-
+// SSR-safe AG Grid
 const AgGridReact = dynamic(
   () => import("ag-grid-react").then((m) => m.AgGridReact),
   { ssr: false }
@@ -41,7 +35,7 @@ export default function TransactionsPage({ user, transactionsData, error: initia
 
   const getClientToken = () => session?.accessToken || "";
 
-  // ---- Validate ticker exists
+  // Validate ticker
   async function validateTicker(ticker) {
     if (!ticker) return false;
     try {
@@ -57,7 +51,7 @@ export default function TransactionsPage({ user, transactionsData, error: initia
     }
   }
 
-  // ---- Manual Add Transaction
+  // Add transaction
   async function handleAddTransaction(e) {
     e.preventDefault();
     setError("");
@@ -115,7 +109,7 @@ export default function TransactionsPage({ user, transactionsData, error: initia
     }
   }
 
-  // ---- Fetch Transactions
+  // Fetch transactions
   async function fetchTransactions() {
     if (status === "loading") return;
     if (status === "unauthenticated") {
@@ -143,7 +137,7 @@ export default function TransactionsPage({ user, transactionsData, error: initia
     }
   }
 
-  // ---- Clear Transactions
+  // Clear transactions
   async function handleClearTransactions() {
     if (!confirm("Are you sure you want to clear all transactions?")) return;
     try {
@@ -166,14 +160,14 @@ export default function TransactionsPage({ user, transactionsData, error: initia
 
   useEffect(() => { fetchTransactions(); }, []);
 
-  // ---- Format helpers
+  // Format helpers
   const formatCurrency = (value) => {
     if (value == null || value === "N/A") return "N/A";
     const n = Number(value);
     return Number.isFinite(n) ? "$" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A";
   };
 
-  // ---- CSV download helpers
+  // CSV helpers
   const downloadCsv = (headers, rows, filename) => {
     const escape = (v) => (v == null ? "" : `"${String(v).replace(/"/g, '""')}"`);
     const csv = [headers.join(","), ...rows.map((r) => r.map(escape).join(","))].join("\n");
@@ -199,7 +193,7 @@ export default function TransactionsPage({ user, transactionsData, error: initia
     downloadCsv(headers, rows, "transactions_template.csv");
   }, []);
 
-  // ---- AG Grid columns
+  // AG Grid columns
   const transactionColumnDefs = useMemo(() => [
     { headerName: "Date", field: "date", sortable: true, filter: "agDateColumnFilter", resizable: true, width: 140 },
     { headerName: "Ticker", field: "stock", sortable: true, filter: true, resizable: true, width: 120 },

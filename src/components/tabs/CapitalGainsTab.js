@@ -1,12 +1,21 @@
+// components/tabs/CapitalGainsTab.js
 import React, { useMemo } from "react";
-import { AgGridReact } from "ag-grid-react";
+import dynamic from "next/dynamic";
 import { ModuleRegistry } from "ag-grid-community";
 import { ClientSideRowModelModule } from "ag-grid-community";
 
+// AG Grid styles
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
+// Register AG Grid modules
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
+
+// SSR-safe import of AgGridReact
+const AgGridReact = dynamic(
+  () => import("ag-grid-react").then((mod) => mod.AgGridReact),
+  { ssr: false }
+);
 
 import { exportToCSV } from "../exportCSV";
 
@@ -37,13 +46,13 @@ export default function CapitalGainsTab({ capitalGainsData }) {
   const columnDefs = useMemo(() => [
     { headerName: "Ticker", field: "Ticker", sortable: true, filter: true, resizable: true },
     { headerName: "Name", field: "Name", sortable: true, filter: true, resizable: true, flex: 1 },
-    { headerName: "Quantity", field: "Quantity", valueFormatter: p => fmt.quantity(p.value), resizable: true, width: 120 },
-    { headerName: "Avg Cost/Share", field: "Avg Cost/Share", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
-    { headerName: "Total Cost", field: "Total Cost", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
-    { headerName: "Current Value", field: "Current Value", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
-    { headerName: "Unrealized P&L", field: "Gain/Loss", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
-    { headerName: "Unrealized P&L %", field: "Gain/Loss %", valueFormatter: p => fmt.percent(p.value), resizable: true, width: 130 },
-    { headerName: "Realized Gains", field: "Realized Gains", valueFormatter: p => fmt.currency(p.value), resizable: true, width: 130 },
+    { headerName: "Quantity", field: "Quantity", valueFormatter: (p) => fmt.quantity(p.value), resizable: true, width: 120 },
+    { headerName: "Avg Cost/Share", field: "Avg Cost/Share", valueFormatter: (p) => fmt.currency(p.value), resizable: true, width: 130 },
+    { headerName: "Total Cost", field: "Total Cost", valueFormatter: (p) => fmt.currency(p.value), resizable: true, width: 130 },
+    { headerName: "Current Value", field: "Current Value", valueFormatter: (p) => fmt.currency(p.value), resizable: true, width: 130 },
+    { headerName: "Unrealized P&L", field: "Gain/Loss", valueFormatter: (p) => fmt.currency(p.value), resizable: true, width: 130 },
+    { headerName: "Unrealized P&L %", field: "Gain/Loss %", valueFormatter: (p) => fmt.percent(p.value), resizable: true, width: 130 },
+    { headerName: "Realized Gains", field: "Realized Gains", valueFormatter: (p) => fmt.currency(p.value), resizable: true, width: 130 },
     { headerName: "Sector", field: "Sector", sortable: true, filter: true, resizable: true, width: 120 },
   ], [fmt]);
 
@@ -89,7 +98,7 @@ export default function CapitalGainsTab({ capitalGainsData }) {
               onClick={() =>
                 exportToCSV(
                   "capital_gains.csv",
-                  columnDefs.map(col => col.field),
+                  columnDefs.map((col) => col.field),
                   portfolioTableData
                 )
               }

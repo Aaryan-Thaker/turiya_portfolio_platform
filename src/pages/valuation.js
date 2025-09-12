@@ -1,10 +1,10 @@
 // pages/valuation.js
-import React from "react";
+import React, { useMemo, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Nav from "./Nav";
 import { getSession } from "next-auth/react";
 import { ModuleRegistry } from "ag-grid-community";
-import { ClientSideRowModelModule } from "ag-grid-community"; 
-// use ag-grid-enterprise for ValidationModule if needed
+import { ClientSideRowModelModule } from "ag-grid-community";
 
 // Register modules
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
@@ -13,7 +13,12 @@ ModuleRegistry.registerModules([ClientSideRowModelModule]);
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-// Register required AG Grid modules
+// ✅ Dynamically import AgGridReact to avoid SSR crash
+const AgGridReact = dynamic(
+  () => import("ag-grid-react").then((mod) => mod.AgGridReact),
+  { ssr: false }
+);
+
 export default function ValuationPage({ currentUser, tickers = [], valuationData = {}, error }) {
   const gridRef = useRef();
 
@@ -28,7 +33,9 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
       else if (absVal >= 1e6) formatted = (value / 1e6).toFixed(2) + "M";
       else if (absVal >= 1e3) formatted = (value / 1e3).toFixed(2) + "K";
       else formatted = value.toFixed(2);
-      return `${new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number(String(formatted).replace(/[TMBK]$/, "")))}${formatted.match(/[TMBK]/)?.[0] ?? ""}`;
+      return `${new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
+        Number(String(formatted).replace(/[TMBK]$/, ""))
+      )}${formatted.match(/[TMBK]/)?.[0] ?? ""}`;
     },
     currency: (value, currency = "USD") =>
       value == null || value === "N/A" || isNaN(value)
@@ -36,7 +43,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
         : new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value),
     percent: (value) => {
       if (value == null || value === "N/A" || isNaN(value)) return "N/A";
-      const v = (Math.abs(value) > 1 && Math.abs(value) <= 100) ? value / 100 : value;
+      const v = Math.abs(value) > 1 && Math.abs(value) <= 100 ? value / 100 : value;
       return (v * 100).toFixed(2) + "%";
     },
     ratio: (value) =>
@@ -45,30 +52,30 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
 
   // ---- Column definitions ----
   const columnDefs = useMemo(() => [
-  { headerName: "Stock", field: "stock", pinned: "left", sortable: true, filter: true, flex: 2, minWidth: 150 },
-  { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120 },
-  { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140 },
-  { headerName: "Alloc %", field: "alloc", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120 },
-  { headerName: "52w High", field: "high52", sortable: true, flex: 1, minWidth: 120 },
-  { headerName: "52w Low", field: "low52", sortable: true, flex: 1, minWidth: 120 },
-  { headerName: "Mkt Cap", field: "mktCap", sortable: true, flex: 1, minWidth: 140 },
-  { headerName: "P/E (TTM)", field: "peTTM", sortable: true, flex: 1, minWidth: 100 },
-  { headerName: "P/E (Fwd)", field: "peFwd", sortable: true, flex: 1, minWidth: 100 },
-  { headerName: "PEG", field: "peg", sortable: true, flex: 1, minWidth: 100 },
-  { headerName: "P/S", field: "ps", sortable: true, flex: 1, minWidth: 100 },
-  { headerName: "P/B", field: "pb", sortable: true, flex: 1, minWidth: 100 },
-  { headerName: "EV/Rev", field: "evRev", sortable: true, flex: 1, minWidth: 100 },
-  { headerName: "EV/EBITDA", field: "evEbitda", sortable: true, flex: 1, minWidth: 120 },
-  { headerName: "Profit Margin", field: "margin", sortable: true, flex: 1, minWidth: 120 },
-  { headerName: "ROA", field: "roa", sortable: true, flex: 1, minWidth: 100 },
-  { headerName: "ROE", field: "roe", sortable: true, flex: 1, minWidth: 100 },
-  { headerName: "Revenue", field: "revenue", sortable: true, flex: 1, minWidth: 140 },
-  { headerName: "Net Income", field: "netIncome", sortable: true, flex: 1, minWidth: 140 },
-  { headerName: "EPS", field: "eps", sortable: true, flex: 1, minWidth: 100 },
-  { headerName: "Cash", field: "cash", sortable: true, flex: 1, minWidth: 140 },
-  { headerName: "Debt/Eq", field: "debtEq", sortable: true, flex: 1, minWidth: 100 },
-  { headerName: "FCF", field: "fcf", sortable: true, flex: 1, minWidth: 140 },
-], []);
+    { headerName: "Stock", field: "stock", pinned: "left", sortable: true, filter: true, flex: 2, minWidth: 150 },
+    { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120 },
+    { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140 },
+    { headerName: "Alloc %", field: "alloc", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120 },
+    { headerName: "52w High", field: "high52", sortable: true, flex: 1, minWidth: 120 },
+    { headerName: "52w Low", field: "low52", sortable: true, flex: 1, minWidth: 120 },
+    { headerName: "Mkt Cap", field: "mktCap", sortable: true, flex: 1, minWidth: 140 },
+    { headerName: "P/E (TTM)", field: "peTTM", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "P/E (Fwd)", field: "peFwd", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "PEG", field: "peg", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "P/S", field: "ps", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "P/B", field: "pb", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "EV/Rev", field: "evRev", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "EV/EBITDA", field: "evEbitda", sortable: true, flex: 1, minWidth: 120 },
+    { headerName: "Profit Margin", field: "margin", sortable: true, flex: 1, minWidth: 120 },
+    { headerName: "ROA", field: "roa", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "ROE", field: "roe", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "Revenue", field: "revenue", sortable: true, flex: 1, minWidth: 140 },
+    { headerName: "Net Income", field: "netIncome", sortable: true, flex: 1, minWidth: 140 },
+    { headerName: "EPS", field: "eps", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "Cash", field: "cash", sortable: true, flex: 1, minWidth: 140 },
+    { headerName: "Debt/Eq", field: "debtEq", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "FCF", field: "fcf", sortable: true, flex: 1, minWidth: 140 },
+  ], []);
 
   // ---- Row data ----
   const rowData = useMemo(() =>

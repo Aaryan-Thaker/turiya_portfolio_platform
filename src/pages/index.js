@@ -3,38 +3,38 @@ import React, { useState } from "react";
 import Nav from "./Nav";
 import { getSession } from "next-auth/react";
 
-// Import tab components
+// Tab components
 import SummaryTab from "../components/tabs/SummaryTab";
 import PortfolioOverviewTab from "../components/tabs/PortfolioOverviewTab";
 import CapitalGainsTab from "../components/tabs/CapitalGainsTab";
 
-// ✅ AG Grid styles
+// ✅ AG Grid styles (available for all tabs)
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-// ✅ AG Grid modules
+// ✅ AG Grid modules (registered globally once)
 import { ModuleRegistry } from "ag-grid-community";
 import { ClientSideRowModelModule } from "ag-grid-community";
-
-// Register AG Grid modules
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
-export default function PortfolioPage({
-  currentUser,
-  marketData,
-  totalValue,
-  totalCost,
-  totalGain,
-  totalGainPct,
-  overviewTabData,
-  summaryTabData,
-  top5GainersDaily,
-  top5LosersDaily,
-  portfolioXIRR,
-  latestRiskAssessment,
-  capitalGainsData,
-  errorMessage,
-}) {
+export default function PortfolioPage(props) {
+  const {
+    currentUser,
+    marketData,
+    totalValue,
+    totalCost,
+    totalGain,
+    totalGainPct,
+    overviewTabData,
+    summaryTabData,
+    top5GainersDaily,
+    top5LosersDaily,
+    portfolioXIRR,
+    latestRiskAssessment,
+    capitalGainsData,
+    errorMessage,
+  } = props;
+
   const [activeTab, setActiveTab] = useState("summary");
 
   if (errorMessage) {
@@ -79,7 +79,15 @@ export default function PortfolioPage({
   };
 
   return (
-    <div style={{ fontFamily: "Arial, sans-serif", maxWidth: 1400, margin: "0 auto", padding: 20, fontSize: 14 }}>
+    <div
+      style={{
+        fontFamily: "Arial, sans-serif",
+        maxWidth: 1400,
+        margin: "0 auto",
+        padding: 20,
+        fontSize: 14,
+      }}
+    >
       <Nav user={currentUser} />
 
       {/* Tabs */}
@@ -144,27 +152,25 @@ export async function getServerSideProps(context) {
   const host = context.req.headers.host;
   const backendBase = process.env.BACKEND_URL || `${protocol}://${host}`;
 
-  // ---- Portfolio API ----
+  // Portfolio API
   const portfolioUrl = `${backendBase}/api/portfolio`;
   let portfolioData = {};
   try {
-    const res = await fetch(portfolioUrl, { method: "GET", headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(portfolioUrl, { headers: { Authorization: `Bearer ${token}` } });
     if (res.status === 401) return { props: { currentUser: null } };
     portfolioData = await res.json();
   } catch (err) {
     console.error("Error fetching portfolio:", err);
-    portfolioData = {};
   }
 
-  // ---- Capital Gains API ----
+  // Capital Gains API
   const capitalGainsUrl = `${backendBase}/api/capital_gains`;
   let capitalGainsData = {};
   try {
-    const res = await fetch(capitalGainsUrl, { method: "GET", headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(capitalGainsUrl, { headers: { Authorization: `Bearer ${token}` } });
     capitalGainsData = await res.json();
   } catch (err) {
     console.error("Error fetching capital gains:", err);
-    capitalGainsData = {};
   }
 
   const currentUser = {
