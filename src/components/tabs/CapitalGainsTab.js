@@ -17,20 +17,21 @@ const AgGridReact = dynamic(
 import { exportToCSV } from "../exportCSV";
 
 export default function CapitalGainsTab({ currentUser, capitalGainsData }) {
-  // Transform perStock object into an array
+  // Transform perStock object into an array safely
   const portfolioTableData = useMemo(() => {
-    if (!capitalGainsData?.perStock) return [];
+    if (!capitalGainsData || typeof capitalGainsData.perStock !== "object") return [];
+
     return Object.entries(capitalGainsData.perStock).map(([ticker, data]) => ({
       Ticker: ticker,
-      Name: data.Name || ticker,
-      Quantity: data.Quantity || 0,
-      "Avg Cost/Share": data.AvgCost || 0,
-      "Total Cost": data.TotalCost || 0,
-      "Current Value": data.CurrentValue || 0,
-      "Gain/Loss": data.UnrealizedGain || 0,
-      "Gain/Loss %": data.UnrealizedGainPct || 0,
-      "Realized Gains": data.RealizedGain || 0,
-      Sector: data.Sector || "N/A",
+      Name: data?.Name || ticker,
+      Quantity: typeof data?.Quantity === "number" ? data.Quantity : 0,
+      "Avg Cost/Share": typeof data?.AvgCost === "number" ? data.AvgCost : 0,
+      "Total Cost": typeof data?.TotalCost === "number" ? data.TotalCost : 0,
+      "Current Value": typeof data?.CurrentValue === "number" ? data.CurrentValue : 0,
+      "Gain/Loss": typeof data?.UnrealizedGain === "number" ? data.UnrealizedGain : 0,
+      "Gain/Loss %": typeof data?.UnrealizedGainPct === "number" ? data.UnrealizedGainPct : 0,
+      "Realized Gains": typeof data?.RealizedGain === "number" ? data.RealizedGain : 0,
+      Sector: data?.Sector || "N/A",
     }));
   }, [capitalGainsData]);
 
@@ -69,7 +70,7 @@ export default function CapitalGainsTab({ currentUser, capitalGainsData }) {
     <div style={{ padding: "20px" }}>
       <h2 style={{ marginBottom: 15 }}>Capital Gains</h2>
 
-      {portfolioTableData?.length > 0 ? (
+      {portfolioTableData.length > 0 ? (
         <>
           <div style={styles.metricsBox}>
             <h3 style={{ marginBottom: 10 }}>Performance Metrics</h3>

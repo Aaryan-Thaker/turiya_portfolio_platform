@@ -29,17 +29,18 @@ export default function Nav({ user: propUser }) {
 
         if (res.ok) {
           const data = await res.json();
-          // Prefer total_score if available, fallback to profile.score, else null
-          const score =
-            data?.total_score ??
-            data?.profile?.score ??
-            data?.profile ??
-            null;
 
-          // If score is object, extract something meaningful or stringify
-          setRiskProfile(
-            typeof score === "object" ? JSON.stringify(score) : score
-          );
+          // Extract a meaningful value for display
+          let score = null;
+          if (data?.profile?.riskProfile) {
+            score = data.profile.riskProfile; // human-readable
+          } else if (data?.profile?.totalScore) {
+            score = data.profile.totalScore; // numeric fallback
+          } else if (data?.total_score) {
+            score = data.total_score; // top-level numeric
+          }
+
+          setRiskProfile(score ?? "N/A");
         } else {
           setRiskProfile(null);
         }
@@ -55,16 +56,12 @@ export default function Nav({ user: propUser }) {
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setMenuOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () =>
-      document.removeEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   async function handleLogout() {
@@ -105,9 +102,7 @@ export default function Nav({ user: propUser }) {
               href={link.href}
               style={{
                 ...styles.navLink,
-                ...(router.pathname === link.href
-                  ? styles.activeLink
-                  : {}),
+                ...(router.pathname === link.href ? styles.activeLink : {}),
               }}
             >
               {link.label}
@@ -116,17 +111,10 @@ export default function Nav({ user: propUser }) {
         </div>
 
         {/* Right-aligned user dropdown */}
-        <div
-          style={{ marginLeft: "auto", position: "relative" }}
-          ref={dropdownRef}
-        >
+        <div style={{ marginLeft: "auto", position: "relative" }} ref={dropdownRef}>
           {isLoggedIn ? (
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              style={styles.userButton}
-            >
-              {user?.email || user?.id || "Account"}{" "}
-              <span style={{ marginLeft: 5 }}>▼</span>
+            <button onClick={() => setMenuOpen(!menuOpen)} style={styles.userButton}>
+              {user?.email || user?.id || "Account"} <span style={{ marginLeft: 5 }}>▼</span>
             </button>
           ) : (
             <Link href="/auth/signin" style={styles.navLink}>
@@ -188,22 +176,9 @@ const styles = {
     height: 60,
     boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
   },
-  brand: {
-    display: "flex",
-    alignItems: "center",
-    marginRight: 30,
-  },
-  brandName: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#fff",
-    whiteSpace: "nowrap",
-  },
-  links: {
-    display: "flex",
-    alignItems: "center",
-    gap: 15,
-  },
+  brand: { display: "flex", alignItems: "center", marginRight: 30 },
+  brandName: { fontSize: 20, fontWeight: "bold", color: "#fff", whiteSpace: "nowrap" },
+  links: { display: "flex", alignItems: "center", gap: 15 },
   navLink: {
     color: "#fff",
     textDecoration: "none",
@@ -212,10 +187,7 @@ const styles = {
     borderRadius: 4,
     transition: "background 0.3s ease",
   },
-  activeLink: {
-    borderBottom: "2px solid #fff",
-    fontWeight: "600",
-  },
+  activeLink: { borderBottom: "2px solid #fff", fontWeight: "600" },
   userButton: {
     background: "transparent",
     border: "1px solid #fff",
@@ -257,7 +229,7 @@ const styles = {
   },
 };
 
-// Inject styles once (prevent duplicates on hot reload)
+// Inject global hover styles once
 if (typeof window !== "undefined" && !document.getElementById("nav-global-styles")) {
   const styleTag = document.createElement("style");
   styleTag.id = "nav-global-styles";
