@@ -5,26 +5,22 @@ import Nav from "./Nav";
 import { getSession } from "next-auth/react";
 import { ModuleRegistry } from "ag-grid-community";
 
-// Register required AG Grid community modules
+// Register only the essential AG Grid community modules
 import {
   ClientSideRowModelModule,
   CsvExportModule,
   PaginationModule,
-  MenuModule,
   NumberFilterModule,
-  TextFilterModule,
-  DateFilterModule
+  TextFilterModule
 } from "ag-grid-community";
 
-// Register all community modules
+// Register only the essential modules
 ModuleRegistry.registerModules([
   ClientSideRowModelModule,
   CsvExportModule,
   PaginationModule,
-  MenuModule,
   NumberFilterModule,
-  TextFilterModule,
-  DateFilterModule
+  TextFilterModule
 ]);
 
 // Import AG Grid styles
