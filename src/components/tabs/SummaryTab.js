@@ -47,31 +47,6 @@ export default function SummaryTab({ currentUser, marketData, totalValue, totalC
 
   return (
     <div style={styles.container}>
-      {/* Market Overview */}
-      <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>Market Overview</h2>
-        <div style={styles.marketSummary}>
-          {["nasdaq", "sp500", "dow"].map((index) => {
-            const data = marketData?.[index];
-            if (!data || data.price === undefined) return (
-              <div key={index} style={styles.marketIndicator}>
-                <div style={styles.marketIndex}>{index.toUpperCase()}</div>
-                <div style={styles.marketValue}>Data unavailable</div>
-              </div>
-            );
-            const positive = data.change >= 0;
-            return (
-              <div key={index} style={styles.marketIndicator}>
-                <div style={styles.marketIndex}>{index.toUpperCase()}</div>
-                <div style={styles.marketValue}>{data.price.toFixed(2)}</div>
-                <div style={{ ...styles.marketChange, color: positive ? "#006400" : "#8B0000" }}>
-                  {data.change.toFixed(2)} ({fmt.percent(data.change_pct * 100)})
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
 
       {/* Portfolio Summary */}
       <section style={styles.section}>
@@ -120,6 +95,32 @@ export default function SummaryTab({ currentUser, marketData, totalValue, totalC
         </div>
         <div className="ag-theme-alpine" style={{ height: 200 }}>
           <AgGridReact rowData={topAllTimeLosers} columnDefs={columnDefs} domLayout="autoHeight" />
+        </div>
+      </section>
+
+      {/* Market Overview */}
+      <section style={styles.section}>
+        <h2 style={styles.sectionTitle}>Market Overview</h2>
+        <div style={styles.marketSummary}>
+          {["nasdaq", "sp500", "dow"].map((index) => {
+            const data = marketData?.[index];
+            if (!data || data.price === undefined) return (
+              <div key={index} style={styles.marketIndicator}>
+                <div style={styles.marketIndex}>{index.toUpperCase()}</div>
+                <div style={styles.marketValue}>Data unavailable</div>
+              </div>
+            );
+            const positive = data.change >= 0;
+            return (
+              <div key={index} style={styles.marketIndicator}>
+                <div style={styles.marketIndex}>{index.toUpperCase()}</div>
+                <div style={styles.marketValue}>{data.price.toFixed(2)}</div>
+                <div style={{ ...styles.marketChange, color: positive ? "#006400" : "#8B0000" }}>
+                  {data.change.toFixed(2)} ({fmt.percent(data.change_pct * 100)})
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 

@@ -29,10 +29,16 @@ export default function Nav({ user: propUser }) {
 
         if (res.ok) {
           const data = await res.json();
-          setRiskProfile(
+          // Prefer total_score if available, fallback to profile.score, else null
+          const score =
+            data?.total_score ??
             data?.profile?.score ??
-              data?.profile ??
-              null
+            data?.profile ??
+            null;
+
+          // If score is object, extract something meaningful or stringify
+          setRiskProfile(
+            typeof score === "object" ? JSON.stringify(score) : score
           );
         } else {
           setRiskProfile(null);
