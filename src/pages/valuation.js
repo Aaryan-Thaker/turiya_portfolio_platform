@@ -5,29 +5,23 @@ import Nav from "./Nav";
 import { getSession } from "next-auth/react";
 import { ModuleRegistry } from "ag-grid-community";
 
-// Register ALL required AG Grid modules
+// Register required AG Grid community modules
 import {
   ClientSideRowModelModule,
   CsvExportModule,
   PaginationModule,
   MenuModule,
-  ColumnsToolPanelModule,
-  FiltersToolPanelModule,
-  SetFilterModule,
   NumberFilterModule,
   TextFilterModule,
   DateFilterModule
 } from "ag-grid-community";
 
-// Register all modules
+// Register all community modules
 ModuleRegistry.registerModules([
   ClientSideRowModelModule,
   CsvExportModule,
   PaginationModule,
   MenuModule,
-  ColumnsToolPanelModule,
-  FiltersToolPanelModule,
-  SetFilterModule,
   NumberFilterModule,
   TextFilterModule,
   DateFilterModule
@@ -317,7 +311,6 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
               pagination={true}
               paginationPageSize={20}
               domLayout="autoHeight"
-              suppressColumnVirtualisation={true}
             />
           </div>
 
