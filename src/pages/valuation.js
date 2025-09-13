@@ -4,16 +4,16 @@ import dynamic from "next/dynamic";
 import Nav from "./Nav";
 import { getSession } from "next-auth/react";
 import { ModuleRegistry } from "ag-grid-community";
-import { ClientSideRowModelModule, CsvExportModule, MenuModule } from "ag-grid-community";
+import { ClientSideRowModelModule, CsvExportModule } from "ag-grid-community";
 
 // Register AG Grid modules
-ModuleRegistry.registerModules([ClientSideRowModelModule, CsvExportModule, MenuModule]);
+ModuleRegistry.registerModules([ClientSideRowModelModule, CsvExportModule]);
 
-// Import styles
+// Import AG Grid styles
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-// Dynamically import AgGridReact to avoid SSR crash
+// Dynamically import AgGridReact to avoid SSR issues
 const AgGridReact = dynamic(
   () => import("ag-grid-react").then((mod) => mod.AgGridReact),
   { ssr: false }
@@ -22,88 +22,77 @@ const AgGridReact = dynamic(
 export default function ValuationPage({ currentUser, tickers = [], valuationData = {}, error }) {
   const gridRef = useRef();
 
-  // ---- Format helpers ----
+  // Format helpers
   const fmt = useMemo(() => ({
-    largeCurrency: (value, currency = "USD") => {
-      if (value == null || isNaN(value)) return "N/A";
-      const absVal = Math.abs(value);
-      let formatted;
-      if (absVal >= 1e12) formatted = (value / 1e12).toFixed(2) + "T";
-      else if (absVal >= 1e9) formatted = (value / 1e9).toFixed(2) + "B";
-      else if (absVal >= 1e6) formatted = (value / 1e6).toFixed(2) + "M";
-      else if (absVal >= 1e3) formatted = (value / 1e3).toFixed(2) + "K";
-      else formatted = value.toFixed(2);
-      return `${new Intl.NumberFormat("en-US", { style: "currency", currency }).format(Number(String(formatted).replace(/[TMBK]$/, "")))}${formatted.match(/[TMBK]/)?.[0] ?? ""}`;
-    },
     currency: (value, currency = "USD") =>
-      value == null || isNaN(value) ? "N/A" : new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value),
+      value == null || value === "N/A" || isNaN(value)
+        ? "N/A"
+        : new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value),
     percent: (value) => {
-      if (value == null || isNaN(value)) return "N/A";
-      const v = Math.abs(value) > 1 && Math.abs(value) <= 100 ? value / 100 : value;
-      return (v * 100).toFixed(2) + "%";
+      if (value == null || value === "N/A" || isNaN(value)) return "N/A";
+      return (value * 100).toFixed(2) + "%";
     },
-    ratio: (value) =>
-      value == null || isNaN(value) ? "N/A" : Number(value).toFixed(2) + "x",
+    ratio: (value) => value == null || value === "N/A" || isNaN(value) ? "N/A" : value.toFixed(2) + "x",
   }), []);
 
-  // ---- Column definitions ----
+  // Column definitions
   const columnDefs = useMemo(() => [
-    { headerName: "Stock", field: "stock", pinned: "left", sortable: true, filter: "agTextColumnFilter", flex: 2, minWidth: 150 },
-    { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, valueFormatter: (p) => fmt.currency(p.value) },
-    { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140, valueFormatter: (p) => fmt.currency(p.value) },
-    { headerName: "Alloc %", field: "alloc", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, valueFormatter: (p) => fmt.percent(p.value) },
-    { headerName: "52w High", field: "high52", sortable: true, flex: 1, minWidth: 120, valueFormatter: (p) => fmt.currency(p.value) },
-    { headerName: "52w Low", field: "low52", sortable: true, flex: 1, minWidth: 120, valueFormatter: (p) => fmt.currency(p.value) },
-    { headerName: "Mkt Cap", field: "mktCap", sortable: true, flex: 1, minWidth: 140, valueFormatter: (p) => fmt.largeCurrency(p.value) },
-    { headerName: "P/E (TTM)", field: "peTTM", sortable: true, flex: 1, minWidth: 100, valueFormatter: (p) => fmt.ratio(p.value) },
-    { headerName: "P/E (Fwd)", field: "peFwd", sortable: true, flex: 1, minWidth: 100, valueFormatter: (p) => fmt.ratio(p.value) },
-    { headerName: "PEG", field: "peg", sortable: true, flex: 1, minWidth: 100, valueFormatter: (p) => fmt.ratio(p.value) },
-    { headerName: "P/S", field: "ps", sortable: true, flex: 1, minWidth: 100, valueFormatter: (p) => fmt.ratio(p.value) },
-    { headerName: "P/B", field: "pb", sortable: true, flex: 1, minWidth: 100, valueFormatter: (p) => fmt.ratio(p.value) },
-    { headerName: "EV/Rev", field: "evRev", sortable: true, flex: 1, minWidth: 100, valueFormatter: (p) => fmt.ratio(p.value) },
-    { headerName: "EV/EBITDA", field: "evEbitda", sortable: true, flex: 1, minWidth: 120, valueFormatter: (p) => fmt.ratio(p.value) },
-    { headerName: "Profit Margin", field: "margin", sortable: true, flex: 1, minWidth: 120, valueFormatter: (p) => fmt.percent(p.value) },
-    { headerName: "ROA", field: "roa", sortable: true, flex: 1, minWidth: 100, valueFormatter: (p) => fmt.percent(p.value) },
-    { headerName: "ROE", field: "roe", sortable: true, flex: 1, minWidth: 100, valueFormatter: (p) => fmt.percent(p.value) },
-    { headerName: "Revenue", field: "revenue", sortable: true, flex: 1, minWidth: 140, valueFormatter: (p) => fmt.largeCurrency(p.value) },
-    { headerName: "Net Income", field: "netIncome", sortable: true, flex: 1, minWidth: 140, valueFormatter: (p) => fmt.largeCurrency(p.value) },
-    { headerName: "EPS", field: "eps", sortable: true, flex: 1, minWidth: 100, valueFormatter: (p) => fmt.currency(p.value) },
-    { headerName: "Cash", field: "cash", sortable: true, flex: 1, minWidth: 140, valueFormatter: (p) => fmt.largeCurrency(p.value) },
-    { headerName: "Debt/Eq", field: "debtEq", sortable: true, flex: 1, minWidth: 100, valueFormatter: (p) => fmt.ratio(p.value) },
-    { headerName: "FCF", field: "fcf", sortable: true, flex: 1, minWidth: 140, valueFormatter: (p) => fmt.largeCurrency(p.value) },
-  ], [fmt]);
+    { headerName: "Stock", field: "stock", pinned: "left", sortable: true, filter: true, flex: 2, minWidth: 150 },
+    { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120 },
+    { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140 },
+    { headerName: "Alloc %", field: "alloc", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120 },
+    { headerName: "52w High", field: "high52", sortable: true, flex: 1, minWidth: 120 },
+    { headerName: "52w Low", field: "low52", sortable: true, flex: 1, minWidth: 120 },
+    { headerName: "Mkt Cap", field: "mktCap", sortable: true, flex: 1, minWidth: 140 },
+    { headerName: "P/E (TTM)", field: "peTTM", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "P/E (Fwd)", field: "peFwd", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "PEG", field: "peg", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "P/S", field: "ps", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "P/B", field: "pb", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "EV/Rev", field: "evRev", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "EV/EBITDA", field: "evEbitda", sortable: true, flex: 1, minWidth: 120 },
+    { headerName: "Profit Margin", field: "margin", sortable: true, flex: 1, minWidth: 120 },
+    { headerName: "ROA", field: "roa", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "ROE", field: "roe", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "Revenue", field: "revenue", sortable: true, flex: 1, minWidth: 140 },
+    { headerName: "Net Income", field: "netIncome", sortable: true, flex: 1, minWidth: 140 },
+    { headerName: "EPS", field: "eps", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "Cash", field: "cash", sortable: true, flex: 1, minWidth: 140 },
+    { headerName: "Debt/Eq", field: "debtEq", sortable: true, flex: 1, minWidth: 100 },
+    { headerName: "FCF", field: "fcf", sortable: true, flex: 1, minWidth: 140 },
+  ], []);
 
-  // ---- Row data ----
+  // Row data
   const rowData = useMemo(() =>
     tickers.map(symbol => {
       const v = valuationData[symbol] || {};
       const c = v.Currency || "USD";
       return {
         stock: `${symbol} (${c})`,
-        price: v.CurrentPrice ?? 0,
-        value: v.CurrentValue ?? 0,
-        alloc: v.AllocationPercent ?? 0,
-        high52: v["52wHigh"] ?? 0,
-        low52: v["52wLow"] ?? 0,
-        mktCap: v.MarketCap ?? 0,
-        peTTM: v.TrailingPE ?? 0,
-        peFwd: v.ForwardPE ?? 0,
-        peg: v.PEGRatio ?? 0,
-        ps: v.PriceToSales ?? 0,
-        pb: v.PriceToBook ?? 0,
-        evRev: v["EV/Revenue"] ?? v["EV/Rev"] ?? 0,
-        evEbitda: v["EV/EBITDA"] ?? 0,
-        margin: v.ProfitMargin ?? 0,
-        roa: v.ROA ?? 0,
-        roe: v.ROE ?? 0,
-        revenue: v.Revenue ?? 0,
-        netIncome: v.NetIncome ?? 0,
-        eps: v.EPS ?? 0,
-        cash: v.TotalCash ?? 0,
-        debtEq: v.DebtEquity ?? 0,
-        fcf: v.FreeCashFlow ?? 0,
+        price: fmt.currency(v.CurrentPrice, c),
+        value: fmt.currency(v.CurrentValue, c),
+        alloc: fmt.percent(v.AllocationPercent),
+        high52: fmt.currency(v["52wHigh"], c),
+        low52: fmt.currency(v["52wLow"], c),
+        mktCap: fmt.currency(v.MarketCap, c),
+        peTTM: fmt.ratio(v.TrailingPE),
+        peFwd: fmt.ratio(v.ForwardPE),
+        peg: fmt.ratio(v.PEGRatio),
+        ps: fmt.ratio(v.PriceToSales),
+        pb: fmt.ratio(v.PriceToBook),
+        evRev: fmt.ratio(v["EV/Revenue"] ?? v["EV/Rev"]),
+        evEbitda: fmt.ratio(v["EV/EBITDA"]),
+        margin: fmt.percent(v.ProfitMargin),
+        roa: fmt.percent(v.ROA),
+        roe: fmt.percent(v.ROE),
+        revenue: fmt.currency(v.Revenue, c),
+        netIncome: fmt.currency(v.NetIncome, c),
+        eps: fmt.currency(v.EPS, c),
+        cash: fmt.currency(v.TotalCash, c),
+        debtEq: fmt.ratio(v.DebtEquity),
+        fcf: fmt.currency(v.FreeCashFlow, c),
       };
-    }), [tickers, valuationData]
+    }), [tickers, valuationData, fmt]
   );
 
   const handleExportCSV = useCallback(() => {
@@ -114,14 +103,9 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
     return <div style={{ padding: 20, color: "red" }}>Error loading valuation data: {error}</div>;
   }
 
-  const normalizedUser = {
-    ...currentUser,
-    isAuthenticated: currentUser.is_authenticated ?? currentUser.isAuthenticated ?? false,
-  };
-
   return (
     <div style={styles.body}>
-      <Nav user={normalizedUser} />
+      <Nav user={currentUser} />
 
       <h2>Valuation Dashboard</h2>
 
@@ -151,7 +135,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
       <footer style={styles.footer}>
         <p>
           This website is a non-commercial project and is intended for educational purposes.
-          Financial data is retrieved via Yahoo Finance API (yFinance) and provided &quot;as is&quot;.
+          Financial data is retrieved via Yahoo Finance API (yFinance) and provided "as is".
         </p>
       </footer>
     </div>
