@@ -22,7 +22,7 @@ const AgGridReact = dynamic(
 export default function ValuationPage({ currentUser, tickers = [], valuationData = {}, error }) {
   const gridRef = useRef();
 
-  // Format helpers
+  // ---- Format helpers ----
   const fmt = useMemo(() => ({
     currency: (value, currency = "USD") =>
       value == null || value === "N/A" || isNaN(value)
@@ -35,7 +35,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
     ratio: (value) => value == null || value === "N/A" || isNaN(value) ? "N/A" : value.toFixed(2) + "x",
   }), []);
 
-  // Column definitions
+  // ---- Column definitions ----
   const columnDefs = useMemo(() => [
     { headerName: "Stock", field: "stock", pinned: "left", sortable: true, filter: true, flex: 2, minWidth: 150 },
     { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120 },
@@ -62,7 +62,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
     { headerName: "FCF", field: "fcf", sortable: true, flex: 1, minWidth: 140 },
   ], []);
 
-  // Row data
+  // ---- Row data ----
   const rowData = useMemo(() =>
     tickers.map(symbol => {
       const v = valuationData[symbol] || {};
@@ -95,8 +95,9 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
     }), [tickers, valuationData, fmt]
   );
 
+  // ---- Export CSV ----
   const handleExportCSV = useCallback(() => {
-    gridRef.current.api.exportDataAsCsv();
+    if (gridRef.current) gridRef.current.api.exportDataAsCsv();
   }, []);
 
   if (error) {
@@ -135,7 +136,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
       <footer style={styles.footer}>
         <p>
           This website is a non-commercial project and is intended for educational purposes.
-          Financial data is retrieved via Yahoo Finance API (yFinance) and provided "as is".
+          Financial data is retrieved via Yahoo Finance API (yFinance) and provided &quot;as is&quot;.
         </p>
       </footer>
     </div>
@@ -148,6 +149,7 @@ const styles = {
   downloadBtn: { marginTop: 20, background: "#0070f3", color: "#fff", border: "none", padding: "10px 15px", borderRadius: 4, cursor: "pointer", fontSize: 14 },
 };
 
+// ---- Server-side Props ----
 export async function getServerSideProps(context) {
   const session = await getSession(context);
   const token = session?.accessToken || "";
