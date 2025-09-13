@@ -26,11 +26,6 @@ export default function PortfolioPage(props) {
     totalGain,
     totalGainPct,
     overviewTabData,
-    summaryTabData,
-    top5GainersDaily,
-    top5LosersDaily,
-    portfolioXIRR,
-    latestRiskAssessment,
     capitalGainsData,
     errorMessage,
   } = props;
@@ -62,15 +57,11 @@ export default function PortfolioPage(props) {
             totalCost={totalCost}
             totalGain={totalGain}
             totalGainPct={totalGainPct}
-            summaryData={summaryTabData}
-            topGainers={top5GainersDaily}
-            topLosers={top5LosersDaily}
-            portfolioXIRR={portfolioXIRR}
-            latestRiskAssessment={latestRiskAssessment}
+            portfolioTableData={overviewTabData}
           />
         );
       case "overview":
-        return <PortfolioOverviewTab overviewData={overviewTabData} />;
+        return <PortfolioOverviewTab overviewTabData={overviewTabData} />;
       case "capitalGains":
         return <CapitalGainsTab capitalGainsData={capitalGainsData} />;
       default:
@@ -188,11 +179,6 @@ export async function getServerSideProps(context) {
       totalGain: portfolioData.totalGain || 0,
       totalGainPct: portfolioData.totalGainPercent || 0,
       overviewTabData: portfolioData.overviewTabData || [],
-      summaryTabData: portfolioData.summaryTabData || [],
-      top5GainersDaily: portfolioData.top5GainersDaily || [],
-      top5LosersDaily: portfolioData.top5LosersDaily || [],
-      portfolioXIRR: portfolioData.portfolioXIRR || 0,
-      latestRiskAssessment: portfolioData.latestRiskAssessment || null,
       capitalGainsData: capitalGainsData.success ? capitalGainsData : {},
       errorMessage: portfolioData.error || null,
     },

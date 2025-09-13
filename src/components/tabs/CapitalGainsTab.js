@@ -4,14 +4,11 @@ import dynamic from "next/dynamic";
 import { ModuleRegistry } from "ag-grid-community";
 import { ClientSideRowModelModule } from "ag-grid-community";
 
-// AG Grid styles
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-// Register AG Grid modules
 ModuleRegistry.registerModules([ClientSideRowModelModule]);
 
-// SSR-safe import of AgGridReact
 const AgGridReact = dynamic(
   () => import("ag-grid-react").then((mod) => mod.AgGridReact),
   { ssr: false }
@@ -19,7 +16,7 @@ const AgGridReact = dynamic(
 
 import { exportToCSV } from "../exportCSV";
 
-export default function CapitalGainsTab({ capitalGainsData }) {
+export default function CapitalGainsTab({ currentUser, capitalGainsData }) {
   // Transform perStock object into an array
   const portfolioTableData = useMemo(() => {
     if (!capitalGainsData?.perStock) return [];
@@ -87,9 +84,9 @@ export default function CapitalGainsTab({ capitalGainsData }) {
               rowData={portfolioTableData}
               columnDefs={columnDefs}
               defaultColDef={{ sortable: true, filter: true, resizable: true }}
-              pagination={true}
+              pagination
               paginationPageSize={20}
-              animateRows={true}
+              animateRows
             />
           </div>
 

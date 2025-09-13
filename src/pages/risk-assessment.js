@@ -6,23 +6,26 @@ import Nav from "./Nav";
 import { getSession, useSession, signIn } from "next-auth/react";
 
 // Dynamic imports for signature pads (client-only)
-const SignaturePad = dynamic(
-  () => import("react-signature-pad-wrapper"),
-  { ssr: false }
-);
+const SignaturePad = dynamic(() => import("react-signature-pad-wrapper"), {
+  ssr: false,
+});
 
+// --- Constants & Options ---
+
+// ranges adjusted to remove gaps and cover 0-400 inclusive
 const RISK_PROFILES = {
-  DEFENSIVE: { min: 0, max: 120, label: "Defensive" },
-  MODERATE: { min: 130, max: 250, label: "Moderate" },
-  AGGRESSIVE: { min: 260, max: 350, label: "Aggressive" },
+  DEFENSIVE: { min: 0, max: 129, label: "Defensive" },
+  MODERATE: { min: 130, max: 259, label: "Moderate" },
+  AGGRESSIVE: { min: 260, max: 359, label: "Aggressive" },
   VERY_AGGRESSIVE: { min: 360, max: 400, label: "Very Aggressive" },
 };
 
+// Standardized names (kept consistent across INVESTMENT_TYPES and INTERESTED_INVESTMENTS)
 const INVESTMENT_TYPES = [
   "Equity",
   "Fixed Income",
   "Property",
-  "Alternate Investments",
+  "Alternative Investments",
   "Overseas Investments",
   "Currencies",
   "Commodities",
@@ -34,11 +37,11 @@ const INTERESTED_INVESTMENTS = [
   "Money Market Funds",
   "Fixed Income",
   "Property",
-  "Alternate Investment",
+  "Alternative Investments",
   "International Funds",
   "Currencies",
   "Commodities",
-  "Passion Investment",
+  "Passion Investments",
 ];
 
 const PURPOSE_OPTIONS = [
@@ -72,6 +75,8 @@ const LIFE_STAGE_OPTIONS = [
   { value: "e", label: "Retired (65+)" },
   { value: "f", label: "Other" },
 ];
+
+// --- Component ---
 
 export default function RiskAssessment({
   currentUser = {},
@@ -123,7 +128,7 @@ export default function RiskAssessment({
   const [checkingAssessment, setCheckingAssessment] = useState(true);
   const [redoing, setRedoing] = useState(false);
 
-  // If server provided an existing assessment prop, reflect it immediately
+  // Reflect SSR-provided existing assessment immediately
   useEffect(() => {
     if (existingAssessmentProp) {
       setExistingAssessment(existingAssessmentProp);
@@ -140,44 +145,50 @@ export default function RiskAssessment({
   // Fetch existing assessment ONCE when authenticated (client-side fallback)
   useEffect(() => {
     async function loadAssessment() {
-      if (status !== "authenticated") {
+      // If already provided by SSR, skip
+      if (existingAssessmentProp) {
         setCheckingAssessment(false);
         return;
       }
+
+      // When session state is resolved, attempt to load using cookies (no Bearer header)
+      // Backend route should read session from cookies (NextAuth).
+      if (status === "loading") return;
+
       try {
-        const s = session || (await getSession());
-        const token = s?.accessToken;
-        if (!token) {
-          setCheckingAssessment(false);
-          return;
-        }
         const res = await fetch("/api/risk/check", {
           method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            "Content-Type": "application/json",
+          },
         });
+
+        // if 401, user isn't authenticated server-side; just stop checking
         if (res.status === 401) {
           setCheckingAssessment(false);
           return;
         }
+
         const json = await res.json().catch(() => null);
         if (json && json.success && json.completed) {
           setExistingAssessment(json.latest_assessment || null);
         }
       } catch (err) {
+        // log but don't break the UI
+        // eslint-disable-next-line no-console
         console.warn("Could not load existing assessment:", err);
       } finally {
         setCheckingAssessment(false);
       }
     }
 
-    if (!existingAssessmentProp) {
-      loadAssessment();
-    } else {
-      setCheckingAssessment(false);
-    }
+    loadAssessment();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
+  // --------------------------
+  // Scoring logic
+  // --------------------------
   const calculateScore = () => {
     let score = 0;
     const purposeScores = { a: 50, b: 40, c: 30, d: 20, e: 10 };
@@ -218,7 +229,7 @@ export default function RiskAssessment({
   };
 
   const determineRiskProfile = (score) => {
-    for (const [key, range] of Object.entries(RISK_PROFILES)) {
+    for (const [, range] of Object.entries(RISK_PROFILES)) {
       if (score >= range.min && score <= range.max) {
         setRiskProfile(range.label);
         return;
@@ -227,6 +238,9 @@ export default function RiskAssessment({
     setRiskProfile("Undetermined");
   };
 
+  // --------------------------
+  // Signature helpers
+  // --------------------------
   const handleApplicantSigEnd = () => {
     try {
       const ref = applicantSigRef.current;
@@ -239,6 +253,8 @@ export default function RiskAssessment({
       setFormData((prev) => ({ ...prev, applicantSignature: dataUrl }));
     } catch (e) {
       // ignore silently
+      // eslint-disable-next-line no-console
+      console.warn("Applicant signature capture failed", e);
     }
   };
 
@@ -254,9 +270,14 @@ export default function RiskAssessment({
       setFormData((prev) => ({ ...prev, advisorSignature: dataUrl }));
     } catch (e) {
       // ignore silently
+      // eslint-disable-next-line no-console
+      console.warn("Advisor signature capture failed", e);
     }
   };
 
+  // --------------------------
+  // Submit handler
+  // --------------------------
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -266,47 +287,60 @@ export default function RiskAssessment({
       return;
     }
 
-    // enforce applicant signature presence (UI shows it as required)
-    if (!formData.applicantSignature) {
-      setError("Applicant signature is required before submitting.");
-      return;
-    }
-
     setIsSubmitting(true);
     setError("");
 
     try {
+      // Ensure session or redirect to sign-in (NextAuth)
       const s = session || (await getSession());
       if (!s) {
         await signIn("google", { callbackUrl: window.location.href });
         return;
       }
 
-      const token = s?.accessToken;
-      if (!token) {
-        await signIn("google", { callbackUrl: window.location.href });
-        return;
-      }
+      // Build sanitized payload — avoid sending nested objects or refs
+      const payload = {
+        applicantName: String(formData.applicantName || ""),
+        applicantAddress: String(formData.applicantAddress || ""),
+        interestedInvestments: Array.isArray(formData.interestedInvestments)
+          ? formData.interestedInvestments
+          : [],
+        purposeOfInvesting: String(formData.purposeOfInvesting || ""),
+        lifeStage: String(formData.lifeStage || ""),
+        expectedReturns: String(formData.expectedReturns || ""),
+        derivativeProducts: String(formData.derivativeProducts || ""),
+        investmentHorizon: String(formData.investmentHorizon || ""),
+        marketDownturnReaction: String(formData.marketDownturnReaction || ""),
+        incomeStability: String(formData.incomeStability || ""),
+        emergencySavings: String(formData.emergencySavings || ""),
+        capitalGrowthPriority: String(formData.capitalGrowthPriority || ""),
+        capitalSecurityPriority: String(formData.capitalSecurityPriority || ""),
+        balancedPriority: String(formData.balancedPriority || ""),
+        advisorName: String(formData.advisorName || ""),
+        advisorDesignation: String(formData.advisorDesignation || ""),
+        assessmentDate: String(formData.assessmentDate || ""),
+        assessmentPlace: String(formData.assessmentPlace || ""),
+        applicantSignature: formData.applicantSignature || null,
+        advisorSignature: formData.advisorSignature || null,
+        // include computed fields
+        totalScore,
+        riskProfile,
+      };
 
       const apiPath = "/api/risk/submit";
       const response = await fetch(apiPath, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          ...formData,
-          totalScore,
-          riskProfile,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const text = await response.text();
       let json;
       try {
         json = JSON.parse(text);
-      } catch (e) {
+      } catch (err) {
         json = null;
       }
 
@@ -318,31 +352,40 @@ export default function RiskAssessment({
       }
 
       try {
-        localStorage.setItem("riskAssessmentCompleted", "true");
-      } catch (e) {}
+        // mark locally to avoid re-running interview in same browser
+        if (typeof window !== "undefined" && window.localStorage) {
+          window.localStorage.setItem("riskAssessmentCompleted", "true");
+        }
+      } catch (err) {
+        // ignore LocalStorage errors in restrictive environments
+      }
 
+      // warming call (not required) — call without auth header so server can use cookie session
       try {
-        await fetch("/api/risk/profile", { headers: { Authorization: `Bearer ${token}` } });
-      } catch (e) {
+        await fetch("/api/risk/profile");
+      } catch (err) {
         // ignore warm-up errors
       }
 
-      // After success, send user back to portfolio (as requested)
+      // After success, send user back to portfolio
       router.push("/");
     } catch (err) {
-      setError(err.message || "Failed to submit assessment");
+      setError((err && err.message) || "Failed to submit assessment");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // --------------------------
+  // Form helpers
+  // --------------------------
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     if (type === "checkbox" && name === "interestedInvestments") {
       setFormData((prev) => ({
         ...prev,
         interestedInvestments: checked
-          ? [...prev.interestedInvestments, value]
+          ? Array.from(new Set([...prev.interestedInvestments, value]))
           : prev.interestedInvestments.filter((item) => item !== value),
       }));
     } else {
@@ -386,11 +429,12 @@ export default function RiskAssessment({
     return (
       <div style={{ padding: "20px", color: "red" }}>
         <h1>Error</h1>
-        <p>{errorMessage}</p>
+        <p>{String(errorMessage)}</p>
       </div>
     );
   }
 
+  // normalize currentUser for Nav component
   const normalizedCurrentUser = {
     ...currentUser,
     isAuthenticated:
@@ -398,9 +442,15 @@ export default function RiskAssessment({
   };
 
   // Helper: normalize displayed assessment payload
+  // Always return primitives/arrays, never raw nested objects
   const getSummaryFromAssessment = (assessment) => {
     if (!assessment) return null;
-    const payload = assessment.payload || assessment;
+    // prefer payload if present (API may wrap in payload)
+    const payload = (assessment && assessment.payload) || assessment || {};
+    // helper safe-get
+    const safeString = (v) =>
+      v === null || v === undefined ? "" : String(v);
+
     const applicantName =
       payload.applicantName ||
       payload.applicant_name ||
@@ -424,7 +474,11 @@ export default function RiskAssessment({
     const interestedInvestmentsVal =
       payload.interestedInvestments || payload.interested_investments || [];
     const advisorNameVal =
-      payload.advisorName || payload.advisor_name || assessment.advisorName || assessment.advisor_name || "";
+      payload.advisorName ||
+      payload.advisor_name ||
+      assessment.advisorName ||
+      assessment.advisor_name ||
+      "";
     const assessmentPlaceVal =
       payload.assessmentPlace ||
       payload.assessment_place ||
@@ -442,20 +496,21 @@ export default function RiskAssessment({
     const submittedAtVal = assessment.submitted_at || payload.submitted_at || "";
 
     return {
-      applicantName,
-      applicantAddress,
-      totalScore: totalScoreVal,
-      riskProfile: riskProfileVal,
+      applicantName: safeString(applicantName),
+      applicantAddress: safeString(applicantAddress),
+      totalScore: totalScoreVal === null ? null : Number(totalScoreVal),
+      riskProfile: safeString(riskProfileVal),
       interestedInvestments: Array.isArray(interestedInvestmentsVal)
-        ? interestedInvestmentsVal
+        ? interestedInvestmentsVal.map((i) => String(i))
         : [],
-      advisorName: advisorNameVal,
-      assessmentPlace: assessmentPlaceVal,
-      assessmentDate: assessmentDateVal,
-      submitted_at: submittedAtVal,
+      advisorName: safeString(advisorNameVal),
+      assessmentPlace: safeString(assessmentPlaceVal),
+      assessmentDate: safeString(assessmentDateVal),
+      submitted_at: safeString(submittedAtVal),
     };
   };
 
+  // displayedAssessment is derived from existingAssessment (if present)
   const displayedAssessment = existingAssessment
     ? getSummaryFromAssessment(existingAssessment)
     : null;
@@ -464,15 +519,18 @@ export default function RiskAssessment({
   const handleRedoAssessment = () => {
     setExistingAssessment(null);
     setRedoing(true);
-    // optionally reset form to initial state so user starts fresh:
     setFormData(initialFormData);
-    // scroll to top/form
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   // Allow quick return to portfolio
   const goToPortfolio = () => router.push("/");
 
+  // --------------------------
+  // JSX
+  // --------------------------
   return (
     <div className="risk-assessment-container">
       <Nav user={normalizedCurrentUser} />
@@ -492,7 +550,8 @@ export default function RiskAssessment({
 
           <div className="existing-summary">
             <p>
-              <strong>Applicant:</strong> {displayedAssessment.applicantName || "—"}
+              <strong>Applicant:</strong>{" "}
+              {displayedAssessment.applicantName || "—"}
             </p>
             <p>
               <strong>Address:</strong>{" "}
@@ -505,10 +564,15 @@ export default function RiskAssessment({
                 "—"}
             </p>
             <p>
-              <strong>Risk profile:</strong> {displayedAssessment.riskProfile || "—"}
+              <strong>Risk profile:</strong>{" "}
+              {displayedAssessment.riskProfile || "—"}
             </p>
             <p>
-              <strong>Total score:</strong> {displayedAssessment.totalScore ?? "—"}
+              <strong>Total score:</strong>{" "}
+              {displayedAssessment.totalScore !== null &&
+              displayedAssessment.totalScore !== undefined
+                ? displayedAssessment.totalScore
+                : "—"}
             </p>
             <p>
               <strong>Interested investments:</strong>{" "}
@@ -518,7 +582,8 @@ export default function RiskAssessment({
                 : "—"}
             </p>
             <p>
-              <strong>Advisor:</strong> {displayedAssessment.advisorName || "—"}
+              <strong>Advisor:</strong>{" "}
+              {displayedAssessment.advisorName || "—"}
             </p>
             <p>
               <strong>Assessment place:</strong>{" "}
@@ -537,6 +602,7 @@ export default function RiskAssessment({
         </div>
       ) : null}
 
+      {/* FORM */}
       <form onSubmit={handleSubmit}>
         {/* Client Information */}
         <section className="form-section">
@@ -917,9 +983,7 @@ export default function RiskAssessment({
           {/* Score display */}
           <div className="score-display">
             <h3>Total Investor Profile Score: {totalScore}</h3>
-            <h3>
-              Your risk profile based on above assessment: {riskProfile}
-            </h3>
+            <h3>Your risk profile based on above assessment: {riskProfile}</h3>
           </div>
         </section>
 
@@ -1021,7 +1085,7 @@ export default function RiskAssessment({
           </div>
         </section>
 
-        {error && <div className="error-message">{error}</div>}
+        {error && <div className="error-message">{String(error)}</div>}
 
         <button type="submit" disabled={isSubmitting} className="submit-button">
           {isSubmitting ? "Submitting..." : "Submit Risk Assessment"}
@@ -1197,6 +1261,7 @@ export async function getServerSideProps(context) {
   const session = await getSession(context);
   const token = session?.accessToken || "";
 
+  // If unauthenticated, redirect to sign-in
   if (!token) {
     return {
       redirect: {
@@ -1206,13 +1271,21 @@ export async function getServerSideProps(context) {
     };
   }
 
-  const backendUrl = "/api/risk/check";
+  // Build absolute backend URL from incoming request (robust for proxies/platforms)
+  const { req } = context;
+  const proto = req.headers["x-forwarded-proto"] || (req.connection && req.connection.encrypted ? "https" : "http");
+  const host = req.headers["x-forwarded-host"] || req.headers.host;
+  const baseUrl = proto && host ? `${proto}://${host}` : "";
+
+  const backendUrl = `${baseUrl}/api/risk/check`;
+
   let existingAssessment = null;
   try {
     const res = await fetch(backendUrl, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
     });
 
@@ -1230,12 +1303,13 @@ export async function getServerSideProps(context) {
       existingAssessment = data.latest_assessment;
     }
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error("Error checking risk assessment:", err);
   }
 
   const currentUser = {
-    id: session.user?.id || "guest",
-    email: session.user?.email || "",
+    id: session?.user?.id || "guest",
+    email: session?.user?.email || "",
     is_authenticated: !!session,
   };
 
