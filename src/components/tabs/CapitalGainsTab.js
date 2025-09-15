@@ -17,11 +17,20 @@ const AgGridReact = dynamic(
 import { exportToCSV } from "../exportCSV";
 
 export default function CapitalGainsTab({ currentUser, capitalGainsData }) {
+  // Normalize API data to always use perStock
+  const normalizedData = useMemo(() => {
+    if (!capitalGainsData) return { perStock: {} };
+    return {
+      perStock: capitalGainsData.perStock || capitalGainsData.per_stock || {},
+    };
+  }, [capitalGainsData]);
+
   // Transform perStock object into an array safely
   const portfolioTableData = useMemo(() => {
-    if (!capitalGainsData || typeof capitalGainsData.perStock !== "object") return [];
+    const { perStock } = normalizedData;
+    if (!perStock || typeof perStock !== "object") return [];
 
-    return Object.entries(capitalGainsData.perStock).map(([ticker, data]) => ({
+    return Object.entries(perStock).map(([ticker, data]) => ({
       Ticker: ticker,
       Name: data?.Name || ticker,
       Quantity: typeof data?.Quantity === "number" ? data.Quantity : 0,
@@ -33,7 +42,7 @@ export default function CapitalGainsTab({ currentUser, capitalGainsData }) {
       "Realized Gains": typeof data?.RealizedGain === "number" ? data.RealizedGain : 0,
       Sector: data?.Sector || "N/A",
     }));
-  }, [capitalGainsData]);
+  }, [normalizedData]);
 
   const fmt = useMemo(() => ({
     currency: (num) => (typeof num === "number" ? num.toFixed(2) : "N/A"),

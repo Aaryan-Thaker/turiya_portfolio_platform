@@ -29,24 +29,24 @@ export default function Nav({ user: propUser }) {
 
         if (res.ok) {
           const data = await res.json();
+          const numericScore = data?.profile?.total_score ?? data?.total_score ?? null;
+          const category = data?.profile?.riskProfile ?? null;
 
-          // Extract a meaningful value for display
-          let score = null;
-          if (data?.profile?.riskProfile) {
-            score = data.profile.riskProfile; // human-readable
-          } else if (data?.profile?.totalScore) {
-            score = data.profile.totalScore; // numeric fallback
-          } else if (data?.total_score) {
-            score = data.total_score; // top-level numeric
+          if (numericScore && category) {
+            setRiskProfile(`${numericScore} - ${category}`);
+          } else if (category) {
+            setRiskProfile(category);
+          } else if (numericScore) {
+            setRiskProfile(numericScore);
+          } else {
+            setRiskProfile("N/A");
           }
-
-          setRiskProfile(score ?? "N/A");
         } else {
-          setRiskProfile(null);
+          setRiskProfile("N/A");
         }
       } catch (err) {
         console.error("Failed to fetch risk profile", err);
-        setRiskProfile(null);
+        setRiskProfile("N/A");
       }
     }
 
@@ -124,7 +124,7 @@ export default function Nav({ user: propUser }) {
 
           {menuOpen && (
             <div style={styles.dropdownMenu}>
-              {riskProfile !== null && (
+              {riskProfile && (
                 <div style={styles.dropdownHeader}>
                   Risk Score: <strong>{riskProfile}</strong>
                 </div>
@@ -166,7 +166,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     padding: "10px 20px",
-    background: "#4A90E2",
+    background: "#375a8a", // darker blue
     color: "#fff",
     position: "fixed",
     top: 0,
@@ -174,7 +174,7 @@ const styles = {
     right: 0,
     zIndex: 1000,
     height: 60,
-    boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
   },
   brand: { display: "flex", alignItems: "center", marginRight: 30 },
   brandName: { fontSize: 20, fontWeight: "bold", color: "#fff", whiteSpace: "nowrap" },
@@ -187,10 +187,10 @@ const styles = {
     borderRadius: 4,
     transition: "background 0.3s ease",
   },
-  activeLink: { borderBottom: "2px solid #fff", fontWeight: "600" },
+  activeLink: { borderBottom: "2px solid #ffd700", fontWeight: "600" }, // gold highlight
   userButton: {
-    background: "transparent",
-    border: "1px solid #fff",
+    background: "#4a73a1", // contrast against nav
+    border: "1px solid #ffd700",
     color: "#fff",
     padding: "6px 12px",
     borderRadius: 4,
@@ -235,8 +235,8 @@ if (typeof window !== "undefined" && !document.getElementById("nav-global-styles
   styleTag.id = "nav-global-styles";
   styleTag.innerHTML = `
     body, html { margin: 0; padding: 0; }
-    a:hover { background: rgba(255,255,255,0.1); }
-    button:hover { background: rgba(255,255,255,0.15); }
+    a:hover { background: rgba(255,255,255,0.2); }
+    button:hover { background: rgba(255,215,0,0.3); }
     div[role="button"]:hover { background: #f1f1f1; }
   `;
   document.head.appendChild(styleTag);

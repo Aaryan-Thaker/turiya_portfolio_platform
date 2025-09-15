@@ -47,17 +47,6 @@ export default function SummaryTab({ currentUser, marketData, totalValue, totalC
 
   return (
     <div style={styles.container}>
-
-      {/* Portfolio Charts */}
-      <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>Portfolio Charts</h2>
-        <div style={styles.chartsGrid}>
-          <StockPie data={portfolioTableData} />
-          <SectorPie data={portfolioTableData} />
-          <TreemapChart data={portfolioTableData} />
-        </div>
-      </section>
-
       {/* Portfolio Summary */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>Portfolio Summary</h2>
@@ -105,6 +94,16 @@ export default function SummaryTab({ currentUser, marketData, totalValue, totalC
         </div>
         <div className="ag-theme-alpine" style={{ height: 200 }}>
           <AgGridReact rowData={topAllTimeLosers} columnDefs={columnDefs} domLayout="autoHeight" />
+        </div>
+      </section>
+
+      {/* Portfolio Charts */}
+      <section style={styles.section}>
+        <h2 style={styles.sectionTitle}>Portfolio Charts</h2>
+        <div style={styles.chartsGrid}>
+          <StockPie data={portfolioTableData} />
+          <SectorPie data={portfolioTableData} />
+          <TreemapChart data={portfolioTableData} />
         </div>
       </section>
 
