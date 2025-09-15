@@ -1,3 +1,4 @@
+// pages/transactions.js
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Nav from "./Nav";
@@ -10,10 +11,10 @@ import "ag-grid-community/styles/ag-theme-alpine.css";
 
 // ✅ AG Grid modules
 import { ModuleRegistry } from "ag-grid-community";
-import { ClientSideRowModelModule } from "ag-grid-community";
+import { ClientSideRowModelModule, PaginationModule, NumberFilterModule, TextFilterModule } from "ag-grid-community";
 
 // Register AG Grid modules
-ModuleRegistry.registerModules([ClientSideRowModelModule]);
+ModuleRegistry.registerModules([ClientSideRowModelModule, PaginationModule, NumberFilterModule, TextFilterModule]);
 
 // SSR-safe AG Grid
 const AgGridReact = dynamic(
@@ -217,44 +218,46 @@ export default function TransactionsPage({ user, transactionsData, error: initia
   })), [transactions]);
 
   return (
-    <div className="container">
+    <div style={{ fontFamily: "Arial, sans-serif", maxWidth: 1400, margin: "0 auto", padding: 20 }}>
       <Nav user={user} />
-      <h1>Transaction Management</h1>
+      <h1 style={{ fontSize: 28, marginBottom: 20 }}>Transaction Management</h1>
 
-      <div className="transaction-container">
-        <section className="transaction-form">
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
+        <section style={{ flex: 1, minWidth: 320, background: "#fff", padding: 20, borderRadius: 8, border: "1px solid #eee" }}>
           <h2>Add Transaction</h2>
           <form onSubmit={handleAddTransaction}>
-            <div className="form-group">
+            <div style={{ marginBottom: 12 }}>
               <label>Type:</label>
-              <select value={type} onChange={(e) => setType(e.target.value)}>
+              <select value={type} onChange={(e) => setType(e.target.value)} style={{ width: "100%", padding: 8, borderRadius: 4, border: "1px solid #ddd", fontSize: 14 }}>
                 <option value="Buy">Buy</option>
                 <option value="Sell">Sell</option>
               </select>
             </div>
-            <div className="form-group"><input placeholder="Ticker" value={stock} onChange={(e) => setStock(e.target.value.toUpperCase())} required /></div>
-            <div className="form-group"><input type="number" placeholder="Quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} required /></div>
-            <div className="form-group"><input type="number" step="0.01" placeholder="Price" value={price} onChange={(e) => setPrice(e.target.value)} required /></div>
-            <div className="form-group"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} required /></div>
-            <button type="submit" className="button blue">Add Transaction</button>
-            {error && <div className="alert">{error}</div>}
+            <div style={{ marginBottom: 12 }}><input placeholder="Ticker" value={stock} onChange={(e) => setStock(e.target.value.toUpperCase())} required style={{ width: "100%", padding: 8, borderRadius: 4, border: "1px solid #ddd", fontSize: 14 }} /></div>
+            <div style={{ marginBottom: 12 }}><input type="number" placeholder="Quantity" value={quantity} onChange={(e) => setQuantity(e.target.value)} required style={{ width: "100%", padding: 8, borderRadius: 4, border: "1px solid #ddd", fontSize: 14 }} /></div>
+            <div style={{ marginBottom: 12 }}><input type="number" step="0.01" placeholder="Price" value={price} onChange={(e) => setPrice(e.target.value)} required style={{ width: "100%", padding: 8, borderRadius: 4, border: "1px solid #ddd", fontSize: 14 }} /></div>
+            <div style={{ marginBottom: 12 }}><input type="date" value={date} onChange={(e) => setDate(e.target.value)} required style={{ width: "100%", padding: 8, borderRadius: 4, border: "1px solid #ddd", fontSize: 14 }} /></div>
+            <button type="submit" style={{ padding: "8px 15px", borderRadius: 4, cursor: "pointer", fontSize: 14, border: "none", background: "#0070f3", color: "#fff" }}>Add Transaction</button>
+            {error && <div style={{ marginTop: 10, color: "#8b0000", background: "#ffdddd", padding: 8, borderRadius: 4, fontSize: 14 }}>{error}</div>}
           </form>
 
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 15 }}>
             <BulkTransactionUpload onUploaded={fetchTransactions} hideManualAdd={true} />
+            <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
+              <button onClick={handleDownloadTemplate} style={{ padding: "8px 15px", borderRadius: 4, cursor: "pointer", fontSize: 14, border: "none", background: "#0070f3", color: "#fff" }}>Download CSV Template</button>
+            </div>
           </div>
         </section>
 
-        <section className="transaction-history">
+        <section style={{ flex: 2, minWidth: 500 }}>
           <h2>Past Transactions</h2>
           {transactions.length === 0 ? (
-            <p className="empty-msg">No transactions yet. Add some to get started.</p>
+            <p style={{ fontStyle: "italic", color: "#666", margin: "10px 0" }}>No transactions yet. Add some to get started.</p>
           ) : (
             <>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
-                <button onClick={handleDownloadTransactionsCSV} className="button blue">Download Transactions CSV</button>
-                <button onClick={handleClearTransactions} className="button clear">Clear All Transactions</button>
-                <button onClick={handleDownloadTemplate} className="button blue">Download CSV Template</button>
+                <button onClick={handleDownloadTransactionsCSV} style={{ padding: "8px 15px", borderRadius: 4, cursor: "pointer", fontSize: 14, border: "none", background: "#0070f3", color: "#fff" }}>Download Transactions CSV</button>
+                <button onClick={handleClearTransactions} style={{ padding: "8px 15px", borderRadius: 4, cursor: "pointer", fontSize: 14, border: "none", background: "#f44336", color: "#fff" }}>Clear All Transactions</button>
               </div>
 
               <div className="ag-theme-alpine" style={{ height: 520, width: "100%" }}>
@@ -273,24 +276,9 @@ export default function TransactionsPage({ user, transactionsData, error: initia
         </section>
       </div>
 
-      <footer>
+      <footer style={{ marginTop: 40, padding: 20, background: "#f8f8f8", borderTop: "1px solid #eee", fontSize: 11, color: "#666", textAlign: "center" }}>
         <p>This site is for educational use only. Financial data is provided &quot;as is&quot;.</p>
       </footer>
-
-      <style jsx>{`
-        .container { font-family: Arial; max-width: 1400px; margin: 0 auto; padding: 20px; }
-        .transaction-container { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
-        .transaction-form { flex: 1; min-width: 320px; background: #fff; padding: 16px; border-radius: 8px; border: 1px solid #eee; }
-        .transaction-history { flex: 2; min-width: 500px; }
-        .form-group { margin-bottom: 12px; }
-        input, select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 14px; }
-        button { padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 14px; border: none; }
-        .button.blue { background: #0070f3; color: #fff; }
-        .button.clear { background: #f44336; color: #fff; }
-        .alert { color: #8b0000; background: #ffdddd; padding: 8px; border-radius: 4px; margin-top: 10px; font-size: 14px; }
-        .empty-msg { font-style: italic; color: #666; margin: 10px 0; }
-        footer { margin-top: 40px; padding: 20px; background: #f8f8f8; border-top: 1px solid #eee; font-size: 11px; color: #666; text-align: center; }
-      `}</style>
     </div>
   );
 }

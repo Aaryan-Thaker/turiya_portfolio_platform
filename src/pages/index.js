@@ -1,5 +1,6 @@
 // pages/index.js
-import React, { useState } from "react";
+import React, { useState, useRef, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
 import Nav from "./Nav";
 import { getSession } from "next-auth/react";
 
@@ -8,14 +9,32 @@ import SummaryTab from "../components/tabs/SummaryTab";
 import PortfolioOverviewTab from "../components/tabs/PortfolioOverviewTab";
 import CapitalGainsTab from "../components/tabs/CapitalGainsTab";
 
-// ✅ AG Grid styles (available for all tabs)
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-alpine.css";
 
-// ✅ AG Grid modules (registered globally once)
-import { ModuleRegistry } from "ag-grid-community";
-import { ClientSideRowModelModule } from "ag-grid-community";
-ModuleRegistry.registerModules([ClientSideRowModelModule]);
+// AG Grid modules
+import {
+  ModuleRegistry,
+  ClientSideRowModelModule,
+  CsvExportModule,
+  PaginationModule,
+  NumberFilterModule,
+  TextFilterModule,
+  themeBalham,
+} from "ag-grid-community";
+
+// Register modules
+ModuleRegistry.registerModules([
+  ClientSideRowModelModule,
+  CsvExportModule,
+  PaginationModule,
+  NumberFilterModule,
+  TextFilterModule,
+]);
+
+// SSR-safe dynamic import
+const AgGridReact = dynamic(
+  () => import("ag-grid-react").then((mod) => mod.AgGridReact),
+  { ssr: false }
+);
 
 export default function PortfolioPage(props) {
   const {
@@ -31,6 +50,25 @@ export default function PortfolioPage(props) {
   } = props;
 
   const [activeTab, setActiveTab] = useState("summary");
+  const gridRef = useRef(null);
+
+  const handleExportCSV = useCallback(() => {
+    if (gridRef.current?.api) gridRef.current.api.exportDataAsCsv();
+  }, []);
+
+  // Capital Gains column definitions
+  const capitalGainsColumns = useMemo(
+    () => [
+      { headerName: "Stock", field: "stock", sortable: true, filter: "agTextColumnFilter", flex: 2 },
+      { headerName: "Purchase Date", field: "purchaseDate", sortable: true, filter: "agTextColumnFilter", flex: 1 },
+      { headerName: "Sell Date", field: "sellDate", sortable: true, filter: "agTextColumnFilter", flex: 1 },
+      { headerName: "Cost", field: "cost", sortable: true, filter: "agNumberColumnFilter", flex: 1 },
+      { headerName: "Proceeds", field: "proceeds", sortable: true, filter: "agNumberColumnFilter", flex: 1 },
+      { headerName: "Gain", field: "gain", sortable: true, filter: "agNumberColumnFilter", flex: 1 },
+      { headerName: "Gain %", field: "gainPct", sortable: true, filter: "agNumberColumnFilter", flex: 1 },
+    ],
+    []
+  );
 
   if (errorMessage) {
     return (
@@ -63,7 +101,15 @@ export default function PortfolioPage(props) {
       case "overview":
         return <PortfolioOverviewTab overviewTabData={overviewTabData} />;
       case "capitalGains":
-        return <CapitalGainsTab capitalGainsData={capitalGainsData} />;
+        return (
+          <CapitalGainsTab
+            gridRef={gridRef}
+            capitalGainsData={capitalGainsData}
+            capitalGainsColumns={capitalGainsColumns}
+            handleExportCSV={handleExportCSV}
+            theme={themeBalham}
+          />
+        );
       default:
         return null;
     }
@@ -82,15 +128,15 @@ export default function PortfolioPage(props) {
       <Nav user={currentUser} />
 
       {/* Tabs */}
-      <div style={styles.tabContainer}>
+      <div style={styles.tabBar}>
         {tabs.map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
             style={{
               ...styles.tabButton,
-              background: activeTab === key ? "#0b7dda" : "#f0f0f0",
-              color: activeTab === key ? "#fff" : "#333",
+              borderBottom: activeTab === key ? "3px solid #0b7dda" : "3px solid transparent",
+              color: activeTab === key ? "#0b7dda" : "#555",
               fontWeight: activeTab === key ? 600 : 500,
             }}
           >
@@ -99,7 +145,6 @@ export default function PortfolioPage(props) {
         ))}
       </div>
 
-      {/* Tab Content */}
       <div style={styles.tabContent}>{renderTabContent()}</div>
     </div>
   );
@@ -107,26 +152,26 @@ export default function PortfolioPage(props) {
 
 // ---- Styles ----
 const styles = {
-  tabContainer: {
+  tabBar: {
     display: "flex",
-    borderRadius: 8,
-    boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-    overflow: "hidden",
-    marginBottom: 30,
+    gap: 32,
+    borderBottom: "1px solid #e5e7eb",
+    marginBottom: 24,
+    paddingLeft: 8,
   },
   tabButton: {
-    flex: 1,
-    padding: "12px 24px",
+    background: "transparent",
     border: "none",
+    padding: "12px 4px",
+    fontSize: 15,
     cursor: "pointer",
-    fontSize: 14,
-    transition: "background 0.3s ease, color 0.3s ease",
+    transition: "color 0.3s ease, border-bottom 0.3s ease",
   },
   tabContent: {
-    padding: 10,
+    padding: 16,
     background: "#fff",
     borderRadius: 8,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
   },
 };
 
@@ -135,19 +180,16 @@ export async function getServerSideProps(context) {
   const session = await getSession(context);
   const token = session?.accessToken || "";
 
-  if (!token) {
-    return { redirect: { destination: "/auth/signin", permanent: false } };
-  }
+  if (!token) return { redirect: { destination: "/auth/signin", permanent: false } };
 
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
   const host = context.req.headers.host;
   const backendBase = process.env.BACKEND_URL || `${protocol}://${host}`;
 
   // Portfolio API
-  const portfolioUrl = `${backendBase}/api/portfolio`;
   let portfolioData = {};
   try {
-    const res = await fetch(portfolioUrl, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(`${backendBase}/api/portfolio`, { headers: { Authorization: `Bearer ${token}` } });
     if (res.status === 401) return { props: { currentUser: null } };
     portfolioData = await res.json();
   } catch (err) {
@@ -155,11 +197,11 @@ export async function getServerSideProps(context) {
   }
 
   // Capital Gains API
-  const capitalGainsUrl = `${backendBase}/api/capital_gains`;
-  let capitalGainsData = {};
+  let capitalGainsData = [];
   try {
-    const res = await fetch(capitalGainsUrl, { headers: { Authorization: `Bearer ${token}` } });
-    capitalGainsData = await res.json();
+    const res = await fetch(`${backendBase}/api/capital_gains`, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+    capitalGainsData = Array.isArray(data.gains) ? data.gains : [];
   } catch (err) {
     console.error("Error fetching capital gains:", err);
   }
@@ -179,8 +221,7 @@ export async function getServerSideProps(context) {
       totalGain: portfolioData.totalGain || 0,
       totalGainPct: portfolioData.totalGainPercent || 0,
       overviewTabData: portfolioData.overviewTabData || [],
-      // ✅ pass backend JSON straight through
-      capitalGainsData: capitalGainsData || {},
+      capitalGainsData,
       errorMessage: portfolioData.error || null,
     },
   };
