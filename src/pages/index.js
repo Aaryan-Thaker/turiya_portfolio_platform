@@ -179,7 +179,8 @@ export async function getServerSideProps(context) {
       totalGain: portfolioData.totalGain || 0,
       totalGainPct: portfolioData.totalGainPercent || 0,
       overviewTabData: portfolioData.overviewTabData || [],
-      capitalGainsData: capitalGainsData.success ? capitalGainsData : {},
+      // ✅ pass backend JSON straight through
+      capitalGainsData: capitalGainsData || {},
       errorMessage: portfolioData.error || null,
     },
   };
