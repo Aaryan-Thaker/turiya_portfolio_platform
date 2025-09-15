@@ -15,6 +15,13 @@ const AgGridReact = dynamic(
 
 import { exportToCSV } from "../exportCSV";
 
+function toNumber(v) {
+  if (v === null || v === undefined || v === "") return 0;
+  if (typeof v === "number") return v;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default function CapitalGainsTab({ currentUser }) {
   const [capitalGainsData, setCapitalGainsData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,29 +55,55 @@ export default function CapitalGainsTab({ currentUser }) {
 
   const fmt = useMemo(
     () => ({
-      currency: (num) => (typeof num === "number" ? num.toFixed(2) : "N/A"),
-      quantity: (num) => (typeof num === "number" ? Math.round(num) : "N/A"),
-      percent: (num) => (typeof num === "number" ? num.toFixed(2) + "%" : "N/A"),
+      currency: (num) => (typeof num === "number" && !isNaN(num) ? num.toFixed(2) : "N/A"),
+      percent: (num) => (typeof num === "number" && !isNaN(num) ? num.toFixed(2) + "%" : "N/A"),
     }),
     []
   );
 
+  const perStock = useMemo(() => {
+    if (!capitalGainsData) return {};
+    // handle either per_stock or perStock or capitalGains root
+    return (
+      capitalGainsData?.capitalGains?.per_stock ||
+      capitalGainsData?.capitalGains?.perStock ||
+      capitalGainsData?.per_stock ||
+      capitalGainsData?.perStock ||
+      {}
+    );
+  }, [capitalGainsData]);
+
+  const rowData = useMemo(() => {
+    return Object.entries(perStock || {}).map(([ticker, info]) => {
+      const STCG = toNumber(info?.STCG ?? info?.stcg ?? info?.STcg ?? 0);
+      const LTCG = toNumber(info?.LTCG ?? info?.ltcg ?? info?.LTCg ?? 0);
+      const total = STCG + LTCG;
+      const detailsCount = Array.isArray(info?.details) ? info.details.length : 0;
+      const irrRaw = info?.IRR ?? info?.irr ?? info?.Irr ?? 0;
+      // IRR from backend likely as decimal (0.12) -> show as percent
+      const IRR = Math.abs(irrRaw) < 1 ? irrRaw * 100 : irrRaw;
+      return {
+        Ticker: ticker,
+        STCG,
+        LTCG,
+        "Total Gain": total,
+        IRR,
+        DetailsCount: detailsCount,
+      };
+    });
+  }, [perStock]);
+
   const columnDefs = useMemo(
     () => [
-      { headerName: "Ticker", field: "ticker", sortable: true, filter: true },
-      { headerName: "Quantity", field: "quantity", valueFormatter: (p) => fmt.quantity(p.value) },
-      { headerName: "Avg Cost/Share", field: "avg_cost", valueFormatter: (p) => fmt.currency(p.value) },
-      { headerName: "Current Value", field: "current_value", valueFormatter: (p) => fmt.currency(p.value) },
-      { headerName: "Unrealized Gain", field: "unrealized_gain", valueFormatter: (p) => fmt.currency(p.value) },
-      { headerName: "Gain %", field: "gain_pct", valueFormatter: (p) => fmt.percent(p.value) },
+      { headerName: "Ticker", field: "Ticker", sortable: true, filter: true, resizable: true },
+      { headerName: "STCG", field: "STCG", valueFormatter: (p) => fmt.currency(p.value) },
+      { headerName: "LTCG", field: "LTCG", valueFormatter: (p) => fmt.currency(p.value) },
+      { headerName: "Total Gain", field: "Total Gain", valueFormatter: (p) => fmt.currency(p.value) },
+      { headerName: "IRR", field: "IRR", valueFormatter: (p) => fmt.percent(p.value) },
+      { headerName: "Details Count", field: "DetailsCount" },
     ],
     [fmt]
   );
-
-  const rowData = useMemo(() => {
-    if (!capitalGainsData || !capitalGainsData.perStock) return [];
-    return Object.values(capitalGainsData.perStock);
-  }, [capitalGainsData]);
 
   if (loading) return <div style={{ padding: 20 }}>Loading capital gains...</div>;
 
@@ -89,7 +122,7 @@ export default function CapitalGainsTab({ currentUser }) {
           onClick={() =>
             exportToCSV(
               "capital_gains.csv",
-              ["ticker", "quantity", "avg_cost", "current_value", "unrealized_gain", "gain_pct"],
+              columnDefs.map((c) => c.field),
               rowData
             )
           }
