@@ -29,7 +29,7 @@ export default function Nav({ user: propUser }) {
 
         if (res.ok) {
           const data = await res.json();
-          const numericScore = data?.profile?.total_score ?? data?.total_score ?? null;
+          const numericScore = data?.profile?.totalScore ?? data?.totalScore ?? null;
           const category = data?.profile?.riskProfile ?? null;
 
           if (numericScore && category) {

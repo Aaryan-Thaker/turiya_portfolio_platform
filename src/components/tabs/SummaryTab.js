@@ -41,7 +41,7 @@ export default function SummaryTab({ currentUser, marketData, totalValue, totalC
     percent: (num) => (typeof num === "number" && !isNaN(num) ? num.toFixed(2) + "%" : "N/A"),
   }), []);
 
-  // Normalize the incoming data (same fields as PortfolioOverview)
+  // Normalize portfolio data (mirror PortfolioOverviewTab)
   const normalizedData = useMemo(() => {
     if (!portfolioTableData) return [];
     return portfolioTableData.map((row) => {
@@ -49,19 +49,19 @@ export default function SummaryTab({ currentUser, marketData, totalValue, totalC
       const Name = getFirst(row, ["Name", "name", "shortName", "longName"]) || Ticker;
       const Quantity = toNumber(getFirst(row, ["Quantity", "quantity", "qty"])) || 0;
       const Currency = getFirst(row, ["Currency", "currency"]) || "N/A";
-      const AvgCost = toNumber(getFirst(row, ["Avg Cost/Share", "avg_cost", "avgCost"])) || 0;
-      const CMP = toNumber(getFirst(row, ["CMP", "cmp", "current_price", "price"])) || 0;
-      const CurrentValue = toNumber(getFirst(row, ["Current Value", "current_value"])) || Quantity * CMP || 0;
-      const TotalCost = toNumber(getFirst(row, ["Total Cost", "total_cost"])) || 0;
-      const GainLossPct = toNumber(getFirst(row, ["Gain/Loss %", "gain_loss_pct"])) || 0;
-      const AllocationPercent = toNumber(getFirst(row, ["AllocationPercent", "allocation_percent"])) || 0;
-      const DayChangePct = toNumber(getFirst(row, ["Day Change (%)", "DayChangePct", "day_change_pct"])) || 0;
-      const DayPnL = toNumber(getFirst(row, ["Day PnL", "DayChange", "day_pnl"])) || 0;
-      const InvestmentDate = getFirst(row, ["Investment Date", "investment_date", "first_buy_date"]) || "N/A";
+      const AvgCost = toNumber(getFirst(row, ["Avg Cost/Share", "avg_cost", "avgCost", "avg_cost_per_share"])) || 0;
+      const CMP = toNumber(getFirst(row, ["CMP", "cmp", "current_price", "price", "currentPrice"])) || 0;
+      const CurrentValue = toNumber(getFirst(row, ["Current Value", "current_value", "currentValue", "market_value"])) || Quantity * CMP || 0;
+      const TotalCost = toNumber(getFirst(row, ["Total Cost", "total_cost", "totalCost"])) || 0;
+      const GainLossPct = toNumber(getFirst(row, ["Gain/Loss %", "gain_loss_pct", "gainPct", "gain_percent"])) || 0;
+      const AllocationPercent = toNumber(getFirst(row, ["AllocationPercent", "allocationPercent", "allocation_percent"])) || 0;
+      const DayChangePct = toNumber(getFirst(row, ["Day Change (%)", "DayChangePct", "day_change_pct", "dayChangePct"])) || 0;
+      const DayPnL = toNumber(getFirst(row, ["Day PnL", "DayChange", "day_pnl", "dayPnL"])) || 0;
+      const InvestmentDate = getFirst(row, ["Investment Date", "investment_date", "first_buy_date", "firstBuyDate"]) || "N/A";
       const Exchange = getFirst(row, ["Exchange", "exchange"]) || "N/A";
-      const fiftyTwoHigh = toNumber(getFirst(row, ["52w High", "52wHigh", "52w_high"])) || null;
-      const fiftyTwoLow = toNumber(getFirst(row, ["52w Low", "52wLow", "52w_low"])) || null;
-      const UnrealizedGains = toNumber(getFirst(row, ["Unrealized Gains", "unrealized_gain"])) || 0;
+      const fiftyTwoHigh = toNumber(getFirst(row, ["52w High", "52wHigh", "52w_high", "52_week_high", "fiftyTwoWeekHigh"])) || null;
+      const fiftyTwoLow = toNumber(getFirst(row, ["52w Low", "52wLow", "52w_low", "52_week_low", "fiftyTwoWeekLow"])) || null;
+      const UnrealizedGains = toNumber(getFirst(row, ["Unrealized Gains", "unrealized_gain", "unrealizedGain", "UnrealizedGains"])) || 0;
       const Sector = getFirst(row, ["Sector", "sector"]) || "N/A";
 
       return {

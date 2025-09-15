@@ -55,52 +55,52 @@ export default function CapitalGainsTab({ currentUser }) {
 
   const fmt = useMemo(
     () => ({
-      currency: (num) => (typeof num === "number" && !isNaN(num) ? num.toFixed(2) : "N/A"),
-      percent: (num) => (typeof num === "number" && !isNaN(num) ? num.toFixed(2) + "%" : "N/A"),
+      currency: (num) =>
+        typeof num === "number" && !isNaN(num) ? num.toFixed(2) : "N/A",
+      percent: (num) =>
+        typeof num === "number" && !isNaN(num)
+          ? num.toFixed(2) + "%"
+          : "N/A",
     }),
     []
   );
 
+  // Extract per_stock block
   const perStock = useMemo(() => {
-    if (!capitalGainsData) return {};
-    // handle either per_stock or perStock or capitalGains root
-    return (
-      capitalGainsData?.capitalGains?.per_stock ||
-      capitalGainsData?.capitalGains?.perStock ||
-      capitalGainsData?.per_stock ||
-      capitalGainsData?.perStock ||
-      {}
-    );
+    return capitalGainsData?.per_stock || {};
   }, [capitalGainsData]);
 
   const rowData = useMemo(() => {
     return Object.entries(perStock || {}).map(([ticker, info]) => {
-      const STCG = toNumber(info?.STCG ?? info?.stcg ?? info?.STcg ?? 0);
-      const LTCG = toNumber(info?.LTCG ?? info?.ltcg ?? info?.LTCg ?? 0);
-      const total = STCG + LTCG;
-      const detailsCount = Array.isArray(info?.details) ? info.details.length : 0;
-      const irrRaw = info?.IRR ?? info?.irr ?? info?.Irr ?? 0;
-      // IRR from backend likely as decimal (0.12) -> show as percent
-      const IRR = Math.abs(irrRaw) < 1 ? irrRaw * 100 : irrRaw;
+      const stcg = toNumber(info?.stcg);
+      const ltcg = toNumber(info?.ltcg);
+      const total = stcg + ltcg;
+      const detailsCount = Array.isArray(info?.details)
+        ? info.details.length
+        : 0;
+      const irrRaw = toNumber(info?.irr);
+      // irr from backend is decimal (0.12) → display as %
+      const irr = Math.abs(irrRaw) < 1 ? irrRaw * 100 : irrRaw;
+
       return {
-        Ticker: ticker,
-        STCG,
-        LTCG,
-        "Total Gain": total,
-        IRR,
-        DetailsCount: detailsCount,
+        ticker,
+        stcg,
+        ltcg,
+        total_gain: total,
+        irr,
+        details_count: detailsCount,
       };
     });
   }, [perStock]);
 
   const columnDefs = useMemo(
     () => [
-      { headerName: "Ticker", field: "Ticker", sortable: true, filter: true, resizable: true },
-      { headerName: "STCG", field: "STCG", valueFormatter: (p) => fmt.currency(p.value) },
-      { headerName: "LTCG", field: "LTCG", valueFormatter: (p) => fmt.currency(p.value) },
-      { headerName: "Total Gain", field: "Total Gain", valueFormatter: (p) => fmt.currency(p.value) },
-      { headerName: "IRR", field: "IRR", valueFormatter: (p) => fmt.percent(p.value) },
-      { headerName: "Details Count", field: "DetailsCount" },
+      { headerName: "Ticker", field: "ticker", sortable: true, filter: true, resizable: true },
+      { headerName: "STCG", field: "stcg", valueFormatter: (p) => fmt.currency(p.value) },
+      { headerName: "LTCG", field: "ltcg", valueFormatter: (p) => fmt.currency(p.value) },
+      { headerName: "Total Gain", field: "total_gain", valueFormatter: (p) => fmt.currency(p.value) },
+      { headerName: "IRR", field: "irr", valueFormatter: (p) => fmt.percent(p.value) },
+      { headerName: "Transactions", field: "details_count" },
     ],
     [fmt]
   );
@@ -138,7 +138,26 @@ export default function CapitalGainsTab({ currentUser }) {
 }
 
 const styles = {
-  container: { padding: 20, fontFamily: "Arial, sans-serif", maxWidth: 1200, margin: "0 auto", fontSize: 14 },
-  sectionTitle: { fontSize: 18, fontWeight: 600, marginBottom: 12, borderBottom: "1px solid #ccc", paddingBottom: 4 },
-  csvBtn: { padding: "6px 12px", background: "#4CAF50", color: "white", border: "none", borderRadius: 4, cursor: "pointer" },
+  container: {
+    padding: 20,
+    fontFamily: "Arial, sans-serif",
+    maxWidth: 1200,
+    margin: "0 auto",
+    fontSize: 14,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 600,
+    marginBottom: 12,
+    borderBottom: "1px solid #ccc",
+    paddingBottom: 4,
+  },
+  csvBtn: {
+    padding: "6px 12px",
+    background: "#4CAF50",
+    color: "white",
+    border: "none",
+    borderRadius: 4,
+    cursor: "pointer",
+  },
 };
