@@ -5,13 +5,15 @@ import Nav from "./Nav";
 import { getSession } from "next-auth/react";
 import { ModuleRegistry } from "ag-grid-community";
 
+
 // Register only the essential AG Grid community modules
 import {
   ClientSideRowModelModule,
   CsvExportModule,
   PaginationModule,
   NumberFilterModule,
-  TextFilterModule
+  TextFilterModule,
+  themeBalham 
 } from "ag-grid-community";
 
 // Register only the essential modules
@@ -20,7 +22,8 @@ ModuleRegistry.registerModules([
   CsvExportModule,
   PaginationModule,
   NumberFilterModule,
-  TextFilterModule
+  TextFilterModule,
+  
 ]);
 
 // Import AG Grid styles
@@ -31,6 +34,7 @@ import "ag-grid-community/styles/ag-theme-alpine.css";
 const AgGridReact = dynamic(
   () => import("ag-grid-react").then((mod) => mod.AgGridReact),
   { ssr: false }
+
 );
 
 // Helper: pick first available key from object
@@ -347,6 +351,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
             <AgGridReact
               ref={gridRef}
               rowData={rowData}
+              theme={themeBalham}
               columnDefs={columnDefs}
               defaultColDef={{ 
                 resizable: true, 
