@@ -26,10 +26,6 @@ ModuleRegistry.registerModules([
   
 ]);
 
-// Import AG Grid styles
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-alpine.css";
-
 // Dynamically import AgGridReact to avoid SSR issues
 const AgGridReact = dynamic(
   () => import("ag-grid-react").then((mod) => mod.AgGridReact),
