@@ -30,10 +30,11 @@ const AgGridReact = dynamic(
   { ssr: false }
 );
 
-// Helper: pick first available key
+// Helper: pick first available key from object (robust aliases)
 const pick = (obj, keys) => {
   if (!obj) return null;
   for (let k of keys) {
+    // support nested object keys as well if needed (not used here, but safe)
     if (k in obj && obj[k] !== null && obj[k] !== undefined) return obj[k];
   }
   return null;
@@ -63,15 +64,21 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
 
   // ---- Format helpers ----
   const fmt = useMemo(() => ({
+    // currency: if compact === true, show compactNumber (no currency symbol)
     currency: (value, currency = "USD", compact = false) => {
       const num = toNumber(value);
       if (value == null || value === "N/A" || isNaN(num)) return "N/A";
       if (compact) return compactNumber(num);
-      return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(num);
+      try {
+        return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(num);
+      } catch {
+        return num.toFixed(2);
+      }
     },
+    // percent: backend provides percent already (e.g. 12.34), do NOT multiply
     percent: (value) => {
       if (value == null || value === "N/A" || isNaN(toNumber(value))) return "N/A";
-      return (toNumber(value)).toFixed(2) + "%";
+      return toNumber(value).toFixed(2) + "%";
     },
     ratio: (value) =>
       (value == null || value === "N/A" || isNaN(toNumber(value)))
@@ -110,37 +117,71 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
   const rowData = useMemo(() =>
     tickers.map(symbol => {
       const v = valuationData[symbol] || {};
+
+      // currency
       const c = pick(v, ["Currency", "currency", "CurrencyCode"]) || "USD";
+
+      // price & values: backend uses CurrentPrice, CurrentValue
+      const price = pick(v, ["CurrentPrice", "currentPrice", "price", "Current_Price", "CMP", "cmp"]);
+      const value = pick(v, ["CurrentValue", "currentValue", "Current_Value", "Current Val", "CurrentVal", "market_value", "value"]);
+      const alloc = pick(v, ["AllocationPercent", "allocationPercent", "alloc", "Allocation", "allocation_percent", "weight", "portfolioWeight"]);
+
+      // 52w
+      const high52 = pick(v, ["52w_high", "52wHigh", "52w High", "52_week_high", "fiftyTwoWeekHigh"]);
+      const low52 = pick(v, ["52w_low", "52wLow", "52w Low", "52_week_low", "fiftyTwoWeekLow"]);
+
+      // market caps & ratios — include backend exact keys and common alternates
+      const mktCap = pick(v, ["marketCap", "MarketCap", "market_cap"]);
+      const peTTM = pick(v, ["trailingPE", "TrailingPE", "ttmPE", "trailing_pe"]);
+      const peFwd = pick(v, ["forwardPE", "ForwardPE", "fwdPE"]);
+      const peg = pick(v, ["pegRatio", "PEG", "peg"]);
+      const ps = pick(v, ["priceToSalesTrailing12Months", "priceToSales", "ps"]);
+      const pb = pick(v, ["priceToBook", "pb", "PriceToBook"]);
+      const evRev = pick(v, ["enterpriseToRevenue", "EV/Revenue", "ev_to_revenue"]);
+      const evEbitda = pick(v, ["enterpriseToEbitda", "EV/EBITDA", "ev_to_ebitda"]);
+
+      // margins/returns
+      const margin = pick(v, ["profitMargins", "ProfitMargin", "profit_margin"]);
+      const roa = pick(v, ["returnOnAssets", "ROA", "return_on_assets"]);
+      const roe = pick(v, ["returnOnEquity", "ROE", "return_on_equity"]);
+
+      // financials
+      const revenue = pick(v, ["totalRevenue", "Revenue", "total_revenue"]);
+      const netIncome = pick(v, ["netIncomeToCommon", "NetIncome", "netIncome"]);
+      const eps = pick(v, ["trailingEps", "EPS", "eps"]);
+      const cash = pick(v, ["totalCash", "TotalCash", "cash"]);
+      const debtEq = pick(v, ["debtToEquity", "debtEq", "Debt/Eq"]);
+      const fcf = pick(v, ["freeCashflow", "freeCashFlow", "FreeCashFlow", "FCF"]);
 
       return {
         stock: `${symbol} (${c})`,
-        price: fmt.currency(pick(v, ["CurrentPrice", "price"]), c),
-        value: fmt.currency(pick(v, ["CurrentValue", "currentValue"]), c, true),
-        alloc: fmt.percent(pick(v, ["AllocationPercent", "alloc"])),
+        price: fmt.currency(price, c),
+        // show compact value to keep table tidy
+        value: fmt.currency(value, c, true),
+        alloc: fmt.percent(alloc),
 
-        // ✅ aligned backend + yfinance fields
-        high52: fmt.currency(pick(v, ["52w_high", "fiftyTwoWeekHigh"]), c),
-        low52: fmt.currency(pick(v, ["52w_low", "fiftyTwoWeekLow"]), c),
-        mktCap: fmt.currency(pick(v, ["marketCap"]), c, true),
+        high52: fmt.currency(high52, c),
+        low52: fmt.currency(low52, c),
+        mktCap: fmt.currency(mktCap, c, true),
 
-        peTTM: fmt.ratio(pick(v, ["trailingPE"])),
-        peFwd: fmt.ratio(pick(v, ["forwardPE"])),
-        peg: fmt.ratio(pick(v, ["pegRatio"])),
-        ps: fmt.ratio(pick(v, ["priceToSalesTrailing12Months"])),
-        pb: fmt.ratio(pick(v, ["priceToBook"])),
-        evRev: fmt.ratio(pick(v, ["enterpriseToRevenue"])),
-        evEbitda: fmt.ratio(pick(v, ["enterpriseToEbitda"])),
+        peTTM: fmt.ratio(peTTM),
+        peFwd: fmt.ratio(peFwd),
+        peg: fmt.ratio(peg),
+        ps: fmt.ratio(ps),
+        pb: fmt.ratio(pb),
+        evRev: fmt.ratio(evRev),
+        evEbitda: fmt.ratio(evEbitda),
 
-        margin: fmt.percent(pick(v, ["profitMargins"])),
-        roa: fmt.percent(pick(v, ["returnOnAssets"])),
-        roe: fmt.percent(pick(v, ["returnOnEquity"])),
+        margin: fmt.percent(margin),
+        roa: fmt.percent(roa),
+        roe: fmt.percent(roe),
 
-        revenue: fmt.currency(pick(v, ["totalRevenue"]), c, true),
-        netIncome: fmt.currency(pick(v, ["netIncomeToCommon"]), c, true),
-        eps: fmt.currency(pick(v, ["trailingEps"]), c),
-        cash: fmt.currency(pick(v, ["totalCash"]), c, true),
-        debtEq: fmt.ratio(pick(v, ["debtToEquity"])),
-        fcf: fmt.currency(pick(v, ["freeCashflow"]), c, true),
+        revenue: fmt.currency(revenue, c, true),
+        netIncome: fmt.currency(netIncome, c, true),
+        eps: (eps == null || eps === "N/A" || isNaN(toNumber(eps))) ? "N/A" : Number(toNumber(eps)).toFixed(2),
+        cash: fmt.currency(cash, c, true),
+        debtEq: fmt.ratio(debtEq),
+        fcf: fmt.currency(fcf, c, true),
       };
     }), [tickers, valuationData, fmt]
   );
@@ -172,6 +213,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
         </p>
       ) : (
         <>
+          {/* keep class for baseline styling, pass themeBalham for consistency */}
           <div className="ag-theme-alpine" style={styles.gridContainer}>
             <AgGridReact
               ref={gridRef}

@@ -240,11 +240,13 @@ export default function TransactionsPage({ user, transactionsData, error: initia
           ) : (
             <>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
-                <BulkTransactionUpload.Button
+                {/* ✅ Fixed: use normal button instead of BulkTransactionUpload.Button */}
+                <button
                   onClick={handleDownloadTransactionsCSV}
+                  style={{ padding: "8px 15px", borderRadius: 4, cursor: "pointer", fontSize: 14, border: "none", background: "#0070f3", color: "#fff" }}
                 >
                   Download Transactions CSV
-                </BulkTransactionUpload.Button>
+                </button>
                 <button onClick={handleClearTransactions} style={{ padding: "8px 15px", borderRadius: 4, cursor: "pointer", fontSize: 14, border: "none", background: "#f44336", color: "#fff" }}>Clear All Transactions</button>
               </div>
 
