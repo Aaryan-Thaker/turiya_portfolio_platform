@@ -117,9 +117,12 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
         price: fmt.currency(pick(v, ["CurrentPrice", "price"]), c),
         value: fmt.currency(pick(v, ["CurrentValue", "currentValue"]), c, true),
         alloc: fmt.percent(pick(v, ["AllocationPercent", "alloc"])),
+
+        // ✅ aligned backend + yfinance fields
         high52: fmt.currency(pick(v, ["52w_high", "fiftyTwoWeekHigh"]), c),
         low52: fmt.currency(pick(v, ["52w_low", "fiftyTwoWeekLow"]), c),
         mktCap: fmt.currency(pick(v, ["marketCap"]), c, true),
+
         peTTM: fmt.ratio(pick(v, ["trailingPE"])),
         peFwd: fmt.ratio(pick(v, ["forwardPE"])),
         peg: fmt.ratio(pick(v, ["pegRatio"])),
@@ -127,9 +130,11 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
         pb: fmt.ratio(pick(v, ["priceToBook"])),
         evRev: fmt.ratio(pick(v, ["enterpriseToRevenue"])),
         evEbitda: fmt.ratio(pick(v, ["enterpriseToEbitda"])),
+
         margin: fmt.percent(pick(v, ["profitMargins"])),
         roa: fmt.percent(pick(v, ["returnOnAssets"])),
         roe: fmt.percent(pick(v, ["returnOnEquity"])),
+
         revenue: fmt.currency(pick(v, ["totalRevenue"]), c, true),
         netIncome: fmt.currency(pick(v, ["netIncomeToCommon"]), c, true),
         eps: fmt.currency(pick(v, ["trailingEps"]), c),

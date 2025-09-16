@@ -5,10 +5,6 @@ import Nav from "./Nav";
 import { getSession, useSession, signIn } from "next-auth/react";
 import BulkTransactionUpload from "@/components/BulkTransactionUpload";
 
-// ✅ AG Grid styles
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-alpine.css";
-
 // ✅ AG Grid modules
 import { ModuleRegistry } from "ag-grid-community";
 import { ClientSideRowModelModule, PaginationModule, NumberFilterModule, TextFilterModule } from "ag-grid-community";
@@ -185,15 +181,6 @@ export default function TransactionsPage({ user, transactionsData, error: initia
     downloadCsv(headers, rows, "transactions.csv");
   }, [transactions]);
 
-  const handleDownloadTemplate = useCallback(() => {
-    const headers = ["date", "stock", "type", "quantity", "price"];
-    const rows = [
-      ["2025-09-01", "AAPL", "Buy", "10", "175.00"],
-      ["2025-09-02", "INFY.NS", "Buy", "100", "1500.00"],
-    ];
-    downloadCsv(headers, rows, "transactions_template.csv");
-  }, []);
-
   // AG Grid columns
   const transactionColumnDefs = useMemo(() => [
     { headerName: "Date", field: "date", sortable: true, filter: "agDateColumnFilter", resizable: true, width: 140 },
@@ -243,9 +230,6 @@ export default function TransactionsPage({ user, transactionsData, error: initia
 
           <div style={{ marginTop: 15 }}>
             <BulkTransactionUpload onUploaded={fetchTransactions} hideManualAdd={true} />
-            <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
-              <button onClick={handleDownloadTemplate} style={{ padding: "8px 15px", borderRadius: 4, cursor: "pointer", fontSize: 14, border: "none", background: "#0070f3", color: "#fff" }}>Download CSV Template</button>
-            </div>
           </div>
         </section>
 
@@ -256,7 +240,11 @@ export default function TransactionsPage({ user, transactionsData, error: initia
           ) : (
             <>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
-                <button onClick={handleDownloadTransactionsCSV} style={{ padding: "8px 15px", borderRadius: 4, cursor: "pointer", fontSize: 14, border: "none", background: "#0070f3", color: "#fff" }}>Download Transactions CSV</button>
+                <BulkTransactionUpload.Button
+                  onClick={handleDownloadTransactionsCSV}
+                >
+                  Download Transactions CSV
+                </BulkTransactionUpload.Button>
                 <button onClick={handleClearTransactions} style={{ padding: "8px 15px", borderRadius: 4, cursor: "pointer", fontSize: 14, border: "none", background: "#f44336", color: "#fff" }}>Clear All Transactions</button>
               </div>
 

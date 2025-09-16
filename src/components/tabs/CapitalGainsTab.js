@@ -1,7 +1,7 @@
 // components/tabs/CapitalGainsTab.js
 import React, { useMemo } from "react";
 import dynamic from "next/dynamic";
-import { ModuleRegistry } from "ag-grid-community";
+import { ModuleRegistry, themeBalham } from "ag-grid-community";
 import {
   ClientSideRowModelModule,
   CsvExportModule,
@@ -9,9 +9,6 @@ import {
   NumberFilterModule,
   TextFilterModule,
 } from "ag-grid-community";
-
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-alpine.css";
 
 ModuleRegistry.registerModules([
   ClientSideRowModelModule,
@@ -38,14 +35,8 @@ function toNumber(v) {
 export default function CapitalGainsTab({ capitalGainsData }) {
   const fmt = useMemo(
     () => ({
-      currency: (num) =>
-        typeof num === "number" && !isNaN(num)
-          ? num.toFixed(2)
-          : "N/A",
-      percent: (num) =>
-        typeof num === "number" && !isNaN(num)
-          ? num.toFixed(2) + "%"
-          : "N/A",
+      currency: (num) => (typeof num === "number" ? num.toFixed(2) : "N/A"),
+      percent: (num) => (typeof num === "number" ? num.toFixed(2) + "%" : "N/A"),
     }),
     []
   );
@@ -53,13 +44,14 @@ export default function CapitalGainsTab({ capitalGainsData }) {
   // Normalize per_stock → rows for AG Grid
   const rowData = useMemo(() => {
     if (!capitalGainsData?.per_stock) return [];
+
     return Object.entries(capitalGainsData.per_stock).map(([ticker, info]) => {
       info = info || {};
-      const stcg = toNumber(info.short_term ?? info.stcg ?? 0);
-      const ltcg = toNumber(info.long_term ?? info.ltcg ?? 0);
-      const realized = toNumber(info.realized ?? 0);
+      const stcg = toNumber(info.short_term ?? info.stcg);
+      const ltcg = toNumber(info.long_term ?? info.ltcg);
+      const realized = toNumber(info.realized ?? stcg + ltcg);
       const unrealized = toNumber(info.unrealized ?? 0);
-      const total_gain = stcg + ltcg + unrealized || realized;
+      const total_gain = stcg + ltcg + unrealized;
 
       return {
         ticker,
@@ -75,15 +67,60 @@ export default function CapitalGainsTab({ capitalGainsData }) {
     });
   }, [capitalGainsData]);
 
+  const totalRealized = useMemo(
+    () => rowData.reduce((sum, r) => sum + r.realized, 0),
+    [rowData]
+  );
+  const totalUnrealized = useMemo(
+    () => rowData.reduce((sum, r) => sum + r.unrealized, 0),
+    [rowData]
+  );
+
   const columnDefs = useMemo(
     () => [
-      { headerName: "Ticker", field: "ticker", sortable: true, filter: "agTextColumnFilter", resizable: true },
-      { headerName: "STCG", field: "stcg", valueFormatter: (p) => fmt.currency(p.value), filter: "agNumberColumnFilter" },
-      { headerName: "LTCG", field: "ltcg", valueFormatter: (p) => fmt.currency(p.value), filter: "agNumberColumnFilter" },
-      { headerName: "Realized", field: "realized", valueFormatter: (p) => fmt.currency(p.value), filter: "agNumberColumnFilter" },
-      { headerName: "Unrealized", field: "unrealized", valueFormatter: (p) => fmt.currency(p.value), filter: "agNumberColumnFilter" },
-      { headerName: "Total Gain", field: "total_gain", valueFormatter: (p) => fmt.currency(p.value), filter: "agNumberColumnFilter" },
-      { headerName: "Transactions", field: "trades", filter: "agNumberColumnFilter" },
+      {
+        headerName: "Ticker",
+        field: "ticker",
+        sortable: true,
+        filter: "agTextColumnFilter",
+        resizable: true,
+      },
+      {
+        headerName: "STCG",
+        field: "stcg",
+        valueFormatter: (p) => fmt.currency(p.value),
+        filter: "agNumberColumnFilter",
+      },
+      {
+        headerName: "LTCG",
+        field: "ltcg",
+        valueFormatter: (p) => fmt.currency(p.value),
+        filter: "agNumberColumnFilter",
+      },
+      {
+        headerName: "Realized",
+        field: "realized",
+        valueFormatter: (p) => fmt.currency(p.value),
+        filter: "agNumberColumnFilter",
+      },
+      {
+        headerName: "Unrealized",
+        field: "unrealized",
+        valueFormatter: (p) => fmt.currency(p.value),
+        filter: "agNumberColumnFilter",
+      },
+      {
+        headerName: "Total Gain",
+        field: "total_gain",
+        valueFormatter: (p) => fmt.currency(p.value),
+        filter: "agNumberColumnFilter",
+      },
+      {
+        headerName: "Transactions",
+        field: "trades",
+        filter: "agNumberColumnFilter",
+        resizable: true,
+      },
     ],
     [fmt]
   );
@@ -92,23 +129,26 @@ export default function CapitalGainsTab({ capitalGainsData }) {
     <div style={styles.container}>
       <h2 style={styles.sectionTitle}>Capital Gains</h2>
 
-      {/* Summary Section */}
+      {/* Summary */}
       <section style={styles.summary}>
         <SummaryItem
           label="Total Realized"
-          value={fmt.currency(toNumber(capitalGainsData?.total_realized))}
-          positive={toNumber(capitalGainsData?.total_realized) >= 0}
+          value={fmt.currency(totalRealized)}
+          positive={totalRealized >= 0}
         />
         <SummaryItem
           label="Total Unrealized"
-          value={fmt.currency(toNumber(capitalGainsData?.total_unrealized))}
-          positive={toNumber(capitalGainsData?.total_unrealized) >= 0}
+          value={fmt.currency(totalUnrealized)}
+          positive={totalUnrealized >= 0}
         />
       </section>
 
       {rowData.length > 0 ? (
         <>
-          <div className="ag-theme-alpine" style={{ height: 400, width: "100%", marginBottom: 20 }}>
+          <div
+            className="ag-theme-balham"
+            style={{ width: "100%", marginBottom: 20 }}
+          >
             <AgGridReact
               rowData={rowData}
               columnDefs={columnDefs}
@@ -119,9 +159,11 @@ export default function CapitalGainsTab({ capitalGainsData }) {
                 flex: 1,
                 minWidth: 100,
               }}
-              pagination={true}
+              pagination
               paginationPageSize={10}
               domLayout="autoHeight"
+              animateRows
+              theme={themeBalham}
             />
           </div>
 
@@ -154,7 +196,7 @@ function SummaryItem({ label, value, positive }) {
       <div
         style={{
           ...styles.summaryValue,
-          color: positive ? "#006400" : positive === false ? "#8B0000" : "inherit",
+          color: positive ? "#006400" : "#8B0000",
         }}
       >
         {value}
@@ -178,20 +220,9 @@ const styles = {
     borderBottom: "1px solid #ccc",
     paddingBottom: 4,
   },
-  summary: {
-    display: "flex",
-    gap: 60,
-    marginBottom: 20,
-  },
-  summaryItem: {
-    display: "flex",
-    flexDirection: "column",
-  },
-  summaryValue: {
-    fontWeight: "bold",
-    fontSize: 18,
-    marginTop: 4,
-  },
+  summary: { display: "flex", gap: 60, marginBottom: 20 },
+  summaryItem: { display: "flex", flexDirection: "column" },
+  summaryValue: { fontWeight: "bold", fontSize: 18, marginTop: 4 },
   csvBtn: {
     padding: "8px 16px",
     background: "#0070f3",

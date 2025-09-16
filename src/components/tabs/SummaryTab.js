@@ -1,29 +1,49 @@
 // components/tabs/SummaryTab.js
-import React, { useMemo } from "react";
+import React, { useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { ModuleRegistry } from "ag-grid-community";
-import { ClientSideRowModelModule } from "ag-grid-community";
+import { ModuleRegistry, themeBalham } from "ag-grid-community";
+import {
+  ClientSideRowModelModule,
+  CsvExportModule,
+  NumberFilterModule,
+  TextFilterModule,
+} from "ag-grid-community";
+import { exportToCSV } from "../exportCSV";
 
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-alpine.css";
-
-ModuleRegistry.registerModules([ClientSideRowModelModule]);
+// Register AG Grid modules
+ModuleRegistry.registerModules([
+  ClientSideRowModelModule,
+  CsvExportModule,
+  NumberFilterModule,
+  TextFilterModule,
+]);
 
 const AgGridReact = dynamic(
   () => import("ag-grid-react").then((mod) => mod.AgGridReact),
   { ssr: false }
 );
-
-const StockPie = dynamic(() => import("../Charts").then((mod) => mod.StockPie), { ssr: false });
-const SectorPie = dynamic(() => import("../Charts").then((mod) => mod.SectorPie), { ssr: false });
-const TreemapChart = dynamic(() => import("../Charts").then((mod) => mod.TreemapChart), { ssr: false });
-
-import { exportToCSV } from "../exportCSV";
+const StockPie = dynamic(
+  () => import("../Charts").then((mod) => mod.StockPie),
+  { ssr: false }
+);
+const SectorPie = dynamic(
+  () => import("../Charts").then((mod) => mod.SectorPie),
+  { ssr: false }
+);
+const TreemapChart = dynamic(
+  () => import("../Charts").then((mod) => mod.TreemapChart),
+  { ssr: false }
+);
 
 function getFirst(obj = {}, keys = []) {
   for (const k of keys) {
     if (obj == null) return undefined;
-    if (Object.prototype.hasOwnProperty.call(obj, k) && obj[k] !== null && obj[k] !== undefined) return obj[k];
+    if (
+      Object.prototype.hasOwnProperty.call(obj, k) &&
+      obj[k] !== null &&
+      obj[k] !== undefined
+    )
+      return obj[k];
   }
   return undefined;
 }
@@ -34,34 +54,143 @@ function toNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-export default function SummaryTab({ currentUser, marketData, totalValue, totalCost, totalGain, totalGainPct, portfolioTableData }) {
-  const fmt = useMemo(() => ({
-    currency: (num) => (typeof num === "number" && !isNaN(num) ? num.toFixed(2) : "N/A"),
-    quantity: (num) => (typeof num === "number" && !isNaN(num) ? Math.round(num) : "N/A"),
-    percent: (num) => (typeof num === "number" && !isNaN(num) ? num.toFixed(2) + "%" : "N/A"),
-  }), []);
+export default function SummaryTab({
+  currentUser,
+  marketData,
+  totalValue,
+  totalCost,
+  totalGain,
+  totalGainPct,
+  portfolioTableData,
+}) {
+  const gridRef = useRef(null);
 
-  // Normalize portfolio data (mirror PortfolioOverviewTab)
+  const fmt = useMemo(
+    () => ({
+      currency: (num) =>
+        typeof num === "number" && !isNaN(num) ? num.toFixed(2) : "N/A",
+      quantity: (num) =>
+        typeof num === "number" && !isNaN(num) ? Math.round(num) : "N/A",
+      percent: (num) =>
+        typeof num === "number" && !isNaN(num)
+          ? num.toFixed(2) + "%"
+          : "N/A",
+    }),
+    []
+  );
+
+  // Normalize portfolio data
   const normalizedData = useMemo(() => {
     if (!portfolioTableData) return [];
     return portfolioTableData.map((row) => {
-      const Ticker = getFirst(row, ["Ticker", "ticker", "symbol", "stock"]) || "N/A";
-      const Name = getFirst(row, ["Name", "name", "shortName", "longName"]) || Ticker;
-      const Quantity = toNumber(getFirst(row, ["Quantity", "quantity", "qty"])) || 0;
+      const Ticker =
+        getFirst(row, ["Ticker", "ticker", "symbol", "stock"]) || "N/A";
+      const Name =
+        getFirst(row, ["Name", "name", "shortName", "longName"]) || Ticker;
+      const Quantity = toNumber(
+        getFirst(row, ["Quantity", "quantity", "qty"])
+      ) || 0;
       const Currency = getFirst(row, ["Currency", "currency"]) || "N/A";
-      const AvgCost = toNumber(getFirst(row, ["Avg Cost/Share", "avg_cost", "avgCost", "avg_cost_per_share"])) || 0;
-      const CMP = toNumber(getFirst(row, ["CMP", "cmp", "current_price", "price", "currentPrice"])) || 0;
-      const CurrentValue = toNumber(getFirst(row, ["Current Value", "current_value", "currentValue", "market_value"])) || Quantity * CMP || 0;
-      const TotalCost = toNumber(getFirst(row, ["Total Cost", "total_cost", "totalCost"])) || 0;
-      const GainLossPct = toNumber(getFirst(row, ["Gain/Loss %", "gain_loss_pct", "gainPct", "gain_percent"])) || 0;
-      const AllocationPercent = toNumber(getFirst(row, ["AllocationPercent", "allocationPercent", "allocation_percent"])) || 0;
-      const DayChangePct = toNumber(getFirst(row, ["Day Change (%)", "DayChangePct", "day_change_pct", "dayChangePct"])) || 0;
-      const DayPnL = toNumber(getFirst(row, ["Day PnL", "DayChange", "day_pnl", "dayPnL"])) || 0;
-      const InvestmentDate = getFirst(row, ["Investment Date", "investment_date", "first_buy_date", "firstBuyDate"]) || "N/A";
+      const AvgCost =
+        toNumber(
+          getFirst(row, [
+            "Avg Cost/Share",
+            "avg_cost",
+            "avgCost",
+            "avg_cost_per_share",
+          ])
+        ) || 0;
+      const CMP =
+        toNumber(
+          getFirst(row, [
+            "CMP",
+            "cmp",
+            "current_price",
+            "price",
+            "currentPrice",
+          ])
+        ) || 0;
+      const CurrentValue =
+        toNumber(
+          getFirst(row, [
+            "Current Value",
+            "current_value",
+            "currentValue",
+            "market_value",
+          ])
+        ) ||
+        Quantity * CMP ||
+        0;
+      const TotalCost =
+        toNumber(getFirst(row, ["Total Cost", "total_cost", "totalCost"])) ||
+        0;
+      const GainLossPct =
+        toNumber(
+          getFirst(row, [
+            "Gain/Loss %",
+            "gain_loss_pct",
+            "gainPct",
+            "gain_percent",
+          ])
+        ) || 0;
+      const AllocationPercent =
+        toNumber(
+          getFirst(row, [
+            "AllocationPercent",
+            "allocationPercent",
+            "allocation_percent",
+          ])
+        ) || 0;
+      const DayChangePct =
+        toNumber(
+          getFirst(row, [
+            "Day Change (%)",
+            "DayChangePct",
+            "day_change_pct",
+            "dayChangePct",
+          ])
+        ) || 0;
+      const DayPnL =
+        toNumber(
+          getFirst(row, ["Day PnL", "DayChange", "day_pnl", "dayPnL"])
+        ) || 0;
+      const InvestmentDate =
+        getFirst(row, [
+          "Investment Date",
+          "investment_date",
+          "first_buy_date",
+          "firstBuyDate",
+        ]) || "N/A";
       const Exchange = getFirst(row, ["Exchange", "exchange"]) || "N/A";
-      const fiftyTwoHigh = toNumber(getFirst(row, ["52w High", "52wHigh", "52w_high", "52_week_high", "fiftyTwoWeekHigh"])) || null;
-      const fiftyTwoLow = toNumber(getFirst(row, ["52w Low", "52wLow", "52w_low", "52_week_low", "fiftyTwoWeekLow"])) || null;
-      const UnrealizedGains = toNumber(getFirst(row, ["Unrealized Gains", "unrealized_gain", "unrealizedGain", "UnrealizedGains"])) || 0;
+      const fiftyTwoHigh =
+        toNumber(
+          getFirst(row, [
+            "52w High",
+            "52wHigh",
+            "52w_high",
+            "52_week_high",
+            "fiftyTwoWeekHigh",
+          ])
+        ) || null;
+      const fiftyTwoLow =
+        toNumber(
+          getFirst(row, [
+            "52w Low",
+            "52wLow",
+            "52w_low",
+            "52_week_low",
+            "fiftyTwoWeekLow",
+          ])
+        ) || null;
+      const UnrealizedGains =
+        toNumber(
+          getFirst(row, [
+            "Unrealized Gains",
+            "unrealized_gain",
+            "unrealizedGain",
+            "UnrealizedGains",
+          ])
+        ) || 0;
       const Sector = getFirst(row, ["Sector", "sector"]) || "N/A";
 
       return {
@@ -87,85 +216,238 @@ export default function SummaryTab({ currentUser, marketData, totalValue, totalC
     });
   }, [portfolioTableData]);
 
-  // Sorters for top lists
-  const dailySorted = [...normalizedData].sort((a, b) => (b["Day Change (%)"] || 0) - (a["Day Change (%)"] || 0));
+  // Top lists
+  const dailySorted = [...normalizedData].sort(
+    (a, b) => (b["Day Change (%)"] || 0) - (a["Day Change (%)"] || 0)
+  );
   const topDailyGainers = dailySorted.slice(0, 5);
   const topDailyLosers = dailySorted.slice(-5).reverse();
 
-  const allTimeSorted = [...normalizedData].sort((a, b) => (b["Unrealized Gains"] || 0) - (a["Unrealized Gains"] || 0));
+  const allTimeSorted = [...normalizedData].sort(
+    (a, b) => (b["Unrealized Gains"] || 0) - (a["Unrealized Gains"] || 0)
+  );
   const topAllTimeGainers = allTimeSorted.slice(0, 5);
   const topAllTimeLosers = allTimeSorted.slice(-5).reverse();
 
-  const columnDefs = useMemo(() => [
-    { headerName: "Ticker", field: "Ticker", sortable: true, filter: true, resizable: true, width: 100 },
-    { headerName: "Name", field: "Name", sortable: true, filter: true, resizable: true, flex: 1 },
-    { headerName: "Quantity", field: "Quantity", valueFormatter: (p) => fmt.quantity(p.value), resizable: true, width: 120 },
-    { headerName: "Currency", field: "Currency", sortable: true, filter: true, resizable: true, width: 100 },
-    { headerName: "Avg Cost/Share", field: "Avg Cost/Share", valueFormatter: (p) => fmt.currency(p.value), resizable: true, width: 130 },
-    { headerName: "CMP", field: "CMP", valueFormatter: (p) => fmt.currency(p.value), resizable: true, width: 130 },
-    { headerName: "Current Value", field: "Current Value", valueFormatter: (p) => fmt.currency(p.value), resizable: true, width: 130 },
-    { headerName: "Total Cost", field: "Total Cost", valueFormatter: (p) => fmt.currency(p.value), resizable: true, width: 130 },
-    { headerName: "Gain/Loss %", field: "Gain/Loss %", valueFormatter: (p) => fmt.percent(p.value), resizable: true, width: 130 },
-    { headerName: "Allocation %", field: "AllocationPercent", valueFormatter: (p) => fmt.percent(p.value), resizable: true, width: 120 },
-    { headerName: "Day Change (%)", field: "Day Change (%)", valueFormatter: (p) => fmt.percent(p.value), resizable: true, width: 120 },
-    { headerName: "Day P&L", field: "Day PnL", valueFormatter: (p) => fmt.currency(p.value), resizable: true, width: 130 },
-    { headerName: "Investment Date", field: "Investment Date", sortable: true, filter: true, resizable: true, width: 130 },
-    { headerName: "Exchange", field: "Exchange", sortable: true, filter: true, resizable: true, width: 100 },
-    { headerName: "52w High", field: "52w High", valueFormatter: (p) => fmt.currency(p.value), resizable: true, width: 130 },
-    { headerName: "52w Low", field: "52w Low", valueFormatter: (p) => fmt.currency(p.value), resizable: true, width: 130 },
-    { headerName: "Unrealized Gains", field: "Unrealized Gains", valueFormatter: (p) => fmt.currency(p.value), resizable: true, width: 130 },
-    { headerName: "Sector", field: "Sector", sortable: true, filter: true, resizable: true, width: 120 },
-  ], [fmt]);
+  // Column defs
+  const columnDefs = useMemo(
+    () => [
+      {
+        headerName: "Ticker",
+        field: "Ticker",
+        sortable: true,
+        filter: true,
+        resizable: true,
+        width: 100,
+      },
+      {
+        headerName: "Name",
+        field: "Name",
+        sortable: true,
+        filter: true,
+        resizable: true,
+        flex: 1,
+      },
+      {
+        headerName: "Quantity",
+        field: "Quantity",
+        valueFormatter: (p) => fmt.quantity(p.value),
+        width: 120,
+      },
+      { headerName: "Currency", field: "Currency", width: 100 },
+      {
+        headerName: "Avg Cost/Share",
+        field: "Avg Cost/Share",
+        valueFormatter: (p) => fmt.currency(p.value),
+        width: 130,
+      },
+      {
+        headerName: "CMP",
+        field: "CMP",
+        valueFormatter: (p) => fmt.currency(p.value),
+        width: 130,
+      },
+      {
+        headerName: "Current Value",
+        field: "Current Value",
+        valueFormatter: (p) => fmt.currency(p.value),
+        width: 130,
+      },
+      {
+        headerName: "Total Cost",
+        field: "Total Cost",
+        valueFormatter: (p) => fmt.currency(p.value),
+        width: 130,
+      },
+      {
+        headerName: "Gain/Loss %",
+        field: "Gain/Loss %",
+        valueFormatter: (p) => fmt.percent(p.value),
+        width: 130,
+      },
+      {
+        headerName: "Allocation %",
+        field: "AllocationPercent",
+        valueFormatter: (p) => fmt.percent(p.value),
+        width: 120,
+      },
+      {
+        headerName: "Day Change (%)",
+        field: "Day Change (%)",
+        valueFormatter: (p) => fmt.percent(p.value),
+        width: 120,
+      },
+      {
+        headerName: "Day P&L",
+        field: "Day PnL",
+        valueFormatter: (p) => fmt.currency(p.value),
+        width: 130,
+      },
+      { headerName: "Investment Date", field: "Investment Date", width: 130 },
+      { headerName: "Exchange", field: "Exchange", width: 100 },
+      {
+        headerName: "52w High",
+        field: "52w High",
+        valueFormatter: (p) => fmt.currency(p.value),
+        width: 130,
+      },
+      {
+        headerName: "52w Low",
+        field: "52w Low",
+        valueFormatter: (p) => fmt.currency(p.value),
+        width: 130,
+      },
+      {
+        headerName: "Unrealized Gains",
+        field: "Unrealized Gains",
+        valueFormatter: (p) => fmt.currency(p.value),
+        width: 130,
+      },
+      { headerName: "Sector", field: "Sector", width: 120 },
+    ],
+    [fmt]
+  );
+
+  const handleExportCSV = useCallback(() => {
+    exportToCSV("portfolio.csv", columnDefs.map((c) => c.field), normalizedData);
+  }, [columnDefs, normalizedData]);
 
   return (
     <div style={styles.container}>
-      {/* Portfolio Summary */}
-      <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>Portfolio Summary</h2>
-        <div style={styles.portfolioSummary}>
-          <SummaryItem label="Total Current Value" value={fmt.currency(totalValue)} />
-          <SummaryItem label="Total Investment Cost" value={fmt.currency(totalCost)} />
-          <SummaryItem label="Total Gain/Loss" value={`${fmt.currency(totalGain)} (${fmt.percent(totalGainPct)})`} positive={parseFloat(totalGainPct) > 0} />
+      {/* Portfolio + Market Summary */}
+      <section
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: 20,
+        }}
+      >
+        {/* Portfolio Summary */}
+        <div>
+          <h2 style={styles.sectionTitle}>Portfolio Summary</h2>
+          <div style={styles.portfolioSummary}>
+            <SummaryItem
+              label="Total Current Value"
+              value={fmt.currency(totalValue)}
+            />
+            <SummaryItem
+              label="Total Investment Cost"
+              value={fmt.currency(totalCost)}
+            />
+            <SummaryItem
+              label="Total Gain/Loss"
+              value={`${fmt.currency(totalGain)} (${fmt.percent(
+                totalGainPct
+              )})`}
+              positive={parseFloat(totalGainPct) > 0}
+            />
+          </div>
+        </div>
+        {/* Market Summary */}
+        <div>
+          <h2 style={styles.sectionTitle}>Market Summary</h2>
+          <div style={styles.marketSummary}>
+            {["nasdaq", "sp500", "dow"].map((index) => {
+              const data = marketData?.[index];
+              if (!data || data.price === undefined)
+                return (
+                  <div key={index} style={styles.marketIndicator}>
+                    <div style={styles.marketIndex}>{index.toUpperCase()}</div>
+                    <div style={styles.marketValue}>Data unavailable</div>
+                  </div>
+                );
+              const positive = data.change >= 0;
+              return (
+                <div key={index} style={styles.marketIndicator}>
+                  <div style={styles.marketIndex}>{index.toUpperCase()}</div>
+                  <div style={styles.marketValue}>{data.price.toFixed(2)}</div>
+                  <div
+                    style={{
+                      ...styles.marketChange,
+                      color: positive ? "#006400" : "#8B0000",
+                    }}
+                  >
+                    {data.change.toFixed(2)} (
+                    {fmt.percent(data.change_pct * 100)})
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
 
       {/* CSV Export */}
       {normalizedData.length > 0 && (
-        <div style={{ margin: "20px 0" }}>
-          <button
-            onClick={() =>
-              exportToCSV(
-                "portfolio.csv",
-                columnDefs.map((c) => c.field),
-                normalizedData
-              )
-            }
-            style={styles.csvBtn}
-          >
+        <div style={{ margin: "10px 0" }}>
+          <button onClick={handleExportCSV} style={styles.csvBtn}>
             Download CSV
           </button>
         </div>
       )}
 
-      {/* Top Daily Gainers/Losers */}
+      {/* Top Daily Gainers */}
       <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>Top 5 Daily Gainers / Losers</h2>
-        <div className="ag-theme-alpine" style={{ height: 250, marginBottom: 20 }}>
-          <AgGridReact rowData={topDailyGainers} columnDefs={columnDefs} domLayout="autoHeight" />
+        <h3 style={styles.tableTitle}>Top 5 Daily Gainers</h3>
+        <div className="ag-theme-balham" style={{ height: 250, marginBottom: 10 }}>
+          <AgGridReact
+            rowData={topDailyGainers}
+            columnDefs={columnDefs}
+            domLayout="autoHeight"
+            theme={themeBalham}
+          />
         </div>
-        <div className="ag-theme-alpine" style={{ height: 250 }}>
-          <AgGridReact rowData={topDailyLosers} columnDefs={columnDefs} domLayout="autoHeight" />
+        <h3 style={styles.tableTitle}>Top 5 Daily Losers</h3>
+        <div className="ag-theme-balham" style={{ height: 250 }}>
+          <AgGridReact
+            rowData={topDailyLosers}
+            columnDefs={columnDefs}
+            domLayout="autoHeight"
+            theme={themeBalham}
+          />
         </div>
       </section>
 
-      {/* Top All-Time Gainers/Losers */}
+      {/* Top All-Time Gainers */}
       <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>Top 5 All-Time Gainers / Losers</h2>
-        <div className="ag-theme-alpine" style={{ height: 250, marginBottom: 20 }}>
-          <AgGridReact rowData={topAllTimeGainers} columnDefs={columnDefs} domLayout="autoHeight" />
+        <h3 style={styles.tableTitle}>Top 5 All-Time Gainers</h3>
+        <div className="ag-theme-balham" style={{ height: 250, marginBottom: 10 }}>
+          <AgGridReact
+            rowData={topAllTimeGainers}
+            columnDefs={columnDefs}
+            domLayout="autoHeight"
+            theme={themeBalham}
+          />
         </div>
-        <div className="ag-theme-alpine" style={{ height: 250 }}>
-          <AgGridReact rowData={topAllTimeLosers} columnDefs={columnDefs} domLayout="autoHeight" />
+        <h3 style={styles.tableTitle}>Top 5 All-Time Losers</h3>
+        <div className="ag-theme-balham" style={{ height: 250 }}>
+          <AgGridReact
+            rowData={topAllTimeLosers}
+            columnDefs={columnDefs}
+            domLayout="autoHeight"
+            theme={themeBalham}
+          />
         </div>
       </section>
 
@@ -178,32 +460,6 @@ export default function SummaryTab({ currentUser, marketData, totalValue, totalC
           <TreemapChart data={normalizedData} />
         </div>
       </section>
-
-      {/* Market Overview */}
-      <section style={styles.section}>
-        <h2 style={styles.sectionTitle}>Market Overview</h2>
-        <div style={styles.marketSummary}>
-          {["nasdaq", "sp500", "dow"].map((index) => {
-            const data = marketData?.[index];
-            if (!data || data.price === undefined) return (
-              <div key={index} style={styles.marketIndicator}>
-                <div style={styles.marketIndex}>{index.toUpperCase()}</div>
-                <div style={styles.marketValue}>Data unavailable</div>
-              </div>
-            );
-            const positive = data.change >= 0;
-            return (
-              <div key={index} style={styles.marketIndicator}>
-                <div style={styles.marketIndex}>{index.toUpperCase()}</div>
-                <div style={styles.marketValue}>{data.price.toFixed(2)}</div>
-                <div style={{ ...styles.marketChange, color: positive ? "#006400" : "#8B0000" }}>
-                  {data.change.toFixed(2)} ({fmt.percent(data.change_pct * 100)})
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
     </div>
   );
 }
@@ -212,7 +468,12 @@ function SummaryItem({ label, value, positive }) {
   return (
     <div style={styles.summaryItem}>
       <div>{label}</div>
-      <div style={{ ...styles.summaryValue, color: positive ? "#006400" : positive === false ? "#8B0000" : "inherit" }}>
+      <div
+        style={{
+          ...styles.summaryValue,
+          color: positive ? "#006400" : positive === false ? "#8B0000" : "inherit",
+        }}
+      >
         {value}
       </div>
     </div>
@@ -220,17 +481,46 @@ function SummaryItem({ label, value, positive }) {
 }
 
 const styles = {
-  container: { padding: 20, fontFamily: "Arial, sans-serif", maxWidth: 1400, margin: "0 auto", fontSize: 14 },
+  container: {
+    padding: 20,
+    fontFamily: "Arial, sans-serif",
+    maxWidth: 1400,
+    margin: "0 auto",
+    fontSize: 14,
+  },
   section: { marginBottom: 40 },
-  sectionTitle: { marginBottom: 12, fontSize: 18, fontWeight: 600, borderBottom: "1px solid #ccc", paddingBottom: 4 },
+  sectionTitle: {
+    marginBottom: 12,
+    fontSize: 18,
+    fontWeight: 600,
+    borderBottom: "1px solid #ccc",
+    paddingBottom: 4,
+  },
+  tableTitle: { marginBottom: 6, fontSize: 16, fontWeight: 500 },
   marketSummary: { display: "flex", justifyContent: "flex-start", gap: 30 },
   marketIndicator: { display: "flex", flexDirection: "column" },
   marketIndex: { fontWeight: 600, fontSize: 14 },
   marketValue: { fontSize: 16, fontWeight: "bold" },
   marketChange: { fontSize: 14 },
-  portfolioSummary: { display: "flex", justifyContent: "flex-start", gap: 60, paddingTop: 10 },
+  portfolioSummary: {
+    display: "flex",
+    justifyContent: "flex-start",
+    gap: 60,
+    paddingTop: 10,
+  },
   summaryItem: { display: "flex", flexDirection: "column" },
   summaryValue: { fontWeight: "bold", fontSize: 18, marginTop: 4 },
-  chartsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20 },
-  csvBtn: { padding: "6px 12px", background: "#4CAF50", color: "white", border: "none", borderRadius: 4, cursor: "pointer" },
+  chartsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+    gap: 20,
+  },
+  csvBtn: {
+    padding: "6px 12px",
+    background: "#4CAF50",
+    color: "white",
+    border: "none",
+    borderRadius: 4,
+    cursor: "pointer",
+  },
 };
