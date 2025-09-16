@@ -1,5 +1,5 @@
 // pages/valuation.js
-import React, { useMemo, useRef, useCallback } from "react";
+import React, { useMemo, useRef, useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Nav from "./Nav";
 import { getSession } from "next-auth/react";
@@ -61,6 +61,25 @@ const compactNumber = (value) => {
 
 export default function ValuationPage({ currentUser, tickers = [], valuationData = {}, error }) {
   const gridRef = useRef(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Debug the incoming props
+  useEffect(() => {
+    console.log("=== VALUATION PAGE DEBUG ===");
+    console.log("Current user:", currentUser);
+    console.log("Tickers:", tickers);
+    console.log("Valuation data keys:", Object.keys(valuationData));
+    console.log("Valuation data:", valuationData);
+    console.log("Error:", error);
+    
+    if (tickers.length > 0 && Object.keys(valuationData).length === 0) {
+      console.error("❌ Tickers exist but valuationData is empty!");
+    }
+    
+    if (tickers.length > 0) {
+      console.log("Sample ticker data for", tickers[0], ":", valuationData[tickers[0]]);
+    }
+  }, [tickers, valuationData, error, currentUser]);
 
   // ---- Format helpers ----
   const fmt = useMemo(() => ({
@@ -114,12 +133,22 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
   ], []);
 
   // ---- Row data ----
-  const rowData = useMemo(() =>
-    tickers.map(symbol => {
+  const rowData = useMemo(() => {
+    console.log("=== CREATING ROW DATA ===");
+    console.log("Tickers:", tickers);
+    console.log("Valuation data keys:", Object.keys(valuationData));
+    
+    return tickers.map(symbol => {
       const v = valuationData[symbol] || {};
+      console.log(`Data for ${symbol}:`, v);
 
       // currency - backend uses 'Currency'
       const c = v.Currency || "USD";
+
+      // Debug each field to see what's actually available
+      console.log(`${symbol} - CurrentPrice:`, v.CurrentPrice);
+      console.log(`${symbol} - CurrentValue:`, v.CurrentValue);
+      console.log(`${symbol} - AllocationPercent:`, v.AllocationPercent);
 
       // price & values: backend uses CurrentPrice, CurrentValue
       const price = v.CurrentPrice;
@@ -153,10 +182,9 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
       const debtEq = v.debtToEquity;
       const fcf = v.freeCashflow;
 
-      return {
+      const row = {
         stock: `${symbol} (${c})`,
         price: fmt.currency(price, c),
-        // show compact value to keep table tidy
         value: fmt.currency(value, c, true),
         alloc: fmt.percent(alloc),
 
@@ -183,8 +211,11 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
         debtEq: fmt.ratio(debtEq),
         fcf: fmt.currency(fcf, c, true),
       };
-    }), [tickers, valuationData, fmt]
-);
+
+      console.log(`Row for ${symbol}:`, row);
+      return row;
+    });
+  }, [tickers, valuationData, fmt]);
 
   // ---- Export CSV ----
   const handleExportCSV = useCallback(() => {
@@ -193,8 +224,26 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
     }
   }, []);
 
+  if (isLoading) {
+    return (
+      <div style={styles.body}>
+        <Nav user={currentUser} />
+        <div style={{ padding: 20, textAlign: 'center' }}>Loading valuation data...</div>
+      </div>
+    );
+  }
+
   if (error) {
-    return <div style={{ padding: 20, color: "red" }}>Error loading valuation data: {error}</div>;
+    return (
+      <div style={styles.body}>
+        <Nav user={currentUser} />
+        <div style={{ padding: 20, color: "red" }}>
+          <h2>Error loading valuation data</h2>
+          <p>{error}</p>
+          <p>Please check your transactions or try again later.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -208,11 +257,19 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
       </header>
 
       {!tickers.length ? (
-        <p style={{ fontStyle: "italic", color: "#666" }}>
+        <p style={{ fontStyle: "italic", color: "#666", padding: 20 }}>
           Start by adding Transactions in the Transactions page.
         </p>
       ) : (
         <>
+          {/* Debug info */}
+          <div style={{ marginBottom: 20, padding: 10, backgroundColor: '#f5f5f5', borderRadius: 4 }}>
+            <small>
+              <strong>Debug:</strong> Found {tickers.length} tickers | 
+              Data keys: {Object.keys(valuationData).join(', ')}
+            </small>
+          </div>
+
           {/* keep class for baseline styling, pass themeBalham for consistency */}
           <div className="ag-theme-alpine" style={styles.gridContainer}>
             <AgGridReact
@@ -273,16 +330,42 @@ export async function getServerSideProps(context) {
   const backendBase = process.env.BACKEND_URL || `${protocol}://${host}`;
   const backendUrl = `${backendBase}/api/valuation`;
 
+  console.log("=== SERVER-SIDE FETCH ===");
+  console.log("Fetching from:", backendUrl);
+  console.log("Token exists:", !!token);
+
   let data = {};
   try {
     const res = await fetch(backendUrl, {
       method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
     });
-    if (res.status === 401) return { redirect: { destination: "/auth/signin", permanent: false } };
-    data = await res.json().catch(() => ({}));
+    
+    console.log("Backend response status:", res.status);
+    
+    if (res.status === 401) {
+      console.log("Unauthorized - redirecting to signin");
+      return { redirect: { destination: "/auth/signin", permanent: false } };
+    }
+    
+    const responseText = await res.text();
+    console.log("Backend response text:", responseText.substring(0, 500) + "..."); // Limit output
+    
+    try {
+      data = JSON.parse(responseText);
+      console.log("Parsed backend data success:", data.success);
+      console.log("Tickers count:", data.tickers ? data.tickers.length : 0);
+      console.log("Valuation data keys:", data.valuationData ? Object.keys(data.valuationData) : []);
+    } catch (parseError) {
+      console.error("Failed to parse JSON:", parseError);
+      data = { error: "Invalid JSON response from server: " + parseError.message };
+    }
   } catch (err) {
     console.error("Error fetching valuation data:", err);
+    data = { error: err.message };
   }
 
   return {

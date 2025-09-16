@@ -356,7 +356,7 @@ export default function SummaryTab({
               value={fmt.currency(totalCost)}
             />
             <SummaryItem
-              label="Total Gain/Loss"
+              label="Unrealized Gain/Loss"
               value={`${fmt.currency(totalGain)} (${fmt.percent(
                 totalGainPct
               )})`}
