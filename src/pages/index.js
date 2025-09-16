@@ -201,7 +201,7 @@ export async function getServerSideProps(context) {
   try {
     const res = await fetch(`${backendBase}/api/capital_gains`, { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
-    capitalGainsData = Array.isArray(data.gains) ? data.gains : [];
+    capitalGainsData = data.capitalGains || {};
   } catch (err) {
     console.error("Error fetching capital gains:", err);
   }
