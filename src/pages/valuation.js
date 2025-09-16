@@ -118,40 +118,40 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
     tickers.map(symbol => {
       const v = valuationData[symbol] || {};
 
-      // currency
-      const c = pick(v, ["Currency", "currency", "CurrencyCode"]) || "USD";
+      // currency - backend uses 'Currency'
+      const c = v.Currency || "USD";
 
       // price & values: backend uses CurrentPrice, CurrentValue
-      const price = pick(v, ["CurrentPrice", "currentPrice", "price", "Current_Price", "CMP", "cmp"]);
-      const value = pick(v, ["CurrentValue", "currentValue", "Current_Value", "Current Val", "CurrentVal", "market_value", "value"]);
-      const alloc = pick(v, ["AllocationPercent", "allocationPercent", "alloc", "Allocation", "allocation_percent", "weight", "portfolioWeight"]);
+      const price = v.CurrentPrice;
+      const value = v.CurrentValue;
+      const alloc = v.AllocationPercent;
 
-      // 52w
-      const high52 = pick(v, ["52w_high", "52wHigh", "52w High", "52_week_high", "fiftyTwoWeekHigh"]);
-      const low52 = pick(v, ["52w_low", "52wLow", "52w Low", "52_week_low", "fiftyTwoWeekLow"]);
+      // 52w - backend uses '52w_high', '52w_low'
+      const high52 = v['52w_high'];
+      const low52 = v['52w_low'];
 
-      // market caps & ratios — include backend exact keys and common alternates
-      const mktCap = pick(v, ["marketCap", "MarketCap", "market_cap"]);
-      const peTTM = pick(v, ["trailingPE", "TrailingPE", "ttmPE", "trailing_pe"]);
-      const peFwd = pick(v, ["forwardPE", "ForwardPE", "fwdPE"]);
-      const peg = pick(v, ["pegRatio", "PEG", "peg"]);
-      const ps = pick(v, ["priceToSalesTrailing12Months", "priceToSales", "ps"]);
-      const pb = pick(v, ["priceToBook", "pb", "PriceToBook"]);
-      const evRev = pick(v, ["enterpriseToRevenue", "EV/Revenue", "ev_to_revenue"]);
-      const evEbitda = pick(v, ["enterpriseToEbitda", "EV/EBITDA", "ev_to_ebitda"]);
+      // market caps & ratios - exact backend keys
+      const mktCap = v.marketCap;
+      const peTTM = v.trailingPE;
+      const peFwd = v.forwardPE;
+      const peg = v.pegRatio;
+      const ps = v.priceToSalesTrailing12Months;
+      const pb = v.priceToBook;
+      const evRev = v.enterpriseToRevenue;
+      const evEbitda = v.enterpriseToEbitda;
 
       // margins/returns
-      const margin = pick(v, ["profitMargins", "ProfitMargin", "profit_margin"]);
-      const roa = pick(v, ["returnOnAssets", "ROA", "return_on_assets"]);
-      const roe = pick(v, ["returnOnEquity", "ROE", "return_on_equity"]);
+      const margin = v.profitMargins;
+      const roa = v.returnOnAssets;
+      const roe = v.returnOnEquity;
 
       // financials
-      const revenue = pick(v, ["totalRevenue", "Revenue", "total_revenue"]);
-      const netIncome = pick(v, ["netIncomeToCommon", "NetIncome", "netIncome"]);
-      const eps = pick(v, ["trailingEps", "EPS", "eps"]);
-      const cash = pick(v, ["totalCash", "TotalCash", "cash"]);
-      const debtEq = pick(v, ["debtToEquity", "debtEq", "Debt/Eq"]);
-      const fcf = pick(v, ["freeCashflow", "freeCashFlow", "FreeCashFlow", "FCF"]);
+      const revenue = v.totalRevenue;
+      const netIncome = v.netIncomeToCommon;
+      const eps = v.trailingEps;
+      const cash = v.totalCash;
+      const debtEq = v.debtToEquity;
+      const fcf = v.freeCashflow;
 
       return {
         stock: `${symbol} (${c})`,
@@ -184,7 +184,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
         fcf: fmt.currency(fcf, c, true),
       };
     }), [tickers, valuationData, fmt]
-  );
+);
 
   // ---- Export CSV ----
   const handleExportCSV = useCallback(() => {

@@ -1,5 +1,4 @@
-// components/tabs/CapitalGainsTab.js
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { ModuleRegistry, themeBalham } from "ag-grid-community";
 import {
@@ -33,6 +32,13 @@ function toNumber(v) {
 }
 
 export default function CapitalGainsTab({ capitalGainsData }) {
+  // Debug: log the incoming data
+  useEffect(() => {
+    console.log("=== CapitalGainsTab Debug ===");
+    console.log("capitalGainsData:", capitalGainsData);
+    console.log("per_stock exists:", capitalGainsData?.per_stock !== undefined);
+  }, [capitalGainsData]);
+
   const fmt = useMemo(
     () => ({
       currency: (num) => (typeof num === "number" ? num.toFixed(2) : "N/A"),
@@ -43,38 +49,45 @@ export default function CapitalGainsTab({ capitalGainsData }) {
 
   // Normalize per_stock → rows for AG Grid
   const rowData = useMemo(() => {
-    if (!capitalGainsData?.per_stock) return [];
+    if (!capitalGainsData?.per_stock) {
+      console.warn("No per_stock data found!");
+      return [];
+    }
 
-    return Object.entries(capitalGainsData.per_stock).map(([ticker, info]) => {
-      info = info || {};
-      const stcg = toNumber(info.short_term ?? info.stcg);
-      const ltcg = toNumber(info.long_term ?? info.ltcg);
-      const realized = toNumber(info.realized ?? stcg + ltcg);
-      const unrealized = toNumber(info.unrealized ?? 0);
-      const total_gain = stcg + ltcg + unrealized;
+    const rows = Object.entries(capitalGainsData.per_stock).map(
+      ([ticker, info]) => {
+        info = info || {};
+        const stcg = toNumber(info.short_term ?? info.stcg);
+        const ltcg = toNumber(info.long_term ?? info.ltcg);
+        const realized = toNumber(info.realized ?? stcg + ltcg);
+        const unrealized = toNumber(info.unrealized ?? 0);
+        const total_gain = stcg + ltcg + unrealized;
 
-      return {
-        ticker,
-        stcg,
-        ltcg,
-        realized,
-        unrealized,
-        total_gain,
-        trades: Array.isArray(info.realized_trades)
+        const trades = Array.isArray(info.realized_trades)
           ? info.realized_trades.length
-          : 0,
-      };
-    });
+          : 0;
+
+        const row = { ticker, stcg, ltcg, realized, unrealized, total_gain, trades };
+        console.log("Row data for", ticker, ":", row);
+        return row;
+      }
+    );
+
+    console.log("All rowData computed:", rows);
+    return rows;
   }, [capitalGainsData]);
 
-  const totalRealized = useMemo(
-    () => rowData.reduce((sum, r) => sum + r.realized, 0),
-    [rowData]
-  );
-  const totalUnrealized = useMemo(
-    () => rowData.reduce((sum, r) => sum + r.unrealized, 0),
-    [rowData]
-  );
+  const totalRealized = useMemo(() => {
+    const total = rowData.reduce((sum, r) => sum + r.realized, 0);
+    console.log("Total Realized:", total);
+    return total;
+  }, [rowData]);
+
+  const totalUnrealized = useMemo(() => {
+    const total = rowData.reduce((sum, r) => sum + r.unrealized, 0);
+    console.log("Total Unrealized:", total);
+    return total;
+  }, [rowData]);
 
   const columnDefs = useMemo(
     () => [
