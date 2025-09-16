@@ -1259,10 +1259,9 @@ export default function RiskAssessment({
 /* Server-side props */
 export async function getServerSideProps(context) {
   const session = await getSession(context);
-  const token = session?.accessToken || "";
 
   // If unauthenticated, redirect to sign-in
-  if (!token) {
+  if (!session) {
     return {
       redirect: {
         destination: "/auth/signin",
@@ -1271,7 +1270,6 @@ export async function getServerSideProps(context) {
     };
   }
 
-  // Build absolute backend URL from incoming request (robust for proxies/platforms)
   const { req } = context;
   const proto = req.headers["x-forwarded-proto"] || (req.connection && req.connection.encrypted ? "https" : "http");
   const host = req.headers["x-forwarded-host"] || req.headers.host;
@@ -1284,9 +1282,10 @@ export async function getServerSideProps(context) {
     const res = await fetch(backendUrl, {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
+      // Include cookies so backend can authenticate via NextAuth session
+      credentials: "include",
     });
 
     if (res.status === 401) {
@@ -1303,7 +1302,6 @@ export async function getServerSideProps(context) {
       existingAssessment = data.latest_assessment;
     }
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error("Error checking risk assessment:", err);
   }
 
