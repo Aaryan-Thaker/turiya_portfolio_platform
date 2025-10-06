@@ -11,11 +11,37 @@ export default async function handler(req, res) {
       : 'http://localhost:5000/api/risk/submit';
 
   try {
-    // Forward necessary headers
+    // Forward necessary headers (Content-Type + optional Authorization + optional cookie)
     const headers = {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     };
-    if (req.headers.authorization) headers['Authorization'] = req.headers.authorization;
+
+    if (req.headers.authorization) {
+      headers['Authorization'] = req.headers.authorization;
+    }
+
+    // Forward cookies so backend can authenticate with session cookie (NextAuth)
+    if (req.headers.cookie) {
+      headers['cookie'] = req.headers.cookie;
+    }
+
+    // (Optional) Forward origin or x-forwarded-for if you need backend to know caller
+    if (req.headers.origin) {
+      headers['Origin'] = req.headers.origin;
+    }
+    if (req.headers['x-forwarded-for']) {
+      headers['X-Forwarded-For'] = req.headers['x-forwarded-for'];
+    }
+
+    // Debug during development
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.log('proxy-risk-submit: forwarding headers', {
+        hasAuthorization: !!req.headers.authorization,
+        hasCookie: !!req.headers.cookie,
+      });
+    }
 
     const backendRes = await fetch(backendUrl, {
       method: 'POST',
@@ -32,12 +58,14 @@ export default async function handler(req, res) {
       try {
         return res.json(JSON.parse(text));
       } catch (e) {
+        // If parsing fails, return raw text
         return res.send(text);
       }
     } else {
       return res.send(text);
     }
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error('proxy-risk-submit error', err);
     return res.status(500).json({ success: false, error: 'Proxy error' });
   }

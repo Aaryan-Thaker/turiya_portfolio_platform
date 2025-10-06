@@ -20,7 +20,6 @@ const RISK_PROFILES = {
   VERY_AGGRESSIVE: { min: 360, max: 400, label: "Very Aggressive" },
 };
 
-// Standardized names (kept consistent across INVESTMENT_TYPES and INTERESTED_INVESTMENTS)
 const INVESTMENT_TYPES = [
   "Equity",
   "Fixed Income",
@@ -89,6 +88,9 @@ export default function RiskAssessment({
 
   const { data: session, status } = useSession();
 
+  // --- Helper: same token pattern as transactions page ---
+  const getClientToken = () => session?.accessToken || "";
+
   // Build initial form data (includes dynamic keys for investment experience)
   const initialFormData = {
     applicantName: "",
@@ -151,16 +153,20 @@ export default function RiskAssessment({
         return;
       }
 
-      // When session state is resolved, attempt to load using cookies (no Bearer header)
-      // Backend route should read session from cookies (NextAuth).
+      // When session state is resolved, attempt to load using token or cookie
       if (status === "loading") return;
 
       try {
+        // use same pattern as transactions to pick token
+        const token = getClientToken() || (await (await getSession())?.accessToken) || "";
+
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
         const res = await fetch("/api/risk/check", {
           method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers,
+          credentials: "include", // allow cookie fallback
         });
 
         // if 401, user isn't authenticated server-side; just stop checking
@@ -298,6 +304,9 @@ export default function RiskAssessment({
         return;
       }
 
+      // Pick token same as transactions page
+      const token = getClientToken() || s?.accessToken || "";
+
       // Build sanitized payload — avoid sending nested objects or refs
       const payload = {
         applicantName: String(formData.applicantName || ""),
@@ -328,12 +337,15 @@ export default function RiskAssessment({
       };
 
       const apiPath = "/api/risk/submit";
+
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
       const response = await fetch(apiPath, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(payload),
+        credentials: "same-origin",
       });
 
       const text = await response.text();
@@ -360,9 +372,11 @@ export default function RiskAssessment({
         // ignore LocalStorage errors in restrictive environments
       }
 
-      // warming call (not required) — call without auth header so server can use cookie session
+      // warming call (not required) — call with token if available so backend can authenticate
       try {
-        await fetch("/api/risk/profile");
+        const warmHeaders = { "Content-Type": "application/json" };
+        if (token) warmHeaders["Authorization"] = `Bearer ${token}`;
+        await fetch("/api/risk/profile", { headers: warmHeaders, credentials: "same-origin" });
       } catch (err) {
         // ignore warm-up errors
       }
@@ -1270,6 +1284,8 @@ export async function getServerSideProps(context) {
     };
   }
 
+  const token = session?.accessToken || "";
+
   const { req } = context;
   const proto = req.headers["x-forwarded-proto"] || (req.connection && req.connection.encrypted ? "https" : "http");
   const host = req.headers["x-forwarded-host"] || req.headers.host;
@@ -1279,12 +1295,12 @@ export async function getServerSideProps(context) {
 
   let existingAssessment = null;
   try {
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     const res = await fetch(backendUrl, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      // Include cookies so backend can authenticate via NextAuth session
+      headers,
       credentials: "include",
     });
 
