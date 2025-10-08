@@ -4,13 +4,13 @@ import dynamic from "next/dynamic";
 import Nav from "./Nav";
 import { getSession } from "next-auth/react";
 
-// Tab components
+// Tabs
 import SummaryTab from "../components/tabs/SummaryTab";
 import PortfolioOverviewTab from "../components/tabs/PortfolioOverviewTab";
 import CapitalGainsTab from "../components/tabs/CapitalGainsTab";
+import { formatINR } from "../components/formatters"; // ✅ Unified formatter
 
-
-// AG Grid modules
+// AG Grid
 import {
   ModuleRegistry,
   ClientSideRowModelModule,
@@ -21,7 +21,6 @@ import {
   themeBalham,
 } from "ag-grid-community";
 
-// Register modules
 ModuleRegistry.registerModules([
   ClientSideRowModelModule,
   CsvExportModule,
@@ -30,7 +29,6 @@ ModuleRegistry.registerModules([
   TextFilterModule,
 ]);
 
-// SSR-safe dynamic import
 const AgGridReact = dynamic(
   () => import("ag-grid-react").then((mod) => mod.AgGridReact),
   { ssr: false }
@@ -56,16 +54,48 @@ export default function PortfolioPage(props) {
     if (gridRef.current?.api) gridRef.current.api.exportDataAsCsv();
   }, []);
 
-  // Capital Gains column definitions
   const capitalGainsColumns = useMemo(
     () => [
       { headerName: "Stock", field: "stock", sortable: true, filter: "agTextColumnFilter", flex: 2 },
       { headerName: "Purchase Date", field: "purchaseDate", sortable: true, filter: "agTextColumnFilter", flex: 1 },
       { headerName: "Sell Date", field: "sellDate", sortable: true, filter: "agTextColumnFilter", flex: 1 },
-      { headerName: "Cost", field: "cost", sortable: true, filter: "agNumberColumnFilter", flex: 1 },
-      { headerName: "Proceeds", field: "proceeds", sortable: true, filter: "agNumberColumnFilter", flex: 1 },
-      { headerName: "Gain", field: "gain", sortable: true, filter: "agNumberColumnFilter", flex: 1 },
-      { headerName: "Gain %", field: "gainPct", sortable: true, filter: "agNumberColumnFilter", flex: 1 },
+      {
+        headerName: "Cost",
+        field: "cost",
+        sortable: true,
+        filter: "agNumberColumnFilter",
+        flex: 1,
+        valueFormatter: (p) => formatINR(p.value),
+      },
+      {
+        headerName: "Proceeds",
+        field: "proceeds",
+        sortable: true,
+        filter: "agNumberColumnFilter",
+        flex: 1,
+        valueFormatter: (p) => formatINR(p.value),
+      },
+      {
+        headerName: "Gain",
+        field: "gain",
+        sortable: true,
+        filter: "agNumberColumnFilter",
+        flex: 1,
+        cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }),
+      },
+      {
+        headerName: "Gain %",
+        field: "gainPct",
+        sortable: true,
+        filter: "agNumberColumnFilter",
+        flex: 1,
+        cellRenderer: (p) => {
+          const value = Number(p.value || 0);
+          const color = value >= 0 ? "green" : "red";
+          const arrow = value >= 0 ? "▲" : "▼";
+          return <span style={{ color }}>{value.toFixed(2)}% {arrow}</span>;
+        },
+      },
     ],
     []
   );
@@ -127,7 +157,7 @@ export default function PortfolioPage(props) {
     >
       <Nav user={currentUser} />
 
-      {/* Tabs */}
+      {/* Tab Navigation */}
       <div style={styles.tabBar}>
         {tabs.map(({ key, label }) => (
           <button
@@ -145,6 +175,7 @@ export default function PortfolioPage(props) {
         ))}
       </div>
 
+      {/* Tab Content */}
       <div style={styles.tabContent}>{renderTabContent()}</div>
     </div>
   );
@@ -170,8 +201,8 @@ const styles = {
   tabContent: {
     padding: 16,
     background: "#fff",
-    borderRadius: 8,
-    boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+    borderRadius: 12, // ✅ Rounded edges for consistency
+    boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
   },
 };
 
@@ -186,7 +217,6 @@ export async function getServerSideProps(context) {
   const host = context.req.headers.host;
   const backendBase = process.env.BACKEND_URL || `${protocol}://${host}`;
 
-  // Portfolio API
   let portfolioData = {};
   try {
     const res = await fetch(`${backendBase}/api/portfolio`, { headers: { Authorization: `Bearer ${token}` } });
@@ -196,7 +226,6 @@ export async function getServerSideProps(context) {
     console.error("Error fetching portfolio:", err);
   }
 
-  // Capital Gains API
   let capitalGainsData = [];
   try {
     const res = await fetch(`${backendBase}/api/capital_gains`, { headers: { Authorization: `Bearer ${token}` } });

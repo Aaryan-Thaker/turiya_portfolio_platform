@@ -9,6 +9,7 @@ import {
   TextFilterModule,
 } from "ag-grid-community";
 import { exportToCSV } from "../exportCSV";
+import { formatINR } from "../formatters";
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([
@@ -47,6 +48,7 @@ function getFirst(obj = {}, keys = []) {
   }
   return undefined;
 }
+
 function toNumber(v) {
   if (v === null || v === undefined || v === "") return null;
   if (typeof v === "number") return v;
@@ -65,20 +67,6 @@ export default function SummaryTab({
 }) {
   const gridRef = useRef(null);
 
-  const fmt = useMemo(
-    () => ({
-      currency: (num) =>
-        typeof num === "number" && !isNaN(num) ? num.toFixed(2) : "N/A",
-      quantity: (num) =>
-        typeof num === "number" && !isNaN(num) ? Math.round(num) : "N/A",
-      percent: (num) =>
-        typeof num === "number" && !isNaN(num)
-          ? num.toFixed(2) + "%"
-          : "N/A",
-    }),
-    []
-  );
-
   // Normalize portfolio data
   const normalizedData = useMemo(() => {
     if (!portfolioTableData) return [];
@@ -87,9 +75,7 @@ export default function SummaryTab({
         getFirst(row, ["Ticker", "ticker", "symbol", "stock"]) || "N/A";
       const Name =
         getFirst(row, ["Name", "name", "shortName", "longName"]) || Ticker;
-      const Quantity = toNumber(
-        getFirst(row, ["Quantity", "quantity", "qty"])
-      ) || 0;
+      const Quantity = toNumber(getFirst(row, ["Quantity", "quantity", "qty"])) || 0;
       const Currency = getFirst(row, ["Currency", "currency"]) || "N/A";
       const AvgCost =
         toNumber(
@@ -122,8 +108,7 @@ export default function SummaryTab({
         Quantity * CMP ||
         0;
       const TotalCost =
-        toNumber(getFirst(row, ["Total Cost", "total_cost", "totalCost"])) ||
-        0;
+        toNumber(getFirst(row, ["Total Cost", "total_cost", "totalCost"])) || 0;
       const GainLossPct =
         toNumber(
           getFirst(row, [
@@ -151,9 +136,8 @@ export default function SummaryTab({
           ])
         ) || 0;
       const DayPnL =
-        toNumber(
-          getFirst(row, ["Day PnL", "DayChange", "day_pnl", "dayPnL"])
-        ) || 0;
+        toNumber(getFirst(row, ["Day PnL", "DayChange", "day_pnl", "dayPnL"])) ||
+        0;
       const InvestmentDate =
         getFirst(row, [
           "Investment Date",
@@ -216,7 +200,7 @@ export default function SummaryTab({
     });
   }, [portfolioTableData]);
 
-  // Top lists
+  // Sort data for top gainers/losers
   const dailySorted = [...normalizedData].sort(
     (a, b) => (b["Day Change (%)"] || 0) - (a["Day Change (%)"] || 0)
   );
@@ -229,78 +213,70 @@ export default function SummaryTab({
   const topAllTimeGainers = allTimeSorted.slice(0, 5);
   const topAllTimeLosers = allTimeSorted.slice(-5).reverse();
 
-  // Column defs
+  // AG Grid column definitions
   const columnDefs = useMemo(
     () => [
-      {
-        headerName: "Ticker",
-        field: "Ticker",
-        sortable: true,
-        filter: true,
-        resizable: true,
-        width: 100,
-      },
-      {
-        headerName: "Name",
-        field: "Name",
-        sortable: true,
-        filter: true,
-        resizable: true,
-        flex: 1,
-      },
-      {
-        headerName: "Quantity",
-        field: "Quantity",
-        valueFormatter: (p) => fmt.quantity(p.value),
-        width: 120,
-      },
+      { headerName: "Ticker", field: "Ticker", sortable: true, filter: true, resizable: true, width: 100 },
+      { headerName: "Name", field: "Name", sortable: true, filter: true, resizable: true, flex: 1 },
+      { headerName: "Quantity", field: "Quantity", cellStyle: { textAlign: "right" }, width: 120 },
       { headerName: "Currency", field: "Currency", width: 100 },
       {
         headerName: "Avg Cost/Share",
         field: "Avg Cost/Share",
-        valueFormatter: (p) => fmt.currency(p.value),
+        valueFormatter: (p) => formatINR(p.value),
+        cellStyle: { textAlign: "right" },
         width: 130,
       },
       {
         headerName: "CMP",
         field: "CMP",
-        valueFormatter: (p) => fmt.currency(p.value),
+        valueFormatter: (p) => formatINR(p.value),
+        cellStyle: { textAlign: "right" },
         width: 130,
       },
       {
         headerName: "Current Value",
         field: "Current Value",
-        valueFormatter: (p) => fmt.currency(p.value),
+        valueFormatter: (p) => formatINR(p.value),
+        cellStyle: { textAlign: "right" },
         width: 130,
       },
       {
         headerName: "Total Cost",
         field: "Total Cost",
-        valueFormatter: (p) => fmt.currency(p.value),
+        valueFormatter: (p) => formatINR(p.value),
+        cellStyle: { textAlign: "right" },
         width: 130,
       },
       {
         headerName: "Gain/Loss %",
         field: "Gain/Loss %",
-        valueFormatter: (p) => fmt.percent(p.value),
+        valueFormatter: (p) =>
+          typeof p.value === "number" ? `${p.value.toFixed(2)}%` : "N/A",
+        cellStyle: { textAlign: "right" },
         width: 130,
       },
       {
         headerName: "Allocation %",
         field: "AllocationPercent",
-        valueFormatter: (p) => fmt.percent(p.value),
+        valueFormatter: (p) =>
+          typeof p.value === "number" ? `${p.value.toFixed(2)}%` : "N/A",
+        cellStyle: { textAlign: "right" },
         width: 120,
       },
       {
         headerName: "Day Change (%)",
         field: "Day Change (%)",
-        valueFormatter: (p) => fmt.percent(p.value),
+        valueFormatter: (p) =>
+          typeof p.value === "number" ? `${p.value.toFixed(2)}%` : "N/A",
+        cellStyle: { textAlign: "right" },
         width: 120,
       },
       {
         headerName: "Day P&L",
         field: "Day PnL",
-        valueFormatter: (p) => fmt.currency(p.value),
+        valueFormatter: (p) => formatINR(p.value),
+        cellStyle: { textAlign: "right" },
         width: 130,
       },
       { headerName: "Investment Date", field: "Investment Date", width: 130 },
@@ -308,24 +284,27 @@ export default function SummaryTab({
       {
         headerName: "52w High",
         field: "52w High",
-        valueFormatter: (p) => fmt.currency(p.value),
+        valueFormatter: (p) => formatINR(p.value),
+        cellStyle: { textAlign: "right" },
         width: 130,
       },
       {
         headerName: "52w Low",
         field: "52w Low",
-        valueFormatter: (p) => fmt.currency(p.value),
+        valueFormatter: (p) => formatINR(p.value),
+        cellStyle: { textAlign: "right" },
         width: 130,
       },
       {
         headerName: "Unrealized Gains",
         field: "Unrealized Gains",
-        valueFormatter: (p) => fmt.currency(p.value),
+        valueFormatter: (p) => formatINR(p.value),
+        cellStyle: { textAlign: "right" },
         width: 130,
       },
       { headerName: "Sector", field: "Sector", width: 120 },
     ],
-    [fmt]
+    []
   );
 
   const handleExportCSV = useCallback(() => {
@@ -347,23 +326,16 @@ export default function SummaryTab({
         <div>
           <h2 style={styles.sectionTitle}>Portfolio Summary</h2>
           <div style={styles.portfolioSummary}>
-            <SummaryItem
-              label="Total Current Value"
-              value={fmt.currency(totalValue)}
-            />
-            <SummaryItem
-              label="Total Investment Cost"
-              value={fmt.currency(totalCost)}
-            />
+            <SummaryItem label="Total Current Value" value={formatINR(totalValue)} />
+            <SummaryItem label="Total Investment Cost" value={formatINR(totalCost)} />
             <SummaryItem
               label="Unrealized Gain/Loss"
-              value={`${fmt.currency(totalGain)} (${fmt.percent(
-                totalGainPct
-              )})`}
+              value={`${formatINR(totalGain)} (${totalGainPct.toFixed(2)}%)`}
               positive={parseFloat(totalGainPct) > 0}
             />
           </div>
         </div>
+
         {/* Market Summary */}
         <div>
           <h2 style={styles.sectionTitle}>Market Summary</h2>
@@ -388,8 +360,7 @@ export default function SummaryTab({
                       color: positive ? "#006400" : "#8B0000",
                     }}
                   >
-                    {data.change.toFixed(2)} (
-                    {fmt.percent(data.change_pct * 100)})
+                    {data.change.toFixed(2)} ({(data.change_pct * 100).toFixed(2)}%)
                   </div>
                 </div>
               );
@@ -411,21 +382,11 @@ export default function SummaryTab({
       <section style={styles.section}>
         <h3 style={styles.tableTitle}>Top 5 Daily Gainers</h3>
         <div className="ag-theme-balham" style={{ height: 250, marginBottom: 10 }}>
-          <AgGridReact
-            rowData={topDailyGainers}
-            columnDefs={columnDefs}
-            domLayout="autoHeight"
-            theme={themeBalham}
-          />
+          <AgGridReact rowData={topDailyGainers} columnDefs={columnDefs} domLayout="autoHeight" theme={themeBalham} />
         </div>
         <h3 style={styles.tableTitle}>Top 5 Daily Losers</h3>
         <div className="ag-theme-balham" style={{ height: 250 }}>
-          <AgGridReact
-            rowData={topDailyLosers}
-            columnDefs={columnDefs}
-            domLayout="autoHeight"
-            theme={themeBalham}
-          />
+          <AgGridReact rowData={topDailyLosers} columnDefs={columnDefs} domLayout="autoHeight" theme={themeBalham} />
         </div>
       </section>
 
@@ -433,21 +394,11 @@ export default function SummaryTab({
       <section style={styles.section}>
         <h3 style={styles.tableTitle}>Top 5 All-Time Gainers</h3>
         <div className="ag-theme-balham" style={{ height: 250, marginBottom: 10 }}>
-          <AgGridReact
-            rowData={topAllTimeGainers}
-            columnDefs={columnDefs}
-            domLayout="autoHeight"
-            theme={themeBalham}
-          />
+          <AgGridReact rowData={topAllTimeGainers} columnDefs={columnDefs} domLayout="autoHeight" theme={themeBalham} />
         </div>
         <h3 style={styles.tableTitle}>Top 5 All-Time Losers</h3>
         <div className="ag-theme-balham" style={{ height: 250 }}>
-          <AgGridReact
-            rowData={topAllTimeLosers}
-            columnDefs={columnDefs}
-            domLayout="autoHeight"
-            theme={themeBalham}
-          />
+          <AgGridReact rowData={topAllTimeLosers} columnDefs={columnDefs} domLayout="autoHeight" theme={themeBalham} />
         </div>
       </section>
 

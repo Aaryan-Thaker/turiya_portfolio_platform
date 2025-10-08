@@ -187,10 +187,10 @@ const styles = {
     borderRadius: 4,
     transition: "background 0.3s ease",
   },
-  activeLink: { borderBottom: "2px solid #ffd700", fontWeight: "600" }, // gold highlight
+  activeLink: { borderBottom: "2px solid #415256", fontWeight: "600" }, // gold highlight
   userButton: {
     background: "#4a73a1", // contrast against nav
-    border: "1px solid #ffd700",
+    border: "1px solid #415256",
     color: "#fff",
     padding: "6px 12px",
     borderRadius: 4,
