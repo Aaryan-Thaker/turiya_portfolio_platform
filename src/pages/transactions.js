@@ -161,7 +161,7 @@ export default function TransactionsPage({ user, transactionsData, error: initia
   const formatCurrency = (value) => {
     if (value == null || value === "N/A") return "N/A";
     const n = Number(value);
-    return Number.isFinite(n) ? "$" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A";
+    return Number.isFinite(n) ? "₹" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A";
   };
 
   // CSV helpers
