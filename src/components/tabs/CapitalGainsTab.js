@@ -8,7 +8,7 @@ import {
   NumberFilterModule,
   TextFilterModule,
 } from "ag-grid-community";
-import { formatINR } from "../components/formatters";
+import { formatINR } from "../formatters";
 import { exportToCSV } from "../exportCSV";
 
 ModuleRegistry.registerModules([
