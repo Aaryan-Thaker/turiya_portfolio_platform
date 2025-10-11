@@ -39,88 +39,139 @@ const compactNumber = (value) => {
   const num = toNumber(value);
   if (isNaN(num)) return "N/A";
   if (num >= 1e7) return (num / 1e7).toFixed(2) + " Cr"; // crore
-  if (num >= 1e5) return (num / 1e5).toFixed(2) + " L";  // lakh
-  if (num >= 1e3) return (num / 1e3).toFixed(2) + " K";  // thousand
+  if (num >= 1e5) return (num / 1e5).toFixed(2) + " L"; // lakh
+  if (num >= 1e3) return (num / 1e3).toFixed(2) + " K"; // thousand
   return num.toFixed(2);
 };
 
-export default function ValuationPage({ currentUser, tickers = [], valuationData = {}, error }) {
+export default function ValuationPage({
+  currentUser,
+  tickers = [],
+  valuationData = {},
+  error,
+}) {
   const gridRef = useRef(null);
 
-  const fmt = useMemo(() => ({
-    currency: (value, compact = false) => {
-      const num = toNumber(value);
-      if (value == null || value === "N/A" || isNaN(num)) return "N/A";
-      if (compact) return "₹" + compactNumber(num);
-      return "₹" + num.toLocaleString("en-IN", { maximumFractionDigits: 2 });
-    },
-    percent: (value) => {
-      if (value == null || value === "N/A" || isNaN(toNumber(value))) return "N/A";
-      return toNumber(value).toFixed(2) + "%";
-    },
-    ratio: (value) =>
-      value == null || value === "N/A" || isNaN(toNumber(value)) ? "N/A" : toNumber(value).toFixed(2) + "x",
-  }), []);
+  const fmt = useMemo(
+    () => ({
+      currency: (value, compact = false) => {
+        const num = toNumber(value);
+        if (value == null || value === "N/A" || isNaN(num)) return "N/A";
+        if (compact) return "₹" + compactNumber(num);
+        return "₹" + num.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+      },
+      percent: (value) => {
+        if (value == null || value === "N/A" || isNaN(toNumber(value)))
+          return "N/A";
+        return toNumber(value).toFixed(2) + "%";
+      },
+      ratio: (value) =>
+        value == null || value === "N/A" || isNaN(toNumber(value))
+          ? "N/A"
+          : toNumber(value).toFixed(2) + "x",
+    }),
+    []
+  );
 
   // Column definitions
-  const columnDefs = useMemo(() => [
-    { headerName: "Stock", field: "stock", pinned: "left", sortable: true, filter: "agTextColumnFilter", flex: 2, minWidth: 150 },
-    { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, cellStyle: { textAlign: "right" } },
-    { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140, cellStyle: { textAlign: "right" } },
-    { headerName: "Alloc %", field: "alloc", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, cellStyle: { textAlign: "right" } },
-    { headerName: "52w High", field: "high52", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, cellStyle: { textAlign: "right" } },
-    { headerName: "52w Low", field: "low52", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, cellStyle: { textAlign: "right" } },
-    { headerName: "Mkt Cap", field: "mktCap", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140, cellStyle: { textAlign: "right" } },
-    { headerName: "P/E (TTM)", field: "peTTM", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
-    { headerName: "P/E (Fwd)", field: "peFwd", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
-    { headerName: "PEG", field: "peg", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
-    { headerName: "P/S", field: "ps", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
-    { headerName: "P/B", field: "pb", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
-    { headerName: "EV/Rev", field: "evRev", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
-    { headerName: "EV/EBITDA", field: "evEbitda", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, cellStyle: { textAlign: "right" } },
-    { headerName: "Profit Margin", field: "margin", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, cellStyle: { textAlign: "right" } },
-    { headerName: "ROA", field: "roa", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
-    { headerName: "ROE", field: "roe", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
-    { headerName: "Revenue", field: "revenue", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140, cellStyle: { textAlign: "right" } },
-    { headerName: "Net Income", field: "netIncome", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140, cellStyle: { textAlign: "right" } },
-    { headerName: "EPS", field: "eps", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
-    { headerName: "Cash", field: "cash", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140, cellStyle: { textAlign: "right" } },
-    { headerName: "Debt/Eq", field: "debtEq", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
-    { headerName: "FCF", field: "fcf", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140, cellStyle: { textAlign: "right" } },
-  ], []);
+  const columnDefs = useMemo(
+    () => [
+      {
+        headerName: "Stock",
+        field: "stock",
+        pinned: "left",
+        sortable: true,
+        filter: "agTextColumnFilter",
+        flex: 2,
+        minWidth: 150,
+      },
+      {
+        headerName: "Price",
+        field: "price",
+        sortable: true,
+        filter: "agNumberColumnFilter",
+        minWidth: 120,
+        cellStyle: { textAlign: "right" },
+      },
+      { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter", minWidth: 140, cellStyle: { textAlign: "right" } },
+      { headerName: "Alloc %", field: "alloc", sortable: true, filter: "agNumberColumnFilter", minWidth: 120, cellStyle: { textAlign: "right" } },
+      { headerName: "52w High", field: "high52", sortable: true, filter: "agNumberColumnFilter", minWidth: 120, cellStyle: { textAlign: "right" } },
+      { headerName: "52w Low", field: "low52", sortable: true, filter: "agNumberColumnFilter", minWidth: 120, cellStyle: { textAlign: "right" } },
+      { headerName: "Mkt Cap", field: "mktCap", sortable: true, filter: "agNumberColumnFilter", minWidth: 140, cellStyle: { textAlign: "right" } },
+      { headerName: "P/E (TTM)", field: "peTTM", sortable: true, filter: "agNumberColumnFilter", minWidth: 100, cellStyle: { textAlign: "right" } },
+      { headerName: "P/E (Fwd)", field: "peFwd", sortable: true, filter: "agNumberColumnFilter", minWidth: 100, cellStyle: { textAlign: "right" } },
+      { headerName: "PEG", field: "peg", sortable: true, filter: "agNumberColumnFilter", minWidth: 100, cellStyle: { textAlign: "right" } },
+      { headerName: "P/S", field: "ps", sortable: true, filter: "agNumberColumnFilter", minWidth: 100, cellStyle: { textAlign: "right" } },
+      { headerName: "P/B", field: "pb", sortable: true, filter: "agNumberColumnFilter", minWidth: 100, cellStyle: { textAlign: "right" } },
+      { headerName: "EV/Rev", field: "evRev", sortable: true, filter: "agNumberColumnFilter", minWidth: 100, cellStyle: { textAlign: "right" } },
+      { headerName: "EV/EBITDA", field: "evEbitda", sortable: true, filter: "agNumberColumnFilter", minWidth: 120, cellStyle: { textAlign: "right" } },
+      { headerName: "Profit Margin", field: "margin", sortable: true, filter: "agNumberColumnFilter", minWidth: 120, cellStyle: { textAlign: "right" } },
+      { headerName: "ROA", field: "roa", sortable: true, filter: "agNumberColumnFilter", minWidth: 100, cellStyle: { textAlign: "right" } },
+      { headerName: "ROE", field: "roe", sortable: true, filter: "agNumberColumnFilter", minWidth: 100, cellStyle: { textAlign: "right" } },
+      { headerName: "Revenue", field: "revenue", sortable: true, filter: "agNumberColumnFilter", minWidth: 140, cellStyle: { textAlign: "right" } },
+      { headerName: "Net Income", field: "netIncome", sortable: true, filter: "agNumberColumnFilter", minWidth: 140, cellStyle: { textAlign: "right" } },
+      { headerName: "EPS", field: "eps", sortable: true, filter: "agNumberColumnFilter", minWidth: 100, cellStyle: { textAlign: "right" } },
+      { headerName: "Cash", field: "cash", sortable: true, filter: "agNumberColumnFilter", minWidth: 140, cellStyle: { textAlign: "right" } },
+      { headerName: "Debt/Eq", field: "debtEq", sortable: true, filter: "agNumberColumnFilter", minWidth: 100, cellStyle: { textAlign: "right" } },
+      { headerName: "FCF", field: "fcf", sortable: true, filter: "agNumberColumnFilter", minWidth: 140, cellStyle: { textAlign: "right" } },
+    ],
+    []
+  );
 
   // Row data
-  const rowData = useMemo(() => tickers.map(symbol => {
-    const v = valuationData[symbol] || {};
-    return {
-      stock: `${symbol}`,
-      price: fmt.currency(v.CurrentPrice),
-      value: fmt.currency(v.CurrentValue, true),
-      alloc: fmt.percent(v.AllocationPercent),
-      high52: fmt.currency(v['52w_high']),
-      low52: fmt.currency(v['52w_low']),
-      mktCap: fmt.currency(v.marketCap, true),
-      peTTM: fmt.ratio(v.trailingPE),
-      peFwd: fmt.ratio(v.forwardPE),
-      peg: fmt.ratio(v.pegRatio),
-      ps: fmt.ratio(v.priceToSalesTrailing12Months),
-      pb: fmt.ratio(v.priceToBook),
-      evRev: fmt.ratio(v.enterpriseToRevenue),
-      evEbitda: fmt.ratio(v.enterpriseToEbitda),
-      margin: fmt.percent(v.profitMargins),
-      roa: fmt.percent(v.returnOnAssets),
-      roe: fmt.percent(v.returnOnEquity),
-      revenue: fmt.currency(v.totalRevenue, true),
-      netIncome: fmt.currency(v.netIncomeToCommon, true),
-      eps: v.trailingEps ? toNumber(v.trailingEps).toFixed(2) : "N/A",
-      cash: fmt.currency(v.totalCash, true),
-      debtEq: fmt.ratio(v.debtToEquity),
-      fcf: fmt.currency(v.freeCashflow, true),
-    };
-  }), [tickers, valuationData, fmt]);
+  const rowData = useMemo(
+    () =>
+      tickers.map((symbol) => {
+        const v = valuationData[symbol] || {};
+        return {
+          stock: `${symbol}`,
+          price: fmt.currency(v.CurrentPrice),
+          value: fmt.currency(v.CurrentValue, true),
+          alloc: fmt.percent(v.AllocationPercent),
+          high52: fmt.currency(v["52w_high"]),
+          low52: fmt.currency(v["52w_low"]),
+          mktCap: fmt.currency(v.marketCap, true),
+          peTTM: fmt.ratio(v.trailingPE),
+          peFwd: fmt.ratio(v.forwardPE),
+          peg: fmt.ratio(v.pegRatio),
+          ps: fmt.ratio(v.priceToSalesTrailing12Months),
+          pb: fmt.ratio(v.priceToBook),
+          evRev: fmt.ratio(v.enterpriseToRevenue),
+          evEbitda: fmt.ratio(v.enterpriseToEbitda),
+          margin: fmt.percent(v.profitMargins),
+          roa: fmt.percent(v.returnOnAssets),
+          roe: fmt.percent(v.returnOnEquity),
+          revenue: fmt.currency(v.totalRevenue, true),
+          netIncome: fmt.currency(v.netIncomeToCommon, true),
+          eps: v.trailingEps ? toNumber(v.trailingEps).toFixed(2) : "N/A",
+          cash: fmt.currency(v.totalCash, true),
+          debtEq: fmt.ratio(v.debtToEquity),
+          fcf: fmt.currency(v.freeCashflow, true),
+        };
+      }),
+    [tickers, valuationData, fmt]
+  );
 
   const handleExportCSV = useCallback(() => {
     gridRef.current?.api?.exportDataAsCsv();
+  }, []);
+
+  // When grid is ready, auto-fit all columns
+  const onGridReady = useCallback((params) => {
+    gridRef.current = params.api;
+    setTimeout(() => {
+      params.api.sizeColumnsToFit();
+      const allColIds = [];
+      params.columnApi.getAllColumns().forEach((col) => allColIds.push(col.getId()));
+      params.columnApi.autoSizeColumns(allColIds, false);
+    }, 100);
+  }, []);
+
+  // Toggle pin column when clicking its header
+  const onHeaderClicked = useCallback((params) => {
+    const col = params.column;
+    const currentlyPinned = col.getPinned();
+    params.columnApi.setColumnPinned(col, currentlyPinned ? null : "left");
   }, []);
 
   return (
@@ -153,10 +204,11 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
                 minWidth: 100,
                 flex: 1,
               }}
-              domLayout="autoHeight"
+              enableBrowserTooltips={true}
+              onGridReady={onGridReady}
+              onHeaderClicked={onHeaderClicked}
               pagination
               paginationPageSize={20}
-              onGridReady={(params) => params.api.sizeColumnsToFit()}
             />
           </div>
           <button
