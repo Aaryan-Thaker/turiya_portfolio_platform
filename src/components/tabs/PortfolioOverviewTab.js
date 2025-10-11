@@ -230,7 +230,7 @@ export default function PortfolioOverviewTab({ overviewTabData }) {
       { headerName: "CMP", field: "CMP", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
       { headerName: "Current Value", field: "Current Value", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
       { headerName: "Total Cost", field: "Total Cost", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
-      { headerName: "Gain/Loss %", field: "Gain/Loss %", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 130, cellStyle: numericCellStyle },
+      { headerName: "Gain/Loss %", field: "Gain/Loss %", valueFormatter: (p) => `${p.value?.toFixed(2) || 0, { showColor: true, showArrow: true }}%`, width: 130, cellStyle: numericCellStyle },
       { headerName: "Allocation %", field: "AllocationPercent", valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`, width: 120, cellStyle: numericCellStyle },
       { headerName: "Day Change (%)", field: "Day Change (%)", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 120, cellStyle: numericCellStyle },
       { headerName: "Day P&L", field: "Day PnL", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 130, cellStyle: numericCellStyle },
