@@ -103,9 +103,7 @@ export default function SummaryTab({
             "currentValue",
             "market_value",
           ])
-        ) ||
-        Quantity * CMP ||
-        0;
+        ) || Quantity * CMP || 0;
       const TotalCost =
         toNumber(getFirst(row, ["Total Cost", "total_cost", "totalCost"])) || 0;
       const GainLossPct =
@@ -135,8 +133,7 @@ export default function SummaryTab({
           ])
         ) || 0;
       const DayPnL =
-        toNumber(getFirst(row, ["Day PnL", "DayChange", "day_pnl", "dayPnL"])) ||
-        0;
+        toNumber(getFirst(row, ["Day PnL", "DayChange", "day_pnl", "dayPnL"])) || 0;
       const InvestmentDate =
         getFirst(row, [
           "Investment Date",
@@ -211,6 +208,11 @@ export default function SummaryTab({
   const topAllTimeGainers = allTimeSorted.slice(0, 5);
   const topAllTimeLosers = allTimeSorted.slice(-5).reverse();
 
+  const positiveNegativeCell = (params) => ({
+    color: params.value > 0 ? "#006400" : params.value < 0 ? "#8B0000" : "#000000",
+    textAlign: "right",
+  });
+
   const columnDefs = useMemo(
     () => [
       { headerName: "Ticker", field: "Ticker", pinned: "left", sortable: true, filter: true, resizable: true, width: 100 },
@@ -221,57 +223,15 @@ export default function SummaryTab({
       { headerName: "CMP", field: "CMP", valueFormatter: (p) => formatINR(p.value), cellStyle: { textAlign: "right" }, width: 130 },
       { headerName: "Current Value", field: "Current Value", valueFormatter: (p) => formatINR(p.value), cellStyle: { textAlign: "right" }, width: 130 },
       { headerName: "Total Cost", field: "Total Cost", valueFormatter: (p) => formatINR(p.value), cellStyle: { textAlign: "right" }, width: 130 },
-      {
-        headerName: "Gain/Loss %",
-        field: "Gain/Loss %",
-        valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`,
-        cellStyle: (params) => ({
-          textAlign: "right",
-          color: params.value > 0 ? "#006400" : params.value < 0 ? "#8B0000" : "#000",
-        }),
-        width: 130,
-      },
-      {
-        headerName: "Allocation %",
-        field: "AllocationPercent",
-        valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`,
-        cellStyle: { textAlign: "right" },
-        width: 120,
-      },
-      {
-        headerName: "Day Change (%)",
-        field: "Day Change (%)",
-        valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`,
-        cellStyle: (params) => ({
-          textAlign: "right",
-          color: params.value > 0 ? "#006400" : params.value < 0 ? "#8B0000" : "#000",
-        }),
-        width: 120,
-      },
-      {
-        headerName: "Day P&L",
-        field: "Day PnL",
-        valueFormatter: (p) => formatINR(p.value),
-        cellStyle: (params) => ({
-          textAlign: "right",
-          color: params.value > 0 ? "#006400" : params.value < 0 ? "#8B0000" : "#000",
-        }),
-        width: 130,
-      },
+      { headerName: "Gain/Loss %", field: "Gain/Loss %", valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`, cellStyle: positiveNegativeCell, width: 130 },
+      { headerName: "Allocation %", field: "AllocationPercent", valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`, cellStyle: { textAlign: "right" }, width: 120 },
+      { headerName: "Day Change (%)", field: "Day Change (%)", valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`, cellStyle: positiveNegativeCell, width: 120 },
+      { headerName: "Day P&L", field: "Day PnL", valueFormatter: (p) => formatINR(p.value), cellStyle: positiveNegativeCell, width: 130 },
       { headerName: "Investment Date", field: "Investment Date", width: 130 },
       { headerName: "Exchange", field: "Exchange", width: 100 },
       { headerName: "52w High", field: "52w High", valueFormatter: (p) => formatINR(p.value), cellStyle: { textAlign: "right" }, width: 130 },
       { headerName: "52w Low", field: "52w Low", valueFormatter: (p) => formatINR(p.value), cellStyle: { textAlign: "right" }, width: 130 },
-      {
-        headerName: "Unrealized Gains",
-        field: "Unrealized Gains",
-        valueFormatter: (p) => formatINR(p.value),
-        cellStyle: (params) => ({
-          textAlign: "right",
-          color: params.value > 0 ? "#006400" : params.value < 0 ? "#8B0000" : "#000",
-        }),
-        width: 130,
-      },
+      { headerName: "Unrealized Gains", field: "Unrealized Gains", valueFormatter: (p) => formatINR(p.value), cellStyle: positiveNegativeCell, width: 130 },
       { headerName: "Sector", field: "Sector", width: 120 },
     ],
     []
