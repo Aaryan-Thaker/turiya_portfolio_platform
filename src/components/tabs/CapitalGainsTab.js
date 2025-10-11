@@ -60,48 +60,62 @@ export default function CapitalGainsTab({ capitalGainsData }) {
     [rowData]
   );
 
+  const numericCellStyle = { textAlign: "right" };
+
   const columnDefs = useMemo(
     () => [
-      { headerName: "Ticker", field: "ticker", sortable: true, filter: "agTextColumnFilter", resizable: true },
+      {
+        headerName: "Ticker",
+        field: "ticker",
+        sortable: true,
+        filter: "agTextColumnFilter",
+        resizable: true,
+        cellStyle: { textAlign: "left" },
+      },
       {
         headerName: "STCG",
         field: "stcg",
-        cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }),
-        cellStyle: { textAlign: "right" },
+        cellRenderer: (p) =>
+          formatINR(p.value, { showColor: true, showArrow: true }),
+        cellStyle: numericCellStyle,
         filter: "agNumberColumnFilter",
       },
       {
         headerName: "LTCG",
         field: "ltcg",
-        cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }),
-        cellStyle: { textAlign: "right" },
+        cellRenderer: (p) =>
+          formatINR(p.value, { showColor: true, showArrow: true }),
+        cellStyle: numericCellStyle,
         filter: "agNumberColumnFilter",
       },
       {
         headerName: "Realized",
         field: "realized",
-        cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }),
-        cellStyle: { textAlign: "right" },
+        cellRenderer: (p) =>
+          formatINR(p.value, { showColor: true, showArrow: true }),
+        cellStyle: numericCellStyle,
         filter: "agNumberColumnFilter",
       },
       {
         headerName: "Unrealized",
         field: "unrealized",
-        cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }),
-        cellStyle: { textAlign: "right" },
+        cellRenderer: (p) =>
+          formatINR(p.value, { showColor: true, showArrow: true }),
+        cellStyle: numericCellStyle,
         filter: "agNumberColumnFilter",
       },
       {
         headerName: "Total Gain",
         field: "total_gain",
-        cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }),
-        cellStyle: { textAlign: "right" },
+        cellRenderer: (p) =>
+          formatINR(p.value, { showColor: true, showArrow: true }),
+        cellStyle: numericCellStyle,
         filter: "agNumberColumnFilter",
       },
       {
         headerName: "Transactions",
         field: "trades",
-        cellStyle: { textAlign: "right" },
+        cellStyle: numericCellStyle,
         filter: "agNumberColumnFilter",
       },
     ],
@@ -126,7 +140,10 @@ export default function CapitalGainsTab({ capitalGainsData }) {
 
       {rowData.length > 0 ? (
         <>
-          <div className="ag-theme-balham" style={{ width: "100%", marginBottom: 20 }}>
+          <div
+            className="ag-theme-balham"
+            style={{ width: "100%", marginBottom: 20 }}
+          >
             <AgGridReact
               rowData={rowData}
               columnDefs={columnDefs}

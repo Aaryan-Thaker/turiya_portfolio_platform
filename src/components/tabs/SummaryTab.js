@@ -67,7 +67,6 @@ export default function SummaryTab({
 }) {
   const gridRef = useRef(null);
 
-  // Normalize portfolio data
   const normalizedData = useMemo(() => {
     if (!portfolioTableData) return [];
     return portfolioTableData.map((row) => {
@@ -200,7 +199,6 @@ export default function SummaryTab({
     });
   }, [portfolioTableData]);
 
-  // Sort data for top gainers/losers
   const dailySorted = [...normalizedData].sort(
     (a, b) => (b["Day Change (%)"] || 0) - (a["Day Change (%)"] || 0)
   );
@@ -213,11 +211,26 @@ export default function SummaryTab({
   const topAllTimeGainers = allTimeSorted.slice(0, 5);
   const topAllTimeLosers = allTimeSorted.slice(-5).reverse();
 
-  // AG Grid column definitions
   const columnDefs = useMemo(
     () => [
-      { headerName: "Ticker", field: "Ticker", sortable: true, filter: true, resizable: true, width: 100 },
-      { headerName: "Name", field: "Name", sortable: true, filter: true, resizable: true, flex: 1 },
+      {
+        headerName: "Ticker",
+        field: "Ticker",
+        pinned: "left",
+        sortable: true,
+        filter: true,
+        resizable: true,
+        width: 100,
+      },
+      {
+        headerName: "Name",
+        field: "Name",
+        pinned: "left",
+        sortable: true,
+        filter: true,
+        resizable: true,
+        flex: 1,
+      },
       { headerName: "Quantity", field: "Quantity", cellStyle: { textAlign: "right" }, width: 120 },
       { headerName: "Currency", field: "Currency", width: 100 },
       {
@@ -227,81 +240,36 @@ export default function SummaryTab({
         cellStyle: { textAlign: "right" },
         width: 130,
       },
-      {
-        headerName: "CMP",
-        field: "CMP",
-        valueFormatter: (p) => formatINR(p.value),
-        cellStyle: { textAlign: "right" },
-        width: 130,
-      },
-      {
-        headerName: "Current Value",
-        field: "Current Value",
-        valueFormatter: (p) => formatINR(p.value),
-        cellStyle: { textAlign: "right" },
-        width: 130,
-      },
-      {
-        headerName: "Total Cost",
-        field: "Total Cost",
-        valueFormatter: (p) => formatINR(p.value),
-        cellStyle: { textAlign: "right" },
-        width: 130,
-      },
+      { headerName: "CMP", field: "CMP", valueFormatter: (p) => formatINR(p.value), cellStyle: { textAlign: "right" }, width: 130 },
+      { headerName: "Current Value", field: "Current Value", valueFormatter: (p) => formatINR(p.value), cellStyle: { textAlign: "right" }, width: 130 },
+      { headerName: "Total Cost", field: "Total Cost", valueFormatter: (p) => formatINR(p.value), cellStyle: { textAlign: "right" }, width: 130 },
       {
         headerName: "Gain/Loss %",
         field: "Gain/Loss %",
-        valueFormatter: (p) =>
-          typeof p.value === "number" ? `${p.value.toFixed(2)}%` : "N/A",
+        valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`,
         cellStyle: { textAlign: "right" },
         width: 130,
       },
       {
         headerName: "Allocation %",
         field: "AllocationPercent",
-        valueFormatter: (p) =>
-          typeof p.value === "number" ? `${p.value.toFixed(2)}%` : "N/A",
+        valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`,
         cellStyle: { textAlign: "right" },
         width: 120,
       },
       {
         headerName: "Day Change (%)",
         field: "Day Change (%)",
-        valueFormatter: (p) =>
-          typeof p.value === "number" ? `${p.value.toFixed(2)}%` : "N/A",
+        valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`,
         cellStyle: { textAlign: "right" },
         width: 120,
       },
-      {
-        headerName: "Day P&L",
-        field: "Day PnL",
-        valueFormatter: (p) => formatINR(p.value),
-        cellStyle: { textAlign: "right" },
-        width: 130,
-      },
+      { headerName: "Day P&L", field: "Day PnL", valueFormatter: (p) => formatINR(p.value), cellStyle: { textAlign: "right" }, width: 130 },
       { headerName: "Investment Date", field: "Investment Date", width: 130 },
       { headerName: "Exchange", field: "Exchange", width: 100 },
-      {
-        headerName: "52w High",
-        field: "52w High",
-        valueFormatter: (p) => formatINR(p.value),
-        cellStyle: { textAlign: "right" },
-        width: 130,
-      },
-      {
-        headerName: "52w Low",
-        field: "52w Low",
-        valueFormatter: (p) => formatINR(p.value),
-        cellStyle: { textAlign: "right" },
-        width: 130,
-      },
-      {
-        headerName: "Unrealized Gains",
-        field: "Unrealized Gains",
-        valueFormatter: (p) => formatINR(p.value),
-        cellStyle: { textAlign: "right" },
-        width: 130,
-      },
+      { headerName: "52w High", field: "52w High", valueFormatter: (p) => formatINR(p.value), cellStyle: { textAlign: "right" }, width: 130 },
+      { headerName: "52w Low", field: "52w Low", valueFormatter: (p) => formatINR(p.value), cellStyle: { textAlign: "right" }, width: 130 },
+      { headerName: "Unrealized Gains", field: "Unrealized Gains", valueFormatter: (p) => formatINR(p.value), cellStyle: { textAlign: "right" }, width: 130 },
       { headerName: "Sector", field: "Sector", width: 120 },
     ],
     []
@@ -313,30 +281,15 @@ export default function SummaryTab({
 
   return (
     <div style={styles.container}>
-      {/* Portfolio + Market Summary */}
-      <section
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          marginBottom: 20,
-        }}
-      >
-        {/* Portfolio Summary */}
+      <section style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
           <h2 style={styles.sectionTitle}>Portfolio Summary</h2>
           <div style={styles.portfolioSummary}>
             <SummaryItem label="Total Current Value" value={formatINR(totalValue)} />
             <SummaryItem label="Total Investment Cost" value={formatINR(totalCost)} />
-            <SummaryItem
-              label="Unrealized Gain/Loss"
-              value={`${formatINR(totalGain)} (${totalGainPct.toFixed(2)}%)`}
-              positive={parseFloat(totalGainPct) > 0}
-            />
+            <SummaryItem label="Unrealized Gain/Loss" value={`${formatINR(totalGain)} (${totalGainPct.toFixed(2)}%)`} />
           </div>
         </div>
-
-        {/* Market Summary */}
         <div>
           <h2 style={styles.sectionTitle}>Market Summary</h2>
           <div style={styles.marketSummary}>
@@ -354,12 +307,7 @@ export default function SummaryTab({
                 <div key={index} style={styles.marketIndicator}>
                   <div style={styles.marketIndex}>{index.toUpperCase()}</div>
                   <div style={styles.marketValue}>{data.price.toFixed(2)}</div>
-                  <div
-                    style={{
-                      ...styles.marketChange,
-                      color: positive ? "#006400" : "#8B0000",
-                    }}
-                  >
+                  <div style={{ ...styles.marketChange, color: positive ? "#006400" : "#8B0000" }}>
                     {data.change.toFixed(2)} ({(data.change_pct * 100).toFixed(2)}%)
                   </div>
                 </div>
@@ -369,7 +317,6 @@ export default function SummaryTab({
         </div>
       </section>
 
-      {/* CSV Export */}
       {normalizedData.length > 0 && (
         <div style={{ margin: "10px 0" }}>
           <button onClick={handleExportCSV} style={styles.csvBtn}>
@@ -378,7 +325,6 @@ export default function SummaryTab({
         </div>
       )}
 
-      {/* Top Daily Gainers */}
       <section style={styles.section}>
         <h3 style={styles.tableTitle}>Top 5 Daily Gainers</h3>
         <div className="ag-theme-balham" style={{ height: 250, marginBottom: 10 }}>
@@ -390,7 +336,6 @@ export default function SummaryTab({
         </div>
       </section>
 
-      {/* Top All-Time Gainers */}
       <section style={styles.section}>
         <h3 style={styles.tableTitle}>Top 5 All-Time Gainers</h3>
         <div className="ag-theme-balham" style={{ height: 250, marginBottom: 10 }}>
@@ -402,7 +347,6 @@ export default function SummaryTab({
         </div>
       </section>
 
-      {/* Charts */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>Portfolio Charts</h2>
         <div style={styles.chartsGrid}>
@@ -415,18 +359,11 @@ export default function SummaryTab({
   );
 }
 
-function SummaryItem({ label, value, positive }) {
+function SummaryItem({ label, value }) {
   return (
     <div style={styles.summaryItem}>
       <div>{label}</div>
-      <div
-        style={{
-          ...styles.summaryValue,
-          color: positive ? "#006400" : positive === false ? "#8B0000" : "inherit",
-        }}
-      >
-        {value}
-      </div>
+      <div style={styles.summaryValue}>{value}</div>
     </div>
   );
 }

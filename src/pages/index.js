@@ -54,6 +54,7 @@ export default function PortfolioPage(props) {
     if (gridRef.current?.api) gridRef.current.api.exportDataAsCsv();
   }, []);
 
+  // ✅ Safely format capital gains data
   const capitalGainsColumns = useMemo(
     () => [
       { headerName: "Stock", field: "stock", sortable: true, filter: "agTextColumnFilter", flex: 2 },
@@ -90,10 +91,11 @@ export default function PortfolioPage(props) {
         filter: "agNumberColumnFilter",
         flex: 1,
         cellRenderer: (p) => {
-          const value = Number(p.value || 0);
-          const color = value >= 0 ? "green" : "red";
-          const arrow = value >= 0 ? "▲" : "▼";
-          return <span style={{ color }}>{value.toFixed(2)}% {arrow}</span>;
+          const num = Number(p.value);
+          if (isNaN(num)) return <span style={{ color: "#666" }}>N/A</span>;
+          const color = num >= 0 ? "green" : "red";
+          const arrow = num >= 0 ? "▲" : "▼";
+          return <span style={{ color }}>{num.toFixed(2)}% {arrow}</span>;
         },
       },
     ],
@@ -201,7 +203,7 @@ const styles = {
   tabContent: {
     padding: 16,
     background: "#fff",
-    borderRadius: 12, // ✅ Rounded edges for consistency
+    borderRadius: 12,
     boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
   },
 };
@@ -230,7 +232,7 @@ export async function getServerSideProps(context) {
   try {
     const res = await fetch(`${backendBase}/api/capital_gains`, { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
-    capitalGainsData = data.capitalGains || {};
+    capitalGainsData = data.capitalGains || [];
   } catch (err) {
     console.error("Error fetching capital gains:", err);
   }

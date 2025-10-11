@@ -38,7 +38,6 @@ const toNumber = (v) => {
 const compactNumber = (value) => {
   const num = toNumber(value);
   if (isNaN(num)) return "N/A";
-
   if (num >= 1e7) return (num / 1e7).toFixed(2) + " Cr"; // crore
   if (num >= 1e5) return (num / 1e5).toFixed(2) + " L";  // lakh
   if (num >= 1e3) return (num / 1e3).toFixed(2) + " K";  // thousand
@@ -66,28 +65,28 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
   // Column definitions
   const columnDefs = useMemo(() => [
     { headerName: "Stock", field: "stock", pinned: "left", sortable: true, filter: "agTextColumnFilter", flex: 2, minWidth: 150 },
-    { headerName: "Price", field: "price", pinned: "left", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120 },
-    { headerName: "Value", field: "value", pinned: "left", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140 },
-    { headerName: "Alloc %", field: "alloc", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120 },
-    { headerName: "52w High", field: "high52", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120 },
-    { headerName: "52w Low", field: "low52", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120 },
-    { headerName: "Mkt Cap", field: "mktCap", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140 },
-    { headerName: "P/E (TTM)", field: "peTTM", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100 },
-    { headerName: "P/E (Fwd)", field: "peFwd", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100 },
-    { headerName: "PEG", field: "peg", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100 },
-    { headerName: "P/S", field: "ps", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100 },
-    { headerName: "P/B", field: "pb", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100 },
-    { headerName: "EV/Rev", field: "evRev", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100 },
-    { headerName: "EV/EBITDA", field: "evEbitda", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120 },
-    { headerName: "Profit Margin", field: "margin", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120 },
-    { headerName: "ROA", field: "roa", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100 },
-    { headerName: "ROE", field: "roe", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100 },
-    { headerName: "Revenue", field: "revenue", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140 },
-    { headerName: "Net Income", field: "netIncome", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140 },
-    { headerName: "EPS", field: "eps", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100 },
-    { headerName: "Cash", field: "cash", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140 },
-    { headerName: "Debt/Eq", field: "debtEq", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100 },
-    { headerName: "FCF", field: "fcf", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140 },
+    { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, cellStyle: { textAlign: "right" } },
+    { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140, cellStyle: { textAlign: "right" } },
+    { headerName: "Alloc %", field: "alloc", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, cellStyle: { textAlign: "right" } },
+    { headerName: "52w High", field: "high52", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, cellStyle: { textAlign: "right" } },
+    { headerName: "52w Low", field: "low52", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, cellStyle: { textAlign: "right" } },
+    { headerName: "Mkt Cap", field: "mktCap", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140, cellStyle: { textAlign: "right" } },
+    { headerName: "P/E (TTM)", field: "peTTM", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
+    { headerName: "P/E (Fwd)", field: "peFwd", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
+    { headerName: "PEG", field: "peg", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
+    { headerName: "P/S", field: "ps", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
+    { headerName: "P/B", field: "pb", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
+    { headerName: "EV/Rev", field: "evRev", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
+    { headerName: "EV/EBITDA", field: "evEbitda", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, cellStyle: { textAlign: "right" } },
+    { headerName: "Profit Margin", field: "margin", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 120, cellStyle: { textAlign: "right" } },
+    { headerName: "ROA", field: "roa", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
+    { headerName: "ROE", field: "roe", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
+    { headerName: "Revenue", field: "revenue", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140, cellStyle: { textAlign: "right" } },
+    { headerName: "Net Income", field: "netIncome", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140, cellStyle: { textAlign: "right" } },
+    { headerName: "EPS", field: "eps", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
+    { headerName: "Cash", field: "cash", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140, cellStyle: { textAlign: "right" } },
+    { headerName: "Debt/Eq", field: "debtEq", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 100, cellStyle: { textAlign: "right" } },
+    { headerName: "FCF", field: "fcf", sortable: true, filter: "agNumberColumnFilter", flex: 1, minWidth: 140, cellStyle: { textAlign: "right" } },
   ], []);
 
   // Row data
@@ -129,10 +128,20 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
       <Nav user={currentUser} />
       <h1>Valuation Dashboard</h1>
       {tickers.length === 0 ? (
-        <p style={{ fontStyle: "italic", color: "#666" }}>Start by adding Transactions in the Transactions page.</p>
+        <p style={{ fontStyle: "italic", color: "#666" }}>
+          Start by adding Transactions in the Transactions page.
+        </p>
       ) : (
         <>
-          <div className="ag-theme-alpine" style={{ width: "100%", height: 600 }}>
+          <div
+            className="ag-theme-alpine"
+            style={{
+              width: "100%",
+              height: 600,
+              borderRadius: "12px",
+              overflow: "hidden",
+            }}
+          >
             <AgGridReact
               ref={gridRef}
               rowData={rowData}
@@ -147,7 +156,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
               domLayout="autoHeight"
               pagination
               paginationPageSize={20}
-              onGridReady={(params) => params.api.sizeColumnsToFit()} // auto-adjust on load
+              onGridReady={(params) => params.api.sizeColumnsToFit()}
             />
           </div>
           <button
@@ -159,7 +168,7 @@ export default function ValuationPage({ currentUser, tickers = [], valuationData
               background: "#0070f3",
               color: "#fff",
               border: "none",
-              cursor: "pointer"
+              cursor: "pointer",
             }}
           >
             Download Valuation Data (CSV)
@@ -183,8 +192,11 @@ export async function getServerSideProps(context) {
 
   let data = {};
   try {
-    const res = await fetch(`${backendBase}/api/valuation`, { headers: { Authorization: `Bearer ${token}` } });
-    if (res.status === 401) return { redirect: { destination: "/auth/signin", permanent: false } };
+    const res = await fetch(`${backendBase}/api/valuation`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 401)
+      return { redirect: { destination: "/auth/signin", permanent: false } };
     data = await res.json();
   } catch (err) {
     data = { error: err.message };

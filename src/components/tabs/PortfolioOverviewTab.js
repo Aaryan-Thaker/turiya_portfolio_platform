@@ -217,26 +217,29 @@ export default function PortfolioOverviewTab({ overviewTabData }) {
     });
   }, [overviewTabData]);
 
+  const numericCellStyle = { textAlign: "right" };
+  const textCellStyle = { textAlign: "left" };
+
   const columnDefs = useMemo(
     () => [
-      { headerName: "Ticker", field: "Ticker", sortable: true, filter: "agTextColumnFilter", resizable: true, width: 100 },
-      { headerName: "Name", field: "Name", sortable: true, filter: "agTextColumnFilter", resizable: true, flex: 1 },
-      { headerName: "Quantity", field: "Quantity", filter: "agNumberColumnFilter", width: 120 },
-      { headerName: "Currency", field: "Currency", sortable: true, filter: "agTextColumnFilter", width: 100 },
-      { headerName: "Avg Cost/Share", field: "Avg Cost/Share", cellRenderer: (p) => formatINR(p.value), width: 130 },
-      { headerName: "CMP", field: "CMP", cellRenderer: (p) => formatINR(p.value), width: 130 },
-      { headerName: "Current Value", field: "Current Value", cellRenderer: (p) => formatINR(p.value), width: 130 },
-      { headerName: "Total Cost", field: "Total Cost", cellRenderer: (p) => formatINR(p.value), width: 130 },
-      { headerName: "Gain/Loss %", field: "Gain/Loss %", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 130 },
-      { headerName: "Allocation %", field: "AllocationPercent", valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`, width: 120 },
-      { headerName: "Day Change (%)", field: "Day Change (%)", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 120 },
-      { headerName: "Day P&L", field: "Day PnL", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 130 },
-      { headerName: "Investment Date", field: "Investment Date", sortable: true, filter: "agTextColumnFilter", width: 130 },
-      { headerName: "Exchange", field: "Exchange", sortable: true, filter: "agTextColumnFilter", width: 100 },
-      { headerName: "52w High", field: "52w High", cellRenderer: (p) => formatINR(p.value), width: 130 },
-      { headerName: "52w Low", field: "52w Low", cellRenderer: (p) => formatINR(p.value), width: 130 },
-      { headerName: "Unrealized Gains", field: "Unrealized Gains", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 130 },
-      { headerName: "Sector", field: "Sector", sortable: true, filter: "agTextColumnFilter", width: 120 },
+      { headerName: "Ticker", field: "Ticker", sortable: true, filter: "agTextColumnFilter", resizable: true, width: 100, cellStyle: textCellStyle },
+      { headerName: "Name", field: "Name", sortable: true, filter: "agTextColumnFilter", resizable: true, flex: 1, cellStyle: textCellStyle },
+      { headerName: "Quantity", field: "Quantity", filter: "agNumberColumnFilter", width: 120, cellStyle: numericCellStyle },
+      { headerName: "Currency", field: "Currency", sortable: true, filter: "agTextColumnFilter", width: 100, cellStyle: textCellStyle },
+      { headerName: "Avg Cost/Share", field: "Avg Cost/Share", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
+      { headerName: "CMP", field: "CMP", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
+      { headerName: "Current Value", field: "Current Value", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
+      { headerName: "Total Cost", field: "Total Cost", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
+      { headerName: "Gain/Loss %", field: "Gain/Loss %", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 130, cellStyle: numericCellStyle },
+      { headerName: "Allocation %", field: "AllocationPercent", valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`, width: 120, cellStyle: numericCellStyle },
+      { headerName: "Day Change (%)", field: "Day Change (%)", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 120, cellStyle: numericCellStyle },
+      { headerName: "Day P&L", field: "Day PnL", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 130, cellStyle: numericCellStyle },
+      { headerName: "Investment Date", field: "Investment Date", sortable: true, filter: "agTextColumnFilter", width: 130, cellStyle: textCellStyle },
+      { headerName: "Exchange", field: "Exchange", sortable: true, filter: "agTextColumnFilter", width: 100, cellStyle: textCellStyle },
+      { headerName: "52w High", field: "52w High", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
+      { headerName: "52w Low", field: "52w Low", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
+      { headerName: "Unrealized Gains", field: "Unrealized Gains", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 130, cellStyle: numericCellStyle },
+      { headerName: "Sector", field: "Sector", sortable: true, filter: "agTextColumnFilter", width: 120, cellStyle: textCellStyle },
     ],
     []
   );
