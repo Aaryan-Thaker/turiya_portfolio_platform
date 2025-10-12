@@ -364,31 +364,22 @@ export default function SummaryTab({
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>Portfolio Charts</h2>
 
-        {/* two-column row for pies */}
+        {/* Pie charts row */}
         <div
           style={{
-            display: "flex",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
             gap: 20,
-            alignItems: "stretch",
-            marginBottom: 12,
-            flexWrap: "wrap",
-            boxSizing: "border-box",
+            marginBottom: 20,
           }}
         >
           <div
             style={{
-              flex: "1 1 300px",
-              maxWidth: "48%",
-              minWidth: 300,
-              height: 340,
               background: "#fff",
               borderRadius: 8,
               padding: 12,
-              boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
-              boxSizing: "border-box",
-              position: "relative",
-              zIndex: 2,
-              overflow: "hidden",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+              height: 400,
             }}
           >
             <h4 style={{ marginTop: 0, marginBottom: 8 }}>Stock Allocation</h4>
@@ -399,18 +390,11 @@ export default function SummaryTab({
 
           <div
             style={{
-              flex: "1 1 300px",
-              maxWidth: "48%",
-              minWidth: 300,
-              height: 340,
               background: "#fff",
               borderRadius: 8,
               padding: 12,
-              boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
-              boxSizing: "border-box",
-              position: "relative",
-              zIndex: 2,
-              overflow: "hidden",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+              height: 400,
             }}
           >
             <h4 style={{ marginTop: 0, marginBottom: 8 }}>Sector Allocation</h4>
@@ -420,27 +404,46 @@ export default function SummaryTab({
           </div>
         </div>
 
-        {/* treemap full width below (restored original usage) */}
+        {/* Treemaps row */}
         <div
           style={{
-            background: "#fff",
-            borderRadius: 8,
-            padding: 12,
-            boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
-            boxSizing: "border-box",
-            clear: "both",
-            position: "relative",
-            zIndex: 1,
-            marginTop: 12,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(500px, 1fr))",
+            gap: 20,
           }}
         >
-          <h4 style={{ marginTop: 0, marginBottom: 8 }}>Portfolio Treemap</h4>
-          <div style={{ width: "100%", height: 420 }}>
-            {/* RESTORED: pass normalizedData directly so TreemapChart behaves as before */}
-            <TreemapChart data={normalizedData} />
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 8,
+              padding: 12,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+              height: 500,
+            }}
+          >
+            <h4 style={{ marginTop: 0, marginBottom: 8 }}>Portfolio Treemap</h4>
+            <div style={{ width: "100%", height: "calc(100% - 34px)" }}>
+              <TreemapChart data={normalizedData} />
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 8,
+              padding: 12,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+              height: 500,
+            }}
+          >
+            <h4 style={{ marginTop: 0, marginBottom: 8 }}>Holdings Treemap</h4>
+            <div style={{ width: "100%", height: "calc(100% - 34px)" }}>
+              <TreemapChart data={normalizedData} />
+            </div>
           </div>
         </div>
       </section>
+
     </div>
   );
 }
