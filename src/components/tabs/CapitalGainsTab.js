@@ -31,10 +31,11 @@ function toNumber(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-export default function CapitalGainsTab({ capitalGainsData }) {
+export default function CapitalGainsTab({ capitalGainsData, portfolioXIRR }) {
   useEffect(() => {
     console.log("CapitalGainsTab Data:", capitalGainsData);
-  }, [capitalGainsData]);
+    console.log("Portfolio XIRR:", portfolioXIRR);
+  }, [capitalGainsData, portfolioXIRR]);
 
   const rowData = useMemo(() => {
     if (!capitalGainsData?.per_stock) return [];
@@ -44,7 +45,8 @@ export default function CapitalGainsTab({ capitalGainsData }) {
       const realized = toNumber(info.realized ?? stcg + ltcg);
       const unrealized = toNumber(info.unrealized ?? 0);
       const total_gain = stcg + ltcg + unrealized;
-      return { ticker, stcg, ltcg, realized, unrealized, total_gain };
+      const irr = toNumber(info.IRR ?? 0);
+      return { ticker, stcg, ltcg, realized, unrealized, total_gain, irr };
     });
   }, [capitalGainsData]);
 
@@ -109,6 +111,14 @@ export default function CapitalGainsTab({ capitalGainsData }) {
         cellStyle: numericCellStyle,
         filter: "agNumberColumnFilter",
       },
+      {
+        headerName: "IRR (%)",
+        field: "irr",
+        cellRenderer: (p) =>
+          p.value ? `${p.value.toFixed(2)}%` : "—",
+        cellStyle: numericCellStyle,
+        filter: "agNumberColumnFilter",
+      },
     ],
     []
   );
@@ -126,6 +136,14 @@ export default function CapitalGainsTab({ capitalGainsData }) {
         <SummaryItem
           label="Total Unrealized"
           value={formatINR(totalUnrealized, { showColor: true, showArrow: true })}
+        />
+        <SummaryItem
+          label="Portfolio XIRR"
+          value={
+            portfolioXIRR != null
+              ? `${portfolioXIRR.toFixed(2)}%`
+              : "N/A"
+          }
         />
       </section>
 
