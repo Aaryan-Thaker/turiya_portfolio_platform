@@ -426,21 +426,6 @@ export default function SummaryTab({
               <TreemapChart data={normalizedData} />
             </div>
           </div>
-
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 8,
-              padding: 12,
-              boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
-              height: 500,
-            }}
-          >
-            <h4 style={{ marginTop: 0, marginBottom: 8 }}>Holdings Treemap</h4>
-            <div style={{ width: "100%", height: "calc(100% - 34px)" }}>
-              <TreemapChart data={normalizedData} />
-            </div>
-          </div>
         </div>
       </section>
 
