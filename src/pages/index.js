@@ -66,7 +66,8 @@ export default function PortfolioPage(props) {
         sortable: true,
         filter: "agNumberColumnFilter",
         flex: 1,
-        valueFormatter: (p) => formatINR(p.value),
+        valueFormatter: (p) =>
+          Number.isFinite(Number(p.value)) ? formatINR(p.value) : "N/A",
       },
       {
         headerName: "Proceeds",
@@ -74,7 +75,8 @@ export default function PortfolioPage(props) {
         sortable: true,
         filter: "agNumberColumnFilter",
         flex: 1,
-        valueFormatter: (p) => formatINR(p.value),
+        valueFormatter: (p) =>
+          Number.isFinite(Number(p.value)) ? formatINR(p.value) : "N/A",
       },
       {
         headerName: "Gain",
@@ -82,7 +84,11 @@ export default function PortfolioPage(props) {
         sortable: true,
         filter: "agNumberColumnFilter",
         flex: 1,
-        cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }),
+        cellRenderer: (p) => {
+          const val = Number(p.value);
+          if (!Number.isFinite(val)) return <span style={{ color: "#666" }}>N/A</span>;
+          return formatINR(val, { showColor: true, showArrow: true });
+        },
       },
       {
         headerName: "Gain %",
@@ -91,11 +97,18 @@ export default function PortfolioPage(props) {
         filter: "agNumberColumnFilter",
         flex: 1,
         cellRenderer: (p) => {
-          const num = Number(p.value);
-          if (isNaN(num)) return <span style={{ color: "#666" }}>N/A</span>;
+          const raw = p?.value;
+          const num = Number(raw);
+          if (!Number.isFinite(num)) {
+            return <span style={{ color: "#666" }}>N/A</span>;
+          }
           const color = num >= 0 ? "green" : "red";
           const arrow = num >= 0 ? "▲" : "▼";
-          return <span style={{ color }}>{num.toFixed(2)}% {arrow}</span>;
+          return (
+            <span style={{ color }}>
+              {num.toFixed(2)}% {arrow}
+            </span>
+          );
         },
       },
     ],
@@ -213,7 +226,8 @@ export async function getServerSideProps(context) {
   const session = await getSession(context);
   const token = session?.accessToken || "";
 
-  if (!token) return { redirect: { destination: "/auth/signin", permanent: false } };
+  if (!token)
+    return { redirect: { destination: "/auth/signin", permanent: false } };
 
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
   const host = context.req.headers.host;
@@ -221,7 +235,9 @@ export async function getServerSideProps(context) {
 
   let portfolioData = {};
   try {
-    const res = await fetch(`${backendBase}/api/portfolio`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(`${backendBase}/api/portfolio`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (res.status === 401) return { props: { currentUser: null } };
     portfolioData = await res.json();
   } catch (err) {
@@ -230,7 +246,9 @@ export async function getServerSideProps(context) {
 
   let capitalGainsData = [];
   try {
-    const res = await fetch(`${backendBase}/api/capital_gains`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(`${backendBase}/api/capital_gains`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     const data = await res.json();
     capitalGainsData = data.capitalGains || [];
   } catch (err) {

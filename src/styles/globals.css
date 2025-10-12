@@ -18,7 +18,13 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ✅ This must be outside of body */
+/* Default alignment: left for all cells */
 .ag-cell {
+  text-align: left !important;
+}
+
+/* Only right-align explicitly marked numeric columns */
+.ag-right-aligned-cell {
   text-align: right !important;
 }
+

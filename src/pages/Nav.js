@@ -110,7 +110,7 @@ export default function Nav({ user: propUser }) {
           ))}
         </div>
 
-        {/* Right-aligned user dropdown */}
+        {/* User dropdown */}
         <div style={{ marginLeft: "auto", position: "relative" }} ref={dropdownRef}>
           {isLoggedIn ? (
             <button onClick={() => setMenuOpen(!menuOpen)} style={styles.userButton}>
@@ -126,7 +126,7 @@ export default function Nav({ user: propUser }) {
             <div style={styles.dropdownMenu}>
               {riskProfile && (
                 <div style={styles.dropdownHeader}>
-                  Risk Score: <strong>{riskProfile}</strong>
+                  Risk Score: {riskProfile}
                 </div>
               )}
               <Link
@@ -166,63 +166,66 @@ const styles = {
     display: "flex",
     alignItems: "center",
     padding: "10px 20px",
-    background: "#375a8a", // darker blue
-    color: "#fff",
+    background: "#1E1E1E", // Charcoal
+    color: "#EAEAEA",
     position: "fixed",
     top: 0,
     left: 0,
     right: 0,
     zIndex: 1000,
     height: 60,
-    boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
   },
   brand: { display: "flex", alignItems: "center", marginRight: 30 },
-  brandName: { fontSize: 20, fontWeight: "bold", color: "#fff", whiteSpace: "nowrap" },
-  links: { display: "flex", alignItems: "center", gap: 15 },
+  brandName: { fontSize: 19, fontWeight: "600", color: "#EAEAEA", whiteSpace: "nowrap" },
+  links: { display: "flex", alignItems: "center", gap: 18 },
   navLink: {
-    color: "#fff",
+    color: "#EAEAEA",
     textDecoration: "none",
     padding: "8px 12px",
     fontSize: 15,
     borderRadius: 4,
-    transition: "background 0.3s ease",
+    transition: "all 0.3s ease",
   },
-  activeLink: { borderBottom: "2px solid #fff", fontWeight: "600" }, // gold highlight
+  activeLink: {
+    borderBottom: "2px solid #00A86B", // Subtle finance green
+    fontWeight: "600",
+  },
   userButton: {
-    background: "#4a73a1", // contrast against nav
-    border: "1px solid #fff",
-    color: "#fff",
+    background: "#2A2A2A",
+    border: "1px solid #444",
+    color: "#EAEAEA",
     padding: "6px 12px",
     borderRadius: 4,
     cursor: "pointer",
     fontSize: 14,
-    transition: "background 0.3s ease",
+    transition: "background 0.3s ease, color 0.3s ease",
   },
   dropdownMenu: {
     position: "absolute",
     right: 0,
     top: "100%",
-    background: "#fff",
-    border: "1px solid #ddd",
-    borderRadius: 4,
-    marginTop: 5,
-    minWidth: 200,
-    boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+    background: "#2B2B2B",
+    border: "1px solid #444",
+    borderRadius: 6,
+    marginTop: 6,
+    minWidth: 220,
+    boxShadow: "0 4px 10px rgba(0,0,0,0.4)",
     zIndex: 100,
+    overflow: "hidden",
   },
   dropdownHeader: {
     padding: "10px 15px",
-    borderBottom: "1px solid #eee",
+    borderBottom: "1px solid #3A3A3A",
     fontSize: 14,
-    fontWeight: "bold",
-    background: "#f9f9f9",
-    color: "#333",
+    color: "#DADADA",
+    background: "#242424",
   },
   dropdownItem: {
     display: "block",
     padding: "10px 15px",
     textDecoration: "none",
-    color: "#333",
+    color: "#EAEAEA",
     cursor: "pointer",
     fontSize: 14,
     transition: "background 0.2s ease",
@@ -234,10 +237,9 @@ if (typeof window !== "undefined" && !document.getElementById("nav-global-styles
   const styleTag = document.createElement("style");
   styleTag.id = "nav-global-styles";
   styleTag.innerHTML = `
-    body, html { margin: 0; padding: 0; }
-    a:hover { background: rgba(255,255,255,0.2); }
-    button:hover { background: rgba(255,215,0,0.3); }
-    div[role="button"]:hover { background: #f1f1f1; }
+    a:hover { background: rgba(255,255,255,0.08); }
+    button:hover { background: #353535; }
+    div[role="button"]:hover, .dropdown-item:hover { background: #353535; }
   `;
   document.head.appendChild(styleTag);
 }
