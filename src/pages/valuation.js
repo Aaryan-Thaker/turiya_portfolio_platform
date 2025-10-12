@@ -76,23 +76,8 @@ export default function ValuationPage({
   // Column definitions
   const columnDefs = useMemo(
     () => [
-      {
-        headerName: "Stock",
-        field: "stock",
-        pinned: "left",
-        sortable: true,
-        filter: "agTextColumnFilter",
-        flex: 2,
-        minWidth: 150,
-      },
-      {
-        headerName: "Price",
-        field: "price",
-        sortable: true,
-        filter: "agNumberColumnFilter",
-        minWidth: 120,
-        cellStyle: { textAlign: "right" },
-      },
+      { headerName: "Stock", field: "stock", pinned: "left", sortable: true, filter: "agTextColumnFilter", flex: 2, minWidth: 150 },
+      { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter", minWidth: 120, cellStyle: { textAlign: "right" } },
       { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter", minWidth: 140, cellStyle: { textAlign: "right" } },
       { headerName: "Alloc %", field: "alloc", sortable: true, filter: "agNumberColumnFilter", minWidth: 120, cellStyle: { textAlign: "right" } },
       { headerName: "52w High", field: "high52", sortable: true, filter: "agNumberColumnFilter", minWidth: 120, cellStyle: { textAlign: "right" } },
@@ -123,13 +108,20 @@ export default function ValuationPage({
     () =>
       tickers.map((symbol) => {
         const v = valuationData[symbol] || {};
+
+        // 52-week high/low using same keys as PortfolioOverviewTab
+        const fiftyTwoHigh =
+          v["52w High"] ?? v["52wHigh"] ?? v["52w_high"] ?? v["52_week_high"] ?? v["fiftyTwoWeekHigh"];
+        const fiftyTwoLow =
+          v["52w Low"] ?? v["52wLow"] ?? v["52w_low"] ?? v["52_week_low"] ?? v["fiftyTwoWeekLow"];
+
         return {
           stock: `${symbol}`,
           price: fmt.currency(v.CurrentPrice),
           value: fmt.currency(v.CurrentValue, true),
           alloc: fmt.percent(v.AllocationPercent),
-          high52: fmt.currency(v["52w_high"]),
-          low52: fmt.currency(v["52w_low"]),
+          high52: fmt.currency(fiftyTwoHigh),
+          low52: fmt.currency(fiftyTwoLow),
           mktCap: fmt.currency(v.marketCap, true),
           peTTM: fmt.ratio(v.trailingPE),
           peFwd: fmt.ratio(v.forwardPE),
@@ -156,7 +148,7 @@ export default function ValuationPage({
     gridRef.current?.api?.exportDataAsCsv();
   }, []);
 
-  // When grid is ready, auto-fit all columns
+  // Auto-fit all columns when grid is ready
   const onGridReady = useCallback((params) => {
     gridRef.current = params.api;
     setTimeout(() => {
@@ -167,7 +159,7 @@ export default function ValuationPage({
     }, 100);
   }, []);
 
-  // Toggle pin column when clicking its header
+  // Toggle pin column on header click
   const onHeaderClicked = useCallback((params) => {
     const col = params.column;
     const currentlyPinned = col.getPinned();
@@ -186,24 +178,13 @@ export default function ValuationPage({
         <>
           <div
             className="ag-theme-alpine"
-            style={{
-              width: "100%",
-              height: 600,
-              borderRadius: "12px",
-              overflow: "hidden",
-            }}
+            style={{ width: "100%", height: 600, borderRadius: "12px", overflow: "hidden" }}
           >
             <AgGridReact
               ref={gridRef}
               rowData={rowData}
               columnDefs={columnDefs}
-              defaultColDef={{
-                resizable: true,
-                sortable: true,
-                filter: true,
-                minWidth: 100,
-                flex: 1,
-              }}
+              defaultColDef={{ resizable: true, sortable: true, filter: true, minWidth: 100, flex: 1 }}
               enableBrowserTooltips={true}
               onGridReady={onGridReady}
               onHeaderClicked={onHeaderClicked}
@@ -213,15 +194,7 @@ export default function ValuationPage({
           </div>
           <button
             onClick={handleExportCSV}
-            style={{
-              marginTop: 20,
-              padding: "10px 15px",
-              borderRadius: 4,
-              background: "#0070f3",
-              color: "#fff",
-              border: "none",
-              cursor: "pointer",
-            }}
+            style={{ marginTop: 20, padding: "10px 15px", borderRadius: 4, background: "#0070f3", color: "#fff", border: "none", cursor: "pointer" }}
           >
             Download Valuation Data (CSV)
           </button>
@@ -244,11 +217,8 @@ export async function getServerSideProps(context) {
 
   let data = {};
   try {
-    const res = await fetch(`${backendBase}/api/valuation`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401)
-      return { redirect: { destination: "/auth/signin", permanent: false } };
+    const res = await fetch(`${backendBase}/api/valuation`, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status === 401) return { redirect: { destination: "/auth/signin", permanent: false } };
     data = await res.json();
   } catch (err) {
     data = { error: err.message };

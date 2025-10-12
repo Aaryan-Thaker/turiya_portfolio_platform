@@ -157,12 +157,43 @@ export default function TransactionsPage({ user, transactionsData, error: initia
 
   useEffect(() => { fetchTransactions(); }, []);
 
-  // Format helpers
-  const formatCurrency = (value) => {
-    if (value == null || value === "N/A") return "N/A";
-    const n = Number(value);
-    return Number.isFinite(n) ? "₹" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A";
+  // -----------------------------
+  // Indian number formatting helpers (borrowed from valuation.js)
+  // -----------------------------
+  const toNumber = (v) => {
+    if (v == null) return NaN;
+    // Remove common non-digit characters (commas, ₹, spaces) before conversion
+    const cleaned = String(v).replace(/[₹, ]+/g, "");
+    const n = Number(cleaned);
+    return isNaN(n) ? NaN : n;
   };
+
+  const compactNumber = (value) => {
+    const num = toNumber(value);
+    if (isNaN(num)) return "N/A";
+    // Crore = 1e7, Lakh = 1e5, Thousand = 1e3
+    if (Math.abs(num) >= 1e7) return (num / 1e7).toFixed(2) + " Cr";
+    if (Math.abs(num) >= 1e5) return (num / 1e5).toFixed(2) + " L";
+    if (Math.abs(num) >= 1e3) return (num / 1e3).toFixed(2) + " K";
+    return num.toFixed(2);
+  };
+
+  const fmt = useMemo(() => ({
+    // currency: ₹ with Indian separators; compact=true uses L/Cr shorthand
+    currency: (value, compact = false) => {
+      if (value == null || value === "N/A" || isNaN(toNumber(value))) return "N/A";
+      const num = toNumber(value);
+      if (compact) return "₹" + compactNumber(num);
+      // full Indian formatting
+      return "₹" + num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
+    // integer with Indian separators (no decimals)
+    integer: (value) => {
+      if (value == null || value === "N/A" || isNaN(toNumber(value))) return "N/A";
+      const num = toNumber(value);
+      return Number.isInteger(num) ? num.toLocaleString("en-IN") : Math.round(num).toLocaleString("en-IN");
+    }
+  }), []);
 
   // CSV helpers
   const downloadCsv = (headers, rows, filename) => {
@@ -181,16 +212,44 @@ export default function TransactionsPage({ user, transactionsData, error: initia
     downloadCsv(headers, rows, "transactions.csv");
   }, [transactions]);
 
-  // AG Grid columns
+  // AG Grid columns — numeric columns get ag-right-aligned-cell so CSS can right-align them
   const transactionColumnDefs = useMemo(() => [
     { headerName: "Date", field: "date", sortable: true, filter: "agDateColumnFilter", resizable: true, width: 140 },
     { headerName: "Ticker", field: "stock", sortable: true, filter: true, resizable: true, width: 120 },
     { headerName: "Name", field: "name", sortable: true, filter: true, resizable: true, flex: 1 },
     { headerName: "Type", field: "type", sortable: true, filter: true, resizable: true, width: 100 },
-    { headerName: "Quantity", field: "quantity", sortable: true, filter: "agNumberColumnFilter", valueFormatter: (p) => Number(p.value).toLocaleString(), resizable: true, width: 120 },
-    { headerName: "Price", field: "price", sortable: true, filter: "agNumberColumnFilter", valueFormatter: (p) => formatCurrency(p.value), resizable: true, width: 120 },
-    { headerName: "Value", field: "value", sortable: true, filter: "agNumberColumnFilter", valueFormatter: (p) => formatCurrency(p.value), resizable: true, width: 140 },
-  ], []);
+    {
+      headerName: "Quantity",
+      field: "quantity",
+      sortable: true,
+      filter: "agNumberColumnFilter",
+      valueFormatter: (p) => fmt.integer(p.value),
+      resizable: true,
+      width: 120,
+      cellClass: "ag-right-aligned-cell",
+    },
+    {
+      headerName: "Price",
+      field: "price",
+      sortable: true,
+      filter: "agNumberColumnFilter",
+      valueFormatter: (p) => fmt.currency(p.value, false),
+      resizable: true,
+      width: 120,
+      cellClass: "ag-right-aligned-cell",
+    },
+    {
+      headerName: "Value",
+      field: "value",
+      sortable: true,
+      filter: "agNumberColumnFilter",
+      // Use compact Indian format (L/Cr) for large totals
+      valueFormatter: (p) => fmt.currency(p.value, true),
+      resizable: true,
+      width: 140,
+      cellClass: "ag-right-aligned-cell",
+    },
+  ], [fmt]);
 
   const defaultColDef = useMemo(() => ({ sortable: true, filter: true, resizable: true, floatingFilter: true }), []);
 
@@ -201,7 +260,7 @@ export default function TransactionsPage({ user, transactionsData, error: initia
     type: tx.type,
     quantity: Number(tx.quantity) || 0,
     price: Number(tx.price || 0),
-    value: Number(tx.value ?? tx.quantity * tx.price),
+    value: Number(tx.value ?? (tx.quantity * tx.price)) || 0,
   })), [transactions]);
 
   return (
@@ -240,7 +299,6 @@ export default function TransactionsPage({ user, transactionsData, error: initia
           ) : (
             <>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
-                {/* ✅ Fixed: use normal button instead of BulkTransactionUpload.Button */}
                 <button
                   onClick={handleDownloadTransactionsCSV}
                   style={{ padding: "8px 15px", borderRadius: 4, cursor: "pointer", fontSize: 14, border: "none", background: "#0070f3", color: "#fff" }}
@@ -285,9 +343,9 @@ export async function getServerSideProps(context) {
   const backendUrl = `${backendBase}/api/transactions`;
 
   let data = {};
-  try { 
-    const res = await fetch(backendUrl, { headers: { Authorization: `Bearer ${token}` } }); 
-    data = await res.json().catch(() => ({})); 
+  try {
+    const res = await fetch(backendUrl, { headers: { Authorization: `Bearer ${token}` } });
+    data = await res.json().catch(() => ({}));
   } catch {}
 
   const user = { id: data?.current_user?.id || session.user?.id || "guest", isAuthenticated: !!session };
