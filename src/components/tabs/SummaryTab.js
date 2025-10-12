@@ -290,7 +290,7 @@ export default function SummaryTab({
   const totalGainPctText = Number.isFinite(totalGainPctNum) ? `${totalGainPctNum.toFixed(2)}%` : "N/A";
 
   return (
-    <div style={styles.container}>
+    <div style={{ ...styles.container, boxSizing: "border-box", position: "relative" }}>
       <section style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
         <div>
           <h2 style={styles.sectionTitle}>Portfolio Summary</h2>
@@ -365,26 +365,77 @@ export default function SummaryTab({
         <h2 style={styles.sectionTitle}>Portfolio Charts</h2>
 
         {/* two-column row for pies */}
-        <div style={{ display: "flex", gap: 20, alignItems: "stretch", marginBottom: 20, flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: 300, height: 320, background: "#fff", borderRadius: 8, padding: 12, boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 20,
+            alignItems: "stretch",
+            marginBottom: 12,
+            flexWrap: "wrap",
+            boxSizing: "border-box",
+          }}
+        >
+          <div
+            style={{
+              flex: "1 1 300px",
+              maxWidth: "48%",
+              minWidth: 300,
+              height: 340,
+              background: "#fff",
+              borderRadius: 8,
+              padding: 12,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+              boxSizing: "border-box",
+              position: "relative",
+              zIndex: 2,
+              overflow: "hidden",
+            }}
+          >
             <h4 style={{ marginTop: 0, marginBottom: 8 }}>Stock Allocation</h4>
-            <div style={{ height: "calc(100% - 34px)" }}>
+            <div style={{ width: "100%", height: "calc(100% - 34px)" }}>
               <StockPie data={normalizedData} />
             </div>
           </div>
 
-          <div style={{ flex: 1, minWidth: 300, height: 320, background: "#fff", borderRadius: 8, padding: 12, boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }}>
+          <div
+            style={{
+              flex: "1 1 300px",
+              maxWidth: "48%",
+              minWidth: 300,
+              height: 340,
+              background: "#fff",
+              borderRadius: 8,
+              padding: 12,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+              boxSizing: "border-box",
+              position: "relative",
+              zIndex: 2,
+              overflow: "hidden",
+            }}
+          >
             <h4 style={{ marginTop: 0, marginBottom: 8 }}>Sector Allocation</h4>
-            <div style={{ height: "calc(100% - 34px)" }}>
+            <div style={{ width: "100%", height: "calc(100% - 34px)" }}>
               <SectorPie data={normalizedData} />
             </div>
           </div>
         </div>
 
-        {/* treemap full width below (original usage restored) */}
-        <div style={{ background: "#fff", borderRadius: 8, padding: 12, boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }}>
+        {/* treemap full width below (restored original usage) */}
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 8,
+            padding: 12,
+            boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+            boxSizing: "border-box",
+            clear: "both",
+            position: "relative",
+            zIndex: 1,
+            marginTop: 12,
+          }}
+        >
           <h4 style={{ marginTop: 0, marginBottom: 8 }}>Portfolio Treemap</h4>
-          <div style={{ height: 420 }}>
+          <div style={{ width: "100%", height: 420 }}>
             {/* RESTORED: pass normalizedData directly so TreemapChart behaves as before */}
             <TreemapChart data={normalizedData} />
           </div>

@@ -44,10 +44,7 @@ export default function CapitalGainsTab({ capitalGainsData }) {
       const realized = toNumber(info.realized ?? stcg + ltcg);
       const unrealized = toNumber(info.unrealized ?? 0);
       const total_gain = stcg + ltcg + unrealized;
-      const trades = Array.isArray(info.realized_trades)
-        ? info.realized_trades.length
-        : 0;
-      return { ticker, stcg, ltcg, realized, unrealized, total_gain, trades };
+      return { ticker, stcg, ltcg, realized, unrealized, total_gain };
     });
   }, [capitalGainsData]);
 
@@ -109,12 +106,6 @@ export default function CapitalGainsTab({ capitalGainsData }) {
         field: "total_gain",
         cellRenderer: (p) =>
           formatINR(p.value, { showColor: true, showArrow: true }),
-        cellStyle: numericCellStyle,
-        filter: "agNumberColumnFilter",
-      },
-      {
-        headerName: "Transactions",
-        field: "trades",
         cellStyle: numericCellStyle,
         filter: "agNumberColumnFilter",
       },
