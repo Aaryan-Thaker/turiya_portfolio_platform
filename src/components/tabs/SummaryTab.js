@@ -284,19 +284,6 @@ export default function SummaryTab({
     exportToCSV("portfolio.csv", columnDefs.map((c) => c.field), normalizedData);
   }, [columnDefs, normalizedData]);
 
-  // Build treemap data: numeric value for sizing, formatted label for display
-  const treemapData = useMemo(() => {
-    return normalizedData
-      .filter((r) => r["Current Value"] > 0)
-      .map((r) => ({
-        name: r.Ticker,
-        value: r["Current Value"],
-        // compact label with INR symbol and L/Cr suffix
-        label: formatINR(r["Current Value"], true),
-        sector: r.Sector,
-      }));
-  }, [normalizedData]);
-
   // determine color for overall unrealized gain/loss
   const overallGainColor = totalGain > 0 ? "green" : totalGain < 0 ? "red" : "inherit";
   const totalGainPctNum = Number(totalGainPct);
@@ -394,12 +381,12 @@ export default function SummaryTab({
           </div>
         </div>
 
-        {/* treemap full width below */}
+        {/* treemap full width below (original usage restored) */}
         <div style={{ background: "#fff", borderRadius: 8, padding: 12, boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }}>
-          <h4 style={{ marginTop: 0, marginBottom: 8 }}>Portfolio Treemap (₹, compact)</h4>
+          <h4 style={{ marginTop: 0, marginBottom: 8 }}>Portfolio Treemap</h4>
           <div style={{ height: 420 }}>
-            {/* treemapData contains { name, value, label } where label uses formatINR(..., true) */}
-            <TreemapChart data={treemapData} labelField="label" valueField="value" nameField="name" />
+            {/* RESTORED: pass normalizedData directly so TreemapChart behaves as before */}
+            <TreemapChart data={normalizedData} />
           </div>
         </div>
       </section>
@@ -432,4 +419,3 @@ const styles = {
   chartsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20 },
   csvBtn: { padding: "6px 12px", background: "#4CAF50", color: "white", border: "none", borderRadius: 4, cursor: "pointer" },
 };
-
