@@ -116,7 +116,7 @@ export default function SummaryTab({
             "gainPct",
             "gain_percent",
           ])
-        ) || 0;
+        ) || ((CurrentValue - TotalCost) / (TotalCost || 1)) * 100;
       const AllocationPercent =
         toNumber(
           getFirst(row, [
@@ -213,6 +213,7 @@ export default function SummaryTab({
   const numericCellStyle = { textAlign: "right" };
   const textCellStyle = { textAlign: "left" };
 
+  // Column definitions: Gain/Loss % and Day Change (%) use cellRenderer for arrows + coloring
   const columnDefs = useMemo(
     () => [
       { headerName: "Ticker", field: "Ticker", sortable: true, filter: "agTextColumnFilter", resizable: true, width: 100, cellStyle: textCellStyle },
@@ -223,9 +224,51 @@ export default function SummaryTab({
       { headerName: "CMP", field: "CMP", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
       { headerName: "Current Value", field: "Current Value", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
       { headerName: "Total Cost", field: "Total Cost", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
-      { headerName: "Gain/Loss %", field: "Gain/Loss %", valueFormatter: (p) => `${p.value?.toFixed(2) || 0, { showColor: true, showArrow: true }}%`, width: 130, cellStyle: numericCellStyle },
-      { headerName: "Allocation %", field: "AllocationPercent", valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`, width: 120, cellStyle: numericCellStyle },
-      { headerName: "Day Change (%)", field: "Day Change (%)", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 120, cellStyle: numericCellStyle },
+      {
+        headerName: "Gain/Loss %",
+        field: "Gain/Loss %",
+        cellRenderer: (p) => {
+          const v = Number(p.value);
+          if (isNaN(v)) return "N/A";
+          const abs = Math.abs(v).toFixed(2) + "%";
+          if (v > 0) return `▲ ${abs}`;
+          if (v < 0) return `▼ ${abs}`;
+          return `${abs}`;
+        },
+        cellStyle: (p) => {
+          const v = Number(p.value);
+          return { textAlign: "right", color: v > 0 ? "green" : v < 0 ? "red" : "inherit" };
+        },
+        width: 130,
+      },
+      {
+        headerName: "Allocation %",
+        field: "AllocationPercent",
+        valueFormatter: (p) => {
+          const v = Number(p.value);
+          if (isNaN(v)) return "0.00%";
+          return v.toFixed(2) + "%";
+        },
+        width: 120,
+        cellStyle: numericCellStyle,
+      },
+      {
+        headerName: "Day Change (%)",
+        field: "Day Change (%)",
+        cellRenderer: (p) => {
+          const v = Number(p.value);
+          if (isNaN(v)) return "N/A";
+          const abs = Math.abs(v).toFixed(2) + "%";
+          if (v > 0) return `▲ ${abs}`;
+          if (v < 0) return `▼ ${abs}`;
+          return `${abs}`;
+        },
+        cellStyle: (p) => {
+          const v = Number(p.value);
+          return { textAlign: "right", color: v > 0 ? "green" : v < 0 ? "red" : "inherit" };
+        },
+        width: 120,
+      },
       { headerName: "Day PnL", field: "Day PnL", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 130, cellStyle: numericCellStyle },
       { headerName: "Investment Date", field: "Investment Date", sortable: true, filter: "agTextColumnFilter", width: 130, cellStyle: textCellStyle },
       { headerName: "Exchange", field: "Exchange", sortable: true, filter: "agTextColumnFilter", width: 100, cellStyle: textCellStyle },
@@ -241,6 +284,24 @@ export default function SummaryTab({
     exportToCSV("portfolio.csv", columnDefs.map((c) => c.field), normalizedData);
   }, [columnDefs, normalizedData]);
 
+  // Build treemap data: numeric value for sizing, formatted label for display
+  const treemapData = useMemo(() => {
+    return normalizedData
+      .filter((r) => r["Current Value"] > 0)
+      .map((r) => ({
+        name: r.Ticker,
+        value: r["Current Value"],
+        // compact label with INR symbol and L/Cr suffix
+        label: formatINR(r["Current Value"], true),
+        sector: r.Sector,
+      }));
+  }, [normalizedData]);
+
+  // determine color for overall unrealized gain/loss
+  const overallGainColor = totalGain > 0 ? "green" : totalGain < 0 ? "red" : "inherit";
+  const totalGainPctNum = Number(totalGainPct);
+  const totalGainPctText = Number.isFinite(totalGainPctNum) ? `${totalGainPctNum.toFixed(2)}%` : "N/A";
+
   return (
     <div style={styles.container}>
       <section style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
@@ -249,7 +310,11 @@ export default function SummaryTab({
           <div style={styles.portfolioSummary}>
             <SummaryItem label="Total Current Value" value={formatINR(totalValue)} />
             <SummaryItem label="Total Investment Cost" value={formatINR(totalCost)} />
-            <SummaryItem label="Unrealized Gain/Loss" value={`${formatINR(totalGain)} (${totalGainPct.toFixed(2)}%)`} />
+            <SummaryItem
+              label="Unrealized Gain/Loss"
+              value={`${formatINR(totalGain)} (${totalGainPctText})`}
+              valueColor={overallGainColor}
+            />
           </div>
         </div>
         <div>
@@ -311,21 +376,42 @@ export default function SummaryTab({
 
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>Portfolio Charts</h2>
-        <div style={styles.chartsGrid}>
-          <StockPie data={normalizedData} />
-          <SectorPie data={normalizedData} />
-          <TreemapChart data={normalizedData} />
+
+        {/* two-column row for pies */}
+        <div style={{ display: "flex", gap: 20, alignItems: "stretch", marginBottom: 20, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 300, height: 320, background: "#fff", borderRadius: 8, padding: 12, boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }}>
+            <h4 style={{ marginTop: 0, marginBottom: 8 }}>Stock Allocation</h4>
+            <div style={{ height: "calc(100% - 34px)" }}>
+              <StockPie data={normalizedData} />
+            </div>
+          </div>
+
+          <div style={{ flex: 1, minWidth: 300, height: 320, background: "#fff", borderRadius: 8, padding: 12, boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }}>
+            <h4 style={{ marginTop: 0, marginBottom: 8 }}>Sector Allocation</h4>
+            <div style={{ height: "calc(100% - 34px)" }}>
+              <SectorPie data={normalizedData} />
+            </div>
+          </div>
+        </div>
+
+        {/* treemap full width below */}
+        <div style={{ background: "#fff", borderRadius: 8, padding: 12, boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }}>
+          <h4 style={{ marginTop: 0, marginBottom: 8 }}>Portfolio Treemap (₹, compact)</h4>
+          <div style={{ height: 420 }}>
+            {/* treemapData contains { name, value, label } where label uses formatINR(..., true) */}
+            <TreemapChart data={treemapData} labelField="label" valueField="value" nameField="name" />
+          </div>
         </div>
       </section>
     </div>
   );
 }
 
-function SummaryItem({ label, value }) {
+function SummaryItem({ label, value, valueColor }) {
   return (
     <div style={styles.summaryItem}>
       <div>{label}</div>
-      <div style={styles.summaryValue}>{value}</div>
+      <div style={{ ...styles.summaryValue, color: valueColor || "inherit" }}>{value}</div>
     </div>
   );
 }
@@ -346,3 +432,4 @@ const styles = {
   chartsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20 },
   csvBtn: { padding: "6px 12px", background: "#4CAF50", color: "white", border: "none", borderRadius: 4, cursor: "pointer" },
 };
+

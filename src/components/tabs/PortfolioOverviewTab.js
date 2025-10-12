@@ -98,12 +98,7 @@ export default function PortfolioOverviewTab({ overviewTabData }) {
         0;
       const TotalCost =
         toNumber(
-          getFirst(row, [
-            "Total Cost",
-            "total_cost",
-            "totalCost",
-            "cost",
-          ])
+          getFirst(row, ["Total Cost", "total_cost", "totalCost", "cost"])
         ) ||
         Quantity * AvgCost ||
         0;
@@ -157,8 +152,7 @@ export default function PortfolioOverviewTab({ overviewTabData }) {
           "first_buy_date",
           "firstBuyDate",
         ]) || "N/A";
-      const Exchange =
-        getFirst(row, ["Exchange", "exchange", "market"]) || "N/A";
+      const Exchange = getFirst(row, ["Exchange", "exchange", "market"]) || "N/A";
       const fiftyTwoHigh =
         toNumber(
           getFirst(row, [
@@ -230,9 +224,24 @@ export default function PortfolioOverviewTab({ overviewTabData }) {
       { headerName: "CMP", field: "CMP", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
       { headerName: "Current Value", field: "Current Value", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
       { headerName: "Total Cost", field: "Total Cost", cellRenderer: (p) => formatINR(p.value), width: 130, cellStyle: numericCellStyle },
-      { headerName: "Gain/Loss %", field: "Gain/Loss %", valueFormatter: (p) => `${p.value?.toFixed(2) || 0, { showColor: true, showArrow: true }}%`, width: 130, cellStyle: numericCellStyle },
+      { 
+        headerName: "Gain/Loss %", 
+        field: "Gain/Loss %", 
+        cellRenderer: (p) => {
+          if (p.value == null) return "0%";
+          const val = p.value.toFixed(2) + "%";
+          if (p.value > 0) return `▲ ${val}`;
+          if (p.value < 0) return `▼ ${val}`;
+          return val;
+        }, 
+        cellStyle: (p) => ({
+          textAlign: "right",
+          color: p.value > 0 ? "green" : p.value < 0 ? "red" : "black",
+        }), 
+        width: 130
+      },
       { headerName: "Allocation %", field: "AllocationPercent", valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`, width: 120, cellStyle: numericCellStyle },
-      { headerName: "Day Change (%)", field: "Day Change (%)", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 120, cellStyle: numericCellStyle },
+      { headerName: "Day Change (%)", field: "Day Change (%)", valueFormatter: (p) => `${p.value?.toFixed(2) || 0}%`, width: 120, cellStyle: numericCellStyle },
       { headerName: "Day P&L", field: "Day PnL", cellRenderer: (p) => formatINR(p.value, { showColor: true, showArrow: true }), width: 130, cellStyle: numericCellStyle },
       { headerName: "Investment Date", field: "Investment Date", sortable: true, filter: "agTextColumnFilter", width: 130, cellStyle: textCellStyle },
       { headerName: "Exchange", field: "Exchange", sortable: true, filter: "agTextColumnFilter", width: 100, cellStyle: textCellStyle },
