@@ -134,23 +134,38 @@ npm run start
 
 ```
 turiya_portfolio_platform/
-├── public/                  # Static assets and icons
+├── public/                         # Static assets (logos, icons, compliance disclaimers)
 ├── src/
-│   ├── components/          # Reusable UI components (Bulk upload, Nav, Modals)
-│   ├── pages/
+│   ├── components/                 # Modular presentation & container components
+│   │   ├── tabs/
+│   │   │   ├── SummaryTab.js          # High-level portfolio summary & asset allocation charts
+│   │   │   ├── PortfolioOverviewTab.js# Tabular holdings breakdown with live metrics
+│   │   │   └── CapitalGainsTab.js     # Tax lot accounting (STCG & LTCG reporting)
+│   │   ├── BulkTransactionUpload.js   # Drag-and-drop CSV batch upload modal
+│   │   ├── Charts.js                  # Plotly visualizations (sector treemaps, allocation pies)
+│   │   ├── exportCSV.js               # Grid export & serialization helpers
+│   │   ├── formatters.js              # Indian Rupee (INR) currency & percentage formatters
+│   │   └── validateTransactions.js    # Client-side schema verification for CSV/manual logs
+│   ├── pages/                      # Next.js Pages Router file-based routes
 │   │   ├── api/
-│   │   │   ├── auth/        # NextAuth handlers ([...nextauth].js)
-│   │   │   └── proxy/       # Secure server-side API proxy ([...path].js)
-│   │   ├── _app.js          # App entrypoint and global state providers
-│   │   ├── index.js         # Primary portfolio overview dashboard
-│   │   ├── risk-assessment  # Risk profiling questionnaire & results
-│   │   ├── transactions.js  # Transaction ledger and management
-│   │   └── valuation.js     # Valuation graphs and balance breakdowns
-│   └── styles/              # Global styles and Tailwind configurations
-├── .env.example             # Documented environment template
-├── next.config.mjs          # Next.js build and routing rewrites
-├── package.json             # Dependencies and scripts
-└── tailwind.config.js       # Design token system
+│   │   │   ├── auth/[...nextauth].js  # NextAuth session, provider, & JWT lifecycle callbacks
+│   │   │   └── proxy/[...path].js     # Authenticated backend proxy forwarding bearer tokens
+│   │   ├── auth/
+│   │   │   └── signin.js              # Custom enterprise sign-in portal
+│   │   ├── _app.js                    # App shell, global context providers, and compliance gates
+│   │   ├── _document.js               # Custom document layout and web fonts
+│   │   ├── index.js                   # Primary executive analytics dashboard
+│   │   ├── Nav.js                     # Global header with compliance status indicator
+│   │   ├── risk-assessment.js         # Regulatory risk profiling flow with digital sign-off
+│   │   ├── transactions.js            # Transaction ledger view & manual trade capture
+│   │   └── valuation.js               # In-depth equity valuation & fundamentals engine
+│   └── styles/
+│       └── globals.css                # Global styles and Tailwind CSS v4 directives
+├── .env.example                    # Sample environment configurations
+├── .gitignore                      # Git exclusion rules
+├── next.config.mjs                 # Next.js build-time configurations & headers
+├── package.json                    # Project metadata, dependencies, and npm run scripts
+└── README.md                       # Comprehensive platform documentation
 
 ```
 
