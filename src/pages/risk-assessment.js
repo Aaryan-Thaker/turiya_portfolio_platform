@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import dynamic from "next/dynamic";
 import Nav from "./Nav";
 import { getSession, useSession, signIn } from "next-auth/react";
+import { getToken } from "next-auth/jwt";
 
 // Dynamic imports for signature pads (client-only)
 const SignaturePad = dynamic(() => import("react-signature-pad-wrapper"), {
@@ -88,9 +89,6 @@ export default function RiskAssessment({
 
   const { data: session, status } = useSession();
 
-  // --- Helper: same token pattern as transactions page ---
-  const getClientToken = () => session?.accessToken || "";
-
   // Build initial form data (includes dynamic keys for investment experience)
   const initialFormData = {
     applicantName: "",
@@ -157,13 +155,9 @@ export default function RiskAssessment({
       if (status === "loading") return;
 
       try {
-        // use same pattern as transactions to pick token
-        const token = getClientToken() || (await (await getSession())?.accessToken) || "";
-
         const headers = { "Content-Type": "application/json" };
-        if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        const res = await fetch("/api/risk/check", {
+        const res = await fetch("/api/proxy/risk/check", {
           method: "GET",
           headers,
           credentials: "include", // allow cookie fallback
@@ -304,9 +298,6 @@ export default function RiskAssessment({
         return;
       }
 
-      // Pick token same as transactions page
-      const token = getClientToken() || s?.accessToken || "";
-
       // Build sanitized payload — avoid sending nested objects or refs
       const payload = {
         applicantName: String(formData.applicantName || ""),
@@ -336,10 +327,9 @@ export default function RiskAssessment({
         riskProfile,
       };
 
-      const apiPath = "/api/risk/submit";
+      const apiPath = "/api/proxy/risk/submit";
 
       const headers = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const response = await fetch(apiPath, {
         method: "POST",
@@ -372,11 +362,9 @@ export default function RiskAssessment({
         // ignore LocalStorage errors in restrictive environments
       }
 
-      // warming call (not required) — call with token if available so backend can authenticate
+      // warming call (not required)
       try {
-        const warmHeaders = { "Content-Type": "application/json" };
-        if (token) warmHeaders["Authorization"] = `Bearer ${token}`;
-        await fetch("/api/risk/profile", { headers: warmHeaders, credentials: "same-origin" });
+        await fetch("/api/proxy/risk/profile", { credentials: "same-origin" });
       } catch (err) {
         // ignore warm-up errors
       }
@@ -1284,14 +1272,11 @@ export async function getServerSideProps(context) {
     };
   }
 
-  const token = session?.accessToken || "";
+  const jwt = await getToken({ req: context.req });
+  const token = jwt?.accessToken || jwt?.idToken || "";
 
-  const { req } = context;
-  const proto = req.headers["x-forwarded-proto"] || (req.connection && req.connection.encrypted ? "https" : "http");
-  const host = req.headers["x-forwarded-host"] || req.headers.host;
-  const baseUrl = proto && host ? `${proto}://${host}` : "";
-
-  const backendUrl = `${baseUrl}/api/risk/check`;
+  const backendBase = process.env.BACKEND_API_URL || process.env.BACKEND_URL || "http://127.0.0.1:5000";
+  const backendUrl = `${backendBase}/api/risk/check`;
 
   let existingAssessment = null;
   try {

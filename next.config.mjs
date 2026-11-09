@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const backendApiUrl = process.env.BACKEND_API_URL || "http://127.0.0.1:5000";
+
 const nextConfig = {
   reactStrictMode: true,
   images: {
@@ -18,10 +20,15 @@ const nextConfig = {
         source: "/api/auth/:path*",
         destination: "/api/auth/:path*",
       },
+      // Keep Next.js proxy routes in Next.js
+      {
+        source: "/api/proxy/:path*",
+        destination: "/api/proxy/:path*",
+      },
       // Everything else goes to Flask backend
       {
         source: "/api/:path*",
-        destination: "https://portoflio-backend-snowy.vercel.app/api/:path*",
+        destination: `${backendApiUrl}/api/:path*`,
       },
     ];
   },

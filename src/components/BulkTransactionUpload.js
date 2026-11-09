@@ -187,12 +187,12 @@ export default function BulkTransactionUpload({ onTransactionsUploaded }) {
 
     try {
       const session = await getSession();
-      const token = session?.accessToken;
-      if (!token) return alert("You must be logged in to upload transactions.");
+      if (!session?.user) return alert("You must be logged in to upload transactions.");
 
-      const res = await fetch("/api/transactions/bulk", {
+      const res = await fetch("/api/proxy/transactions/bulk", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ transactions: validRows }),
       });
 

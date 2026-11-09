@@ -22,9 +22,8 @@ export default function Nav({ user: propUser }) {
   useEffect(() => {
     async function fetchRisk() {
       try {
-        const token = session?.accessToken;
-        const res = await fetch("/api/risk/profile", {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        const res = await fetch("/api/proxy/risk/profile", {
+          credentials: "include",
         });
 
         if (res.ok) {

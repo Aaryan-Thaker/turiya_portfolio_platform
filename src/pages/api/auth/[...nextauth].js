@@ -30,16 +30,14 @@ export default NextAuth({
         token.idToken = account.id_token ?? null;
         token.accessToken = account.access_token ?? null;
         token.refreshToken = account.refresh_token ?? null;
-        token.userId = profile?.sub ?? null;
+        token.userId = profile?.sub ?? token.sub ?? null;
       }
       return token;
     },
 
     async session({ session, token }) {
       session.user = session.user || {};
-      session.user.id = token.userId || session.user.id;
-      session.accessToken = token.idToken || token.accessToken || null;
-      session.refreshToken = token.refreshToken || null;
+      session.user.id = token.sub || token.userId || session.user.id;
       return session;
     }
   },

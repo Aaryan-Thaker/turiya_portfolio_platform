@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import dynamic from "next/dynamic";
 import Nav from "./Nav";
 import { getSession, useSession, signIn } from "next-auth/react";
+import { getToken } from "next-auth/jwt";
 import BulkTransactionUpload from "@/components/BulkTransactionUpload";
 
 // ✅ AG Grid modules
@@ -30,15 +31,12 @@ export default function TransactionsPage({ user, transactionsData, error: initia
 
   const gridRef = useRef(null);
 
-  const getClientToken = () => session?.accessToken || "";
-
   // Validate ticker
   async function validateTicker(ticker) {
     if (!ticker) return false;
     try {
-      const token = getClientToken();
-      const res = await fetch(`/api/stock/validate?ticker=${encodeURIComponent(ticker)}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      const res = await fetch(`/api/proxy/stock/validate?ticker=${encodeURIComponent(ticker)}`, {
+        credentials: "include",
       });
       if (!res.ok) return false;
       const data = await res.json().catch(() => ({}));
@@ -78,13 +76,11 @@ export default function TransactionsPage({ user, transactionsData, error: initia
         await signIn("google", { callbackUrl: window.location.href });
         return;
       }
-      const token = getClientToken();
-      const res = await fetch("/api/transactions", {
+      const res = await fetch("/api/proxy/transactions", {
         method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ type, stock: symbol, quantity: qtyNum, price: priceNum, date }),
       });
@@ -114,12 +110,9 @@ export default function TransactionsPage({ user, transactionsData, error: initia
       return;
     }
 
-    const token = getClientToken() || (await (await getSession())?.accessToken) || "";
-
     try {
-      const res = await fetch("/api/transactions", {
+      const res = await fetch("/api/proxy/transactions", {
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
@@ -138,11 +131,9 @@ export default function TransactionsPage({ user, transactionsData, error: initia
   async function handleClearTransactions() {
     if (!confirm("Are you sure you want to clear all transactions?")) return;
     try {
-      const token = getClientToken();
-      const res = await fetch("/api/clear_transactions", {
+      const res = await fetch("/api/proxy/clear_transactions", {
         method: "POST",
         credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {
         await fetchTransactions();
@@ -334,12 +325,13 @@ export default function TransactionsPage({ user, transactionsData, error: initia
 // ---- Server Side Props ----
 export async function getServerSideProps(context) {
   const session = await getSession(context);
-  const token = session?.accessToken || "";
-  if (!token) return { redirect: { destination: "/auth/signin", permanent: false } };
+  const jwt = await getToken({ req: context.req });
+  const token = jwt?.accessToken || jwt?.idToken || "";
+  if (!session || !token) return { redirect: { destination: "/auth/signin", permanent: false } };
 
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
   const host = context.req.headers.host;
-  const backendBase = process.env.BACKEND_URL || `${protocol}://${host}`;
+  const backendBase = process.env.BACKEND_API_URL || process.env.BACKEND_URL || `${protocol}://${host}`;
   const backendUrl = `${backendBase}/api/transactions`;
 
   let data = {};

@@ -3,6 +3,7 @@ import React, { useMemo, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Nav from "./Nav";
 import { getSession } from "next-auth/react";
+import { getToken } from "next-auth/jwt";
 
 // AG Grid modules
 import {
@@ -207,13 +208,14 @@ export default function ValuationPage({
 // ---- Server-side Props ----
 export async function getServerSideProps(context) {
   const session = await getSession(context);
-  const token = session?.accessToken || "";
+  const jwt = await getToken({ req: context.req });
+  const token = jwt?.accessToken || jwt?.idToken || "";
 
-  if (!token) return { redirect: { destination: "/auth/signin", permanent: false } };
+  if (!session || !token) return { redirect: { destination: "/auth/signin", permanent: false } };
 
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
   const host = context.req.headers.host;
-  const backendBase = process.env.BACKEND_URL || `${protocol}://${host}`;
+  const backendBase = process.env.BACKEND_API_URL || process.env.BACKEND_URL || `${protocol}://${host}`;
 
   let data = {};
   try {

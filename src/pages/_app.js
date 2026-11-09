@@ -35,19 +35,13 @@ function AppInner({ Component, pageProps }) {
       if (exemptRoutes.some((route) => router.pathname.startsWith(route))) return;
 
       try {
-        // Get NextAuth session server-side friendly (no localStorage)
+        // Check NextAuth session
         const s = await getSession();
-        const token = s?.accessToken || null;
+        if (!s?.user) return;
 
-        // If there's no token, don't block navigation here.
-        // (Per app design: frontend routes/pages should handle redirect to signin.)
-        if (!token) return;
-
-        const response = await fetch("/api/risk/check", {
+        const response = await fetch("/api/proxy/risk/check", {
           method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          credentials: "include",
         });
 
         // If endpoint returns 401 or similar, let the page handle auth flows
