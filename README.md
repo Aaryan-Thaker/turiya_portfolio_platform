@@ -15,36 +15,33 @@ A personal wealth intelligence and portfolio analytics dashboard. Built with Nex
 
 The frontend serves as a decoupled client layer communicating with the Flask backend through an authenticated Next.js server-side API proxy gateway.
 
+```mermaid
+flowchart TD
+    subgraph Client["Client Browser"]
+        UI["React 19 UI & AG Grid Ledger"]
+        Charts["Plotly.js Visualizations"]
+        Cookie["HttpOnly Encrypted Session Cookie"]
+    end
 
-```
+    subgraph Gateway["Next.js Edge / API Proxy"]
+        Auth["NextAuth.js (Google OAuth 2.0)"]
+        TokenExt["Server-Side Token Extraction (getToken)"]
+        Proxy["Bearer Injection & Proxy Gateway (/api/proxy/*)"]
+    end
 
-┌─────────────────────────────────────────────────────────┐
-│                      Client Browser                     │
-│  - React 19 UI & AG Grid Ledger                         │
-│  - Plotly.js Financial Data Visualizations              │
-│  - HttpOnly Encrypted Session Cookies (No Raw Tokens)   │
-└────────────────────────────┬────────────────────────────┘
-│
-▼
-┌─────────────────────────────────────────────────────────┐
-│                Next.js Edge / API Proxy                 │
-│  - NextAuth.js (Google OAuth 2.0 Provider)              │
-│  - Server-Side Token Extraction (getToken)              │
-│  - Bearer Injection & Route Proxying (/api/proxy/*)     │
-└────────────────────────────┬────────────────────────────┘
-│
-│ HTTPS / Bearer Token
-▼
-┌─────────────────────────────────────────────────────────┐
-│              Dedicated Flask REST Service               │
-│            [Aaryan-Thaker/PortoflioBackend]             │
-│  - Token Verification & Financial Analytics             │
-│  - PostgreSQL Persistence Layer                         │
-└─────────────────────────────────────────────────────────┘
+    subgraph Backend["Flask REST API (PortoflioBackend)"]
+        Verify["Token Verification & Analytics"]
+        DB[("PostgreSQL Database")]
+    end
+
+    Client -->|Encrypted Cookie| Gateway
+    Gateway -->|HTTPS / Bearer Token| Backend
+    Backend --> DB
 
 ```
 
 ### Core Architectural Decisions
+
 * **Zero Client-Side Token Exposure:** Access tokens are excluded from browser-visible session objects. Tokens remain stored strictly inside encrypted server-side JWT session cookies handled by NextAuth.
 * **Server-Side API Gateway Proxy (`/api/proxy/[...path].js`):** Client components dispatch requests to local Next.js proxy endpoints using browser session credentials. The gateway validates the session server-side via `getToken({ req })`, resolves the backend URL dynamically from environment variables, attaches the Bearer token, and forwards requests to the Flask engine.
 * **High-Density Financial Grids & Parsing:** Uses AG Grid for high-performance sorting, filtering, and transaction state rendering, paired with PapaParse for client-side batch CSV validation prior to ingestion.
@@ -77,11 +74,13 @@ The frontend serves as a decoupled client layer communicating with the Flask bac
 ## Getting Started
 
 ### Prerequisites
+
 * **Node.js:** `>= 18.18.0`
 * **npm:** `>= 9.0.0`
 * A running instance of the [PortoflioBackend](https://github.com/Aaryan-Thaker/PortoflioBackend) service.
 
 ### 1. Clone the Repository
+
 ```bash
 git clone git@github.com:Aaryan-Thaker/turiya_portfolio_platform.git
 cd turiya_portfolio_platform
@@ -109,7 +108,7 @@ GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your-client-secret
 
 # Backend Service Target
-BACKEND_API_URL=[http://127.0.0.1:5000](http://127.0.0.1:5000)
+BACKEND_API_URL=http://127.0.0.1:5000
 
 ```
 
@@ -183,8 +182,20 @@ turiya_portfolio_platform/
 
 ## Related Repositories
 
-* **Backend Computational Service:** [Aaryan-Thaker/PortoflioBackend](https://www.google.com/url?sa=E&source=gmail&q=https://github.com/Aaryan-Thaker/PortoflioBackend) – Decoupled Flask REST API handling PostgreSQL operations, yfinance market data caching, and quantitative valuation analytics.
+* **Backend Computational Service:** [Aaryan-Thaker/PortoflioBackend](https://github.com/Aaryan-Thaker/PortoflioBackend) – Decoupled Flask REST API handling PostgreSQL operations, yfinance market data caching, and quantitative valuation analytics.
 
 ```
 
+---
+
+### Push It to GitHub
+
+In Git Bash:
+```bash
+git add README.md
+git commit -m "docs: finalize production readme with clean mermaid diagram"
+git push origin main
+
 ```
+
+Now toggle `turiya_portfolio_platform` to **Public** in GitHub Settings. Then switch into `PortoflioBackend` so we can fix its dependencies and CORS.
