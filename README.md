@@ -14,30 +14,6 @@ A personal wealth intelligence and portfolio analytics dashboard. Built with Nex
 ## Architecture Overview
 
 The frontend serves as a decoupled client layer communicating with the Flask backend through an authenticated Next.js server-side API proxy gateway.
-
-```mermaid
-flowchart TD
-    subgraph Client["Client Browser"]
-        UI["React 19 UI & AG Grid Ledger"]
-        Charts["Plotly.js Visualizations"]
-        Cookie["HttpOnly Encrypted Session Cookie"]
-    end
-
-    subgraph Gateway["Next.js Edge / API Proxy"]
-        Auth["NextAuth.js (Google OAuth 2.0)"]
-        TokenExt["Server-Side Token Extraction (getToken)"]
-        Proxy["Bearer Injection & Proxy Gateway (/api/proxy/*)"]
-    end
-
-    subgraph Backend["Flask REST API (PortoflioBackend)"]
-        Verify["Token Verification & Analytics"]
-        DB[("PostgreSQL Database")]
-    end
-
-    Client -->|Encrypted Cookie| Gateway
-    Gateway -->|HTTPS / Bearer Token| Backend
-    Backend --> DB
-
 ```
 
 ### Core Architectural Decisions
